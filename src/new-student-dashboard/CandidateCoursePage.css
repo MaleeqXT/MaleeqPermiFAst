@@ -1,0 +1,836 @@
+.ncp-root {
+  --ncp-green: #239a68;
+  --ncp-green-dark: #17794f;
+  --ncp-green-soft: #eaf7f1;
+  --ncp-green-border: #c9e8d9;
+  --ncp-amber: #f5a623;
+  --ncp-text: #2b3437;
+  --ncp-muted: #858b91;
+  --ncp-border: #e5e7eb;
+}
+
+.ncp-main {
+  padding: 18px 24px 24px;
+}
+
+.ncp-header {
+  min-height: 52px;
+  margin-bottom: 18px;
+}
+
+.ncp-header .nsd-bell svg,
+.ncp-header .nsd-user-chevron svg {
+  display: block;
+  flex: 0 0 auto;
+}
+
+.ncp-header .nsd-bell svg { width: 20px; height: 20px; }
+.ncp-header .nsd-user-chevron svg { width: 16px; height: 16px; }
+
+.ncp-title-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.ncp-title-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ncp-green);
+}
+
+.ncp-page-heading .nsd-greeting-sub {
+  margin-top: 1px;
+}
+
+.ncp-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.ncp-summary-card {
+  min-width: 0;
+  min-height: 104px;
+  padding: 15px 17px;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  background: #ffffff;
+  border: 1px solid var(--ncp-border);
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(51, 51, 51, 0.055);
+}
+
+.ncp-summary-icon {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 11px;
+}
+
+.ncp-summary-icon--green {
+  color: var(--ncp-green);
+  background: var(--ncp-green-soft);
+  border: 1px solid var(--ncp-green-border);
+}
+
+.ncp-summary-icon--amber {
+  color: var(--ncp-amber);
+  background: #fff7e8;
+  border: 1px solid #f9dfae;
+}
+
+.ncp-summary-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ncp-summary-label {
+  font-size: 12.5px;
+  line-height: 17px;
+  color: #4e5559;
+}
+
+.ncp-summary-value {
+  margin: 1px 0;
+  font-size: 24px;
+  line-height: 28px;
+  color: #252c2f;
+}
+
+.ncp-summary-meta {
+  font-size: 11.5px;
+  line-height: 16px;
+  color: var(--ncp-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ncp-summary-card--progress {
+  gap: 12px;
+}
+
+.ncp-progress-ring {
+  position: relative;
+  width: 68px;
+  height: 68px;
+  flex: 0 0 68px;
+}
+
+.ncp-progress-ring svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.ncp-progress-track,
+.ncp-progress-fill {
+  fill: none;
+  stroke-width: 5;
+}
+
+.ncp-progress-track {
+  stroke: #e4eee9;
+}
+
+.ncp-progress-fill {
+  stroke: var(--ncp-green);
+  stroke-linecap: round;
+}
+
+.ncp-progress-ring > strong {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 17px;
+  color: #252c2f;
+}
+
+.ncp-progress-message {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--ncp-green-dark);
+  white-space: nowrap;
+}
+
+.ncp-content-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.78fr) minmax(300px, 0.92fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.ncp-panel {
+  min-width: 0;
+  background: #ffffff;
+  border: 1px solid var(--ncp-border);
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(51, 51, 51, 0.055);
+}
+
+.ncp-panel h2,
+.ncp-booking-card h2 {
+  font-size: 15px;
+  line-height: 21px;
+  color: var(--ncp-text);
+}
+
+.ncp-course-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ncp-course-panel-head {
+  padding: 16px 18px 0;
+  border-bottom: 1px solid #eceef0;
+}
+
+.ncp-course-panel-head h2 {
+  margin-bottom: 10px;
+}
+
+.ncp-tabs {
+  display: flex;
+  align-items: center;
+  gap: 30px;
+}
+
+.ncp-tabs button {
+  position: relative;
+  padding: 0 2px 10px;
+  background: none;
+  border: none;
+  color: #555c60;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.ncp-tabs button::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: transparent;
+}
+
+.ncp-tabs button:hover,
+.ncp-tabs button.active {
+  color: var(--ncp-green-dark);
+}
+
+.ncp-tabs button.active::after {
+  background: var(--ncp-green);
+}
+
+.ncp-course-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px 8px;
+}
+
+.ncp-empty-state {
+  margin: 0;
+  padding: 28px 12px;
+  color: var(--ncp-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+.ncp-course-row {
+  min-width: 0;
+  min-height: 74px;
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1.35fr) minmax(105px, 0.88fr) minmax(105px, 0.9fr) 80px;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 9px;
+  border: 1px solid #e7e9ec;
+  border-radius: 10px;
+  background: #ffffff;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.ncp-course-row:hover {
+  border-color: var(--ncp-green-border);
+  box-shadow: 0 4px 12px rgba(35, 154, 104, 0.07);
+}
+
+.ncp-course-date {
+  width: 54px;
+  min-height: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  border: 1px solid #e1e5e7;
+  border-radius: 10px;
+  background: #f7f8f9;
+  color: var(--ncp-text);
+}
+
+.ncp-course-date span,
+.ncp-course-date small {
+  font-size: 8.5px;
+  line-height: 11px;
+  font-weight: 700;
+  letter-spacing: 0.025em;
+}
+
+.ncp-course-date small {
+  color: var(--ncp-green-dark);
+}
+
+.ncp-course-date strong {
+  font-size: 20px;
+  line-height: 21px;
+}
+
+.ncp-course-description,
+.ncp-course-schedule,
+.ncp-instructor-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ncp-course-description {
+  align-items: flex-start;
+  gap: 1px;
+}
+
+.ncp-course-description > strong,
+.ncp-course-schedule > strong,
+.ncp-instructor-copy > strong {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11.5px;
+  line-height: 16px;
+  color: var(--ncp-text);
+}
+
+.ncp-course-description > span:not(.ncp-duration),
+.ncp-course-schedule > span,
+.ncp-instructor-copy small {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  line-height: 14px;
+  color: var(--ncp-muted);
+}
+
+.ncp-duration {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  margin-top: 2px;
+  padding: 1px 6px;
+  border-radius: 20px;
+  background: var(--ncp-green-soft);
+  color: var(--ncp-green-dark);
+  font-size: 9.5px;
+  line-height: 14px;
+  font-weight: 700;
+}
+
+.ncp-course-description > .ncp-course-meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  overflow: visible;
+}
+
+.ncp-status {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 2px;
+  padding: 1px 6px;
+  border: 1px solid transparent;
+  border-radius: 20px;
+  font-size: 8.5px;
+  line-height: 12px;
+  font-weight: 700;
+}
+
+.ncp-status--completed {
+  background: var(--ncp-green-soft);
+  border-color: var(--ncp-green-border);
+  color: var(--ncp-green-dark);
+}
+
+.ncp-status--cancelled {
+  background: #fff6e6;
+  border-color: #f3ddb4;
+  color: #8a6220;
+}
+
+.ncp-course-schedule {
+  gap: 4px;
+  padding-left: 9px;
+  border-left: 1px solid #eceef0;
+}
+
+.ncp-course-schedule > span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ncp-instructor {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.ncp-instructor-avatar {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #454b4e, #272c2f);
+  color: #ffffff;
+  border: 2px solid #f0f2f3;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.ncp-details-btn {
+  min-height: 30px;
+  padding: 5px 8px;
+  border: 1px solid var(--ncp-green);
+  border-radius: 7px;
+  background: #ffffff;
+  color: var(--ncp-green-dark);
+  font-family: 'Inter', sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.ncp-details-btn:hover {
+  background: var(--ncp-green);
+  color: #ffffff;
+}
+
+.ncp-more-btn {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: auto 0 0;
+  padding: 11px 18px 13px;
+  border: none;
+  background: none;
+  color: var(--ncp-green-dark);
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ncp-empty-state {
+  min-height: 320px;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  color: var(--ncp-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+.ncp-right-column {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ncp-calendar-card {
+  padding: 15px 17px 16px;
+}
+
+.ncp-calendar-card h2 {
+  margin-bottom: 8px;
+}
+
+.ncp-calendar-nav {
+  display: grid;
+  grid-template-columns: 30px 1fr 30px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.ncp-calendar-nav strong {
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--ncp-text);
+}
+
+.ncp-calendar-nav button {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ncp-green-dark);
+  cursor: pointer;
+}
+
+.ncp-calendar-nav button:hover {
+  background: var(--ncp-green-soft);
+}
+
+.ncp-calendar-weekdays,
+.ncp-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  text-align: center;
+}
+
+.ncp-calendar-weekdays {
+  margin-bottom: 5px;
+}
+
+.ncp-calendar-weekdays span {
+  font-size: 8px;
+  line-height: 14px;
+  color: #92979c;
+}
+
+.ncp-calendar-grid {
+  row-gap: 3px;
+}
+
+.ncp-calendar-grid > button {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  margin: 0 auto;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #3c4346;
+  font-family: 'Inter', sans-serif;
+  font-size: 10.5px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ncp-calendar-grid > button:focus-visible {
+  outline: 2px solid var(--ncp-green);
+  outline-offset: 1px;
+}
+
+.ncp-calendar-grid > button.muted {
+  color: #b5b9bd;
+  cursor: default;
+}
+
+.ncp-calendar-grid > button.related {
+  background: var(--ncp-green-soft);
+  color: var(--ncp-green-dark);
+}
+
+.ncp-calendar-grid > button.selected {
+  background: var(--ncp-green);
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 3px 9px rgba(35, 154, 104, 0.24);
+}
+
+.ncp-calendar-grid > button.activity::after {
+  content: "";
+  position: absolute;
+  bottom: 2px;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--ncp-green);
+}
+
+.ncp-calendar-grid > button.selected.activity::after {
+  background: #ffffff;
+}
+
+.ncp-reminder-card {
+  min-height: 84px;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 14px;
+  align-items: start;
+  gap: 10px;
+  padding: 13px 14px;
+}
+
+.ncp-reminder-icon {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  background: #fff6e6;
+  border: 1px solid #f9dfae;
+  color: var(--ncp-amber);
+}
+
+.ncp-reminder-icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+.ncp-reminder-card h3 {
+  margin-bottom: 2px;
+  font-size: 11.5px;
+  line-height: 16px;
+  color: var(--ncp-text);
+}
+
+.ncp-reminder-card p {
+  font-size: 10px;
+  line-height: 14px;
+  color: #6e7479;
+}
+
+.ncp-reminder-close {
+  color: #858b91;
+  font-size: 17px;
+  line-height: 14px;
+  text-align: right;
+}
+
+.ncp-booking-card {
+  position: relative;
+  min-height: 150px;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--ncp-green-dark);
+  box-shadow: 0 8px 20px rgba(23, 121, 79, 0.16);
+}
+
+.ncp-booking-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: right center;
+}
+
+.ncp-booking-content {
+  position: relative;
+  z-index: 1;
+  width: 58%;
+  padding: 17px 0 16px 18px;
+  color: #ffffff;
+}
+
+.ncp-booking-card h2 {
+  margin-bottom: 5px;
+  color: #ffffff;
+}
+
+.ncp-booking-card p {
+  margin-bottom: 12px;
+  font-size: 10.5px;
+  line-height: 15px;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.ncp-booking-card button {
+  padding: 7px 13px;
+  border: none;
+  border-radius: 7px;
+  background: #ffffff;
+  color: var(--ncp-green-dark);
+  font-family: 'Inter', sans-serif;
+  font-size: 10.5px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+@media (max-width: 1280px) {
+  .ncp-course-row {
+    grid-template-columns: 52px minmax(0, 1.35fr) minmax(96px, 0.85fr) minmax(90px, 0.88fr) 76px;
+    gap: 7px;
+    padding-inline: 7px;
+  }
+
+  .ncp-instructor-avatar {
+    width: 29px;
+    height: 29px;
+    flex-basis: 29px;
+  }
+}
+
+@media (max-width: 1180px) {
+  .ncp-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ncp-content-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ncp-right-column {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+  }
+
+  .ncp-calendar-card {
+    grid-row: span 2;
+  }
+}
+
+@media (max-width: 1020px) {
+  .ncp-main {
+    padding: 18px 16px 24px;
+  }
+
+  .ncp-summary-card {
+    min-height: 100px;
+  }
+}
+
+@media (max-width: 760px) {
+  .ncp-header { min-height: 44px; margin-bottom: 14px; }
+
+  .ncp-course-row {
+    grid-template-columns: 52px minmax(0, 1fr) auto;
+    grid-template-areas:
+      "date description details"
+      "date schedule instructor";
+    row-gap: 7px;
+  }
+
+  .ncp-course-date {
+    grid-area: date;
+  }
+
+  .ncp-course-description {
+    grid-area: description;
+  }
+
+  .ncp-course-schedule {
+    grid-area: schedule;
+    padding-left: 0;
+    border-left: none;
+  }
+
+  .ncp-instructor {
+    grid-area: instructor;
+    justify-self: end;
+  }
+
+  .ncp-details-btn {
+    grid-area: details;
+  }
+
+  .ncp-right-column {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ncp-calendar-card {
+    grid-row: auto;
+  }
+}
+
+@media (max-width: 560px) {
+  .ncp-summary-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ncp-course-panel-head {
+    padding-inline: 14px;
+  }
+
+  .ncp-tabs {
+    gap: 22px;
+  }
+
+  .ncp-course-list {
+    padding-inline: 10px;
+  }
+
+  .ncp-course-row {
+    grid-template-columns: 50px minmax(0, 1fr) auto;
+  }
+
+  .ncp-instructor-copy {
+    display: none;
+  }
+
+  .ncp-booking-content {
+    width: 68%;
+    padding-left: 15px;
+  }
+}
+
+@media (max-width: 420px) {
+  .ncp-main {
+    padding-inline: 12px;
+  }
+
+  .ncp-title-row {
+    gap: 6px;
+  }
+
+  .ncp-course-row {
+    grid-template-columns: 48px minmax(0, 1fr);
+    grid-template-areas:
+      "date description"
+      "date schedule"
+      "instructor details";
+  }
+
+  .ncp-instructor {
+    justify-self: start;
+  }
+
+  .ncp-details-btn {
+    justify-self: end;
+  }
+
+  .ncp-booking-card {
+    min-height: 164px;
+  }
+
+  .ncp-booking-content {
+    width: 72%;
+  }
+}

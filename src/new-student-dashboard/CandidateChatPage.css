@@ -1,0 +1,279 @@
+.nschat-root {
+  --nschat-green: #239a68;
+  --nschat-green-dark: #197a53;
+  --nschat-green-soft: #eaf7f1;
+  --nschat-green-pale: #f1faf6;
+  --nschat-ink: #2b3437;
+  --nschat-muted: #7c868b;
+  --nschat-border: #e1e6e8;
+  background: #f5f6f8;
+}
+
+/* Functional states share the existing dashboard palette and layout. */
+.nschat-feedback { margin: 8px 12px; color: var(--nschat-muted); font-size: 12px; line-height: 1.5; }
+.nschat-feedback--error { padding: 9px 12px; border-radius: 8px; background: #fff1ed; color: #923b23; }
+.nschat-feedback button { border: 0; background: transparent; color: inherit; text-decoration: underline; cursor: pointer; }
+.nschat-bubble { overflow-wrap: anywhere; }
+.nschat-root button:disabled { cursor: default; opacity: .5; }
+.nschat-contact-dialog { width: min(480px, calc(100vw - 32px)); max-height: 80vh; padding: 0; border: 1px solid var(--nschat-border); border-radius: 12px; color: var(--nschat-ink); background: #fff; }
+.nschat-contact-dialog::backdrop { background: rgba(20, 35, 30, .4); }
+.nschat-dialog-content { padding: 20px; }
+.nschat-dialog-content > header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.nschat-dialog-content h2 { margin: 0; font-size: 18px; }
+.nschat-dialog-content > header button { border: 0; background: transparent; font-size: 26px; cursor: pointer; }
+.nschat-dialog-content > .nschat-search { height: 40px; }
+.nschat-contact-results { max-height: 45vh; overflow-y: auto; }
+.nschat-conversation-column > .nschat-new-message { display: none; margin-bottom: 10px; }
+
+.nschat-root *, .nschat-root *::before, .nschat-root *::after { box-sizing: border-box; }
+.nschat-root button, .nschat-root input, .nschat-root textarea, .nschat-root select { font-family: inherit; }
+.nschat-main { min-width: 0; height: 100vh; overflow: hidden; padding: 18px 24px 22px; }
+.nschat-header { min-height: 52px; margin-bottom: 18px; }
+.nschat-header .nsd-bell svg { width: 20px; height: 20px; }
+.nschat-header .nsd-user-chevron svg { width: 16px; height: 16px; }
+.nschat-header .nsd-hamburger svg { width: 22px; height: 22px; }
+.nschat-heading > div { display: flex; align-items: center; gap: 9px; }
+.nschat-heading-icon { width: 27px; height: 27px; display: inline-flex; color: var(--nschat-green); }
+.nschat-heading-icon svg { width: 100%; height: 100%; }
+.nschat-heading .nsd-greeting-sub { margin-left: 36px; }
+
+.nschat-workspace { min-width: 0; height: calc(100vh - 108px); min-height: 0; display: grid; grid-template-columns: minmax(250px, .9fr) minmax(380px, 1.5fr) minmax(220px, .78fr); gap: 12px; }
+.nschat-conversation-column, .nschat-chat-column, .nschat-info-column { min-width: 0; min-height: 0; }
+.nschat-conversation-column, .nschat-chat-column { display: flex; flex-direction: column; }
+.nschat-card { min-width: 0; border: 1px solid var(--nschat-border); border-radius: 12px; background: #fff; box-shadow: 0 2px 9px rgba(34, 44, 48, .035); }
+.nschat-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); clip-path: inset(50%); white-space: nowrap; }
+
+.nschat-list-controls { height: 38px; display: grid; grid-template-columns: minmax(0, 1fr) 100px; gap: 8px; margin-bottom: 10px; }
+.nschat-search, .nschat-filter { min-width: 0; display: flex; align-items: center; border: 1px solid var(--nschat-border); border-radius: 8px; background: #fff; color: #647075; }
+.nschat-search { gap: 8px; padding: 0 11px; }
+.nschat-search input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--nschat-ink); font-size: 12.5px; }
+.nschat-search input::placeholder { color: #90999d; }
+.nschat-search svg { width: 17px; height: 17px; flex: 0 0 auto; }
+.nschat-search:focus-within, .nschat-filter:focus-within { border-color: #8ccbb2; box-shadow: 0 0 0 3px rgba(35, 154, 104, .09); }
+.nschat-filter { position: relative; }
+.nschat-filter select { width: 100%; height: 100%; appearance: none; border: 0; outline: 0; background: transparent; padding: 0 31px 0 12px; color: #515b60; font-size: 12px; cursor: pointer; }
+.nschat-filter svg { position: absolute; right: 10px; width: 14px; height: 14px; pointer-events: none; }
+
+.nschat-conversation-card { min-height: 0; flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.nschat-conversation-list { min-height: 0; flex: 1; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #d5dbdd transparent; }
+.nschat-conversation-row { width: 100%; min-height: 79px; display: grid; grid-template-columns: 43px minmax(0, 1fr) 38px; align-items: center; gap: 9px; border: 0; border-bottom: 1px solid #edf0f1; background: #fff; padding: 10px 10px; color: inherit; text-align: left; cursor: pointer; transition: background .15s ease; }
+.nschat-conversation-row:hover, .nschat-conversation-row:focus-visible { background: #f7faf8; outline: 0; }
+.nschat-conversation-row.is-active { background: var(--nschat-green-soft); box-shadow: inset 3px 0 var(--nschat-green); }
+.nschat-avatar { position: relative; width: 43px; height: 43px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; background: #dbece4; color: #24674d; font-size: 11px; font-weight: 750; flex: 0 0 auto; overflow: visible; }
+.nschat-avatar img { width: 100%; height: 100%; display: block; border-radius: inherit; object-fit: cover; object-position: center 28%; }
+.nschat-avatar > svg { width: 22px; height: 22px; }
+.nschat-avatar-initials { display: block; color: inherit; font: inherit; line-height: 1; letter-spacing: 0; position: relative; z-index: 1; }
+.nschat-avatar > i { position: absolute; right: 0; bottom: 1px; width: 10px; height: 10px; border: 2px solid #fff; border-radius: 50%; background: #24bf79; }
+.is-active .nschat-avatar > i { border-color: var(--nschat-green-soft); }
+.nschat-avatar--brand { background: #111d2d; color: #fff; font-size: 19px; font-style: italic; }
+.nschat-avatar--dark { background: #34454d; color: #fff; }
+.nschat-avatar--purple { background: #f0eafa; color: #7a52c7; }
+.nschat-avatar--small { width: 30px; height: 30px; font-size: 8px; }
+.nschat-avatar--small > i { display: none; }
+.nschat-avatar--large { width: 52px; height: 52px; font-size: 13px; }
+.nschat-conversation-copy { min-width: 0; align-self: stretch; display: flex; flex-direction: column; justify-content: center; }
+.nschat-conversation-name { min-width: 0; display: flex; align-items: center; gap: 6px; overflow: hidden; color: #293336; font-size: 12.5px; font-weight: 700; line-height: 17px; text-overflow: ellipsis; white-space: nowrap; }
+.nschat-conversation-name em, .nschat-chat-card-header h2 em { border-radius: 999px; background: #f0f3f4; padding: 2px 7px; color: #667176; font-size: 9.5px; font-style: normal; font-weight: 600; line-height: 14px; }
+.nschat-conversation-row.is-active .nschat-conversation-name { color: var(--nschat-green-dark); }
+.nschat-conversation-row.is-active .nschat-conversation-name em { background: #fff; color: var(--nschat-green-dark); }
+.nschat-preview { display: -webkit-box; margin-top: 5px; overflow: hidden; color: #6f797e; font-size: 11.5px; font-weight: 400; line-height: 16px; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.nschat-conversation-meta { align-self: stretch; display: flex; align-items: flex-end; flex-direction: column; justify-content: space-between; padding-block: 1px; }
+.nschat-conversation-meta time { color: #798489; font-size: 10px; line-height: 14px; }
+.nschat-conversation-meta b { min-width: 19px; height: 19px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--nschat-green); color: #fff; font-size: 9.5px; }
+.nschat-conversation-row { position: relative; }
+.nschat-row-actions { position: absolute; top: 50%; right: 7px; z-index: 4; transform: translateY(-50%); opacity: 0; }
+.nschat-conversation-row:hover .nschat-row-actions, .nschat-conversation-row:focus-within .nschat-row-actions { opacity: 1; }
+.nschat-row-actions .nschat-menu-wrap { margin-left: 0; }
+.nschat-row-actions .nschat-more { width: 29px; height: 29px; background: #fff; box-shadow: 0 2px 7px rgba(25, 37, 44, .12); }
+.nschat-conversation-row.is-active .nschat-row-actions .nschat-more { background: #e8f7f0; }
+.nschat-row-actions .nschat-action-menu { top: calc(100% + 7px); right: -1px; }
+.nschat-empty { margin: 32px 16px; color: var(--nschat-muted); font-size: 12px; text-align: center; }
+.nschat-show-all { min-height: 38px; border: 0; border-top: 1px solid #edf0f1; background: #fff; padding: 7px; color: var(--nschat-green-dark); font-size: 12px; font-weight: 650; cursor: pointer; }
+.nschat-show-all:hover, .nschat-show-all:focus-visible { background: var(--nschat-green-pale); }
+
+.nschat-chat-toolbar { height: 38px; display: flex; align-items: center; justify-content: flex-end; margin-bottom: 10px; }
+.nschat-new-message { height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--nschat-green); border-radius: 8px; background: #fff; padding: 0 13px; color: var(--nschat-green-dark); font-size: 12px; font-weight: 650; cursor: pointer; transition: background .15s ease, color .15s ease; }
+.nschat-new-message:hover, .nschat-new-message:focus-visible { background: var(--nschat-green); color: #fff; }
+.nschat-new-message svg { width: 17px; height: 17px; }
+.nschat-chat-card { min-height: 0; flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.nschat-chat-card-header { min-height: 70px; display: flex; align-items: center; gap: 11px; border-bottom: 1px solid #e8ecee; padding: 10px 15px; }
+.nschat-chat-card-header > div:not(.nschat-menu-wrap) { min-width: 0; flex: 1; }
+.nschat-chat-card-header > .nschat-menu-wrap { min-width: auto; flex: 0 0 auto; margin-left: auto; }
+.nschat-chat-card-header h2 { min-width: 0; display: flex; align-items: center; gap: 7px; margin: 0; color: #2b3437; font-size: 15px; line-height: 20px; }
+.nschat-chat-card-header p { display: flex; align-items: center; gap: 5px; margin: 3px 0 0; color: var(--nschat-green-dark); font-size: 10.5px; line-height: 14px; }
+.nschat-chat-card-header p i { width: 8px; height: 8px; border-radius: 50%; background: #24bf79; }
+.nschat-more, .nschat-mobile-back { width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 7px; background: transparent; color: #687479; cursor: pointer; }
+.nschat-more:hover, .nschat-more:focus-visible, .nschat-mobile-back:hover, .nschat-mobile-back:focus-visible { background: #f1f4f5; color: #30393d; }
+.nschat-more svg, .nschat-mobile-back svg { width: 18px; height: 18px; }
+.nschat-menu-wrap { position: relative; margin-left: auto; }
+.nschat-action-menu { position: absolute; z-index: 12; right: 0; top: calc(100% + 5px); min-width: 184px; overflow: hidden; border: 1px solid #e2e8e7; border-radius: 10px; background: #fff; box-shadow: 0 12px 30px rgba(21, 36, 44, .18); padding: 6px; }
+.nschat-action-menu button { display: flex; align-items: center; gap: 9px; width: 100%; min-height: 35px; padding: 8px 9px; border: 0; border-radius: 7px; background: transparent; color: #334348; text-align: left; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.nschat-action-menu button svg { width: 16px; height: 16px; flex: 0 0 auto; }
+.nschat-action-menu button:hover, .nschat-action-menu button:focus-visible { background: #edf7f2; }
+.nschat-action-menu .is-danger { color: #c43d3d; }
+.nschat-action-divider { display: block; height: 1px; margin: 4px 7px; background: #edf0f0; }
+.nschat-message-menu { position: relative; display: inline-flex; margin-left: 4px; }
+.nschat-message-more { width: 20px; height: 16px; display: grid; place-items: center; border: 0; border-radius: 4px; background: transparent; color: #768185; cursor: pointer; }
+.nschat-message-more:hover, .nschat-message-more:focus-visible { background: #e6eeeb; color: #304047; }
+.nschat-message-more svg { width: 14px; height: 14px; }
+.nschat-message-action-menu { position: absolute; z-index: 10; right: 0; top: calc(100% + 5px); min-width: 128px; padding: 5px; border: 1px solid #e2e8e7; border-radius: 8px; background: #fff; box-shadow: 0 9px 22px rgba(21,36,44,.16); }
+.nschat-message-action-menu button { display: flex; align-items: center; gap: 7px; width: 100%; padding: 8px; border: 0; border-radius: 5px; background: transparent; color: #bd3838; font: inherit; font-size: 11px; font-weight: 600; text-align: left; cursor: pointer; }
+.nschat-message-action-menu svg { width: 14px; height: 14px; }
+.nschat-message-action-menu button:hover { background: #fff0f0; }
+.nschat-mobile-back, .nschat-mobile-details { display: none; }
+.nschat-messages { min-height: 0; flex: 1; overflow-y: auto; padding: 12px 18px 14px; scrollbar-width: thin; scrollbar-color: #d8dddf transparent; }
+.nschat-day-divider { display: flex; align-items: center; gap: 12px; margin: 1px 0 14px; color: #788287; font-size: 10px; }
+.nschat-day-divider::before, .nschat-day-divider::after { content: ""; height: 1px; flex: 1; background: #edf0f1; }
+.nschat-message { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 12px; }
+.nschat-message--outgoing { justify-content: flex-end; }
+.nschat-message-content { max-width: min(72%, 420px); }
+.nschat-bubble { border-radius: 6px 13px 13px 13px; background: #f3f4f5; padding: 10px 12px; color: #30393d; font-size: 12.5px; line-height: 18px; }
+.nschat-bubble p { margin: 0; }
+.nschat-bubble p + p { margin-top: 3px; }
+.nschat-message-attachment { display: block; margin-top: 5px; overflow: hidden; border: 1px solid #d7e9e1; border-radius: 8px; background: #f5fbf8; color: #216a4c; font-size: 11px; text-decoration: none; }
+.nschat-message-attachment span { display: block; padding: 8px 10px; font-weight: 600; }
+.nschat-message-attachment img { display: block; width: 100%; max-width: 250px; max-height: 220px; object-fit: cover; }
+.nschat-message--outgoing .nschat-bubble { border-radius: 13px 6px 13px 13px; background: var(--nschat-green-soft); color: #25513f; }
+.nschat-message-meta { display: flex; align-items: center; gap: 5px; margin-top: 4px; color: #7c868a; font-size: 9.5px; line-height: 13px; }
+.nschat-message--outgoing .nschat-message-meta { justify-content: flex-end; }
+.nschat-message-meta svg { width: 15px; height: 15px; color: var(--nschat-green); }
+.nschat-composer { position: relative; min-height: 58px; display: grid; grid-template-columns: 34px minmax(120px, 1fr) 34px 42px; align-items: center; gap: 6px; border-top: 1px solid #e8ecee; background: #fff; padding: 8px 10px; }
+.nschat-composer-popover-wrap { position: relative; display: block; min-width: 0; }
+.nschat-composer > .nschat-composer-popover-wrap:first-child { grid-column: 1; grid-row: 1; align-self: center; }
+.nschat-composer > .nschat-composer-popover-wrap:nth-of-type(2) { grid-column: 3; grid-row: 1; align-self: center; }
+.nschat-composer > label { grid-column: 2; grid-row: 1; align-self: center; }
+.nschat-composer > .nschat-send { grid-column: 4; grid-row: 1; align-self: center; }
+.nschat-composer-popover-wrap > button { width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 7px; background: transparent; color: #748085; cursor: pointer; }
+.nschat-composer-popover-wrap > button:hover, .nschat-composer-popover-wrap > button:focus-visible { background: #f2f5f5; color: var(--nschat-green-dark); }
+.nschat-composer-popover { position: absolute; z-index: 20; bottom: calc(100% + 10px); min-width: 190px; padding: 6px; border: 1px solid #dfe7e4; border-radius: 10px; background: #fff; box-shadow: 0 12px 28px rgba(24,42,37,.18); }
+.nschat-attachment-popover { left: 0; }
+.nschat-composer-popover button { display: flex; align-items: center; gap: 9px; width: 100%; min-height: 36px; padding: 8px; border: 0; border-radius: 7px; background: transparent; color: #344148; font: inherit; font-size: 12px; font-weight: 600; text-align: left; cursor: pointer; }
+.nschat-composer-popover button:hover { background: #edf7f2; color: var(--nschat-green-dark); }
+.nschat-composer-popover svg { width: 17px; height: 17px; }
+.nschat-composer-popover small { margin-left: auto; color: #7c878a; font-size: 9px; font-weight: 500; }
+.nschat-emoji-popover { right: -2px; min-width: 205px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; }
+.nschat-emoji-popover button { min-height: 29px; display: grid; place-items: center; padding: 2px; font-size: 18px; text-align: center; }
+.nschat-file-input { display: none; }
+.nschat-attachment-chips { position: absolute; bottom: calc(100% + 10px); left: 10px; right: 10px; z-index: 19; display: flex; flex-wrap: wrap; gap: 6px; max-height: 76px; overflow-y: auto; padding: 7px; border: 1px solid #d7ede2; border-radius: 10px; background: rgba(255,255,255,.98); box-shadow: 0 7px 20px rgba(24,42,37,.12); }
+.nschat-attachment-chip { max-width: 205px; display: flex; align-items: center; gap: 6px; overflow: hidden; border: 1px solid #cce9dc; border-radius: 7px; background: #effaf5; padding: 5px 7px; color: #24664c; font-size: 10.5px; box-shadow: none; }
+.nschat-attachment-chip > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nschat-attachment-chip button { width: 17px; height: 17px; flex: 0 0 auto; border: 0; border-radius: 50%; background: #d8eee4; color: #24664c; font-size: 14px; line-height: 15px; cursor: pointer; }
+.nschat-composer > button:not(.nschat-send) { width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 7px; background: transparent; color: #748085; cursor: pointer; }
+.nschat-composer > button:not(.nschat-send):hover, .nschat-composer > button:not(.nschat-send):focus-visible { background: #f2f5f5; color: var(--nschat-green-dark); }
+.nschat-composer svg { width: 18px; height: 18px; }
+.nschat-composer label { min-width: 0; }
+.nschat-composer textarea { width: 100%; min-height: 32px; max-height: 70px; display: block; resize: none; overflow: hidden; border: 0; outline: 0; background: transparent; padding: 7px 4px; color: #30383c; font-size: 12.5px; line-height: 18px; }
+.nschat-composer textarea::placeholder { color: #9aa2a6; }
+.nschat-composer .nschat-emoji { font-size: 20px; }
+.nschat-send { width: 36px; height: 36px; display: grid; place-items: center; border: 0; border-radius: 8px; background: var(--nschat-green); color: #fff; cursor: pointer; box-shadow: 0 4px 10px rgba(35, 154, 104, .18); }
+.nschat-send:hover, .nschat-send:focus-visible { background: var(--nschat-green-dark); }
+.nschat-send:disabled { opacity: .45; cursor: default; }
+.nschat-send svg { width: 19px; height: 19px; }
+
+.nschat-info-column { display: grid; grid-template-rows: auto auto auto; align-content: start; gap: 10px; overflow-y: auto; padding-right: 1px; scrollbar-width: thin; }
+.nschat-about-card, .nschat-shortcuts-card { padding: 13px 14px; }
+.nschat-info-column h2 { margin: 0; color: #30383c; font-size: 13.5px; line-height: 19px; }
+.nschat-about-person { display: flex; align-items: center; gap: 10px; margin-top: 10px; padding-bottom: 10px; }
+.nschat-about-person > div { min-width: 0; }
+.nschat-about-person > div > strong, .nschat-about-person > div > span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nschat-about-person strong { color: #30383c; font-size: 13px; line-height: 18px; }
+.nschat-about-person > div > span { margin-top: 2px; color: #818a8f; font-size: 11.5px; line-height: 16px; }
+.nschat-contact-links { display: grid; gap: 0; border-top: 1px solid #e9edee; padding-top: 6px; }
+.nschat-contact-links button { min-height: 30px; display: flex; align-items: center; gap: 9px; border: 0; background: transparent; padding: 5px 0; color: var(--nschat-green-dark); font-size: 12px; cursor: pointer; text-align: left; }
+.nschat-contact-links button:hover, .nschat-contact-links button:focus-visible { color: var(--nschat-green); }
+.nschat-contact-links svg { width: 17px; height: 17px; color: #637076; }
+.nschat-shortcuts-card > div { margin-top: 6px; }
+.nschat-shortcuts-card button { width: 100%; min-height: 34px; display: grid; grid-template-columns: 21px minmax(0, 1fr) 15px; align-items: center; gap: 7px; border: 0; border-bottom: 1px solid #edf0f1; background: transparent; padding: 5px 2px; color: #424c50; font-size: 12px; text-align: left; cursor: pointer; }
+.nschat-shortcuts-card button:last-child { border-bottom: 0; }
+.nschat-shortcuts-card button:hover, .nschat-shortcuts-card button:focus-visible { color: var(--nschat-green-dark); }
+.nschat-shortcuts-card button span { display: inline-flex; color: #5e6b70; }
+.nschat-shortcuts-card button span svg { width: 17px; height: 17px; }
+.nschat-shortcuts-card button > svg { width: 15px; height: 15px; justify-self: end; color: #8b9498; }
+.nschat-hours-card { min-height: 0; display: flex; flex-direction: column; border: 1px solid #d6eee4; border-radius: 12px; background: var(--nschat-green-soft); padding: 13px 14px; }
+.nschat-hours-card header { display: flex; align-items: center; gap: 9px; color: var(--nschat-green); }
+.nschat-hours-card header svg { width: 22px; height: 22px; }
+.nschat-hours-card h2 { font-size: 13.5px; }
+.nschat-hours-card > div { display: grid; gap: 7px; margin: 10px 0 8px; padding-left: 31px; }
+.nschat-hours-card p { margin: 0; }
+.nschat-hours-card strong, .nschat-hours-card span { display: block; color: #536064; font-size: 11px; line-height: 16px; }
+.nschat-hours-card strong { color: #394549; font-weight: 600; }
+.nschat-hours-card > button { width: 100%; min-height: 32px; margin-top: 0; border: 1px solid var(--nschat-green); border-radius: 7px; background: #fff; color: var(--nschat-green-dark); font-size: 12px; font-weight: 650; cursor: pointer; }
+.nschat-hours-card > button:hover, .nschat-hours-card > button:focus-visible { background: var(--nschat-green); color: #fff; }
+
+@media (max-width: 1180px) {
+  .nschat-main { overflow-y: auto; }
+  .nschat-workspace { grid-template-columns: minmax(270px, .82fr) minmax(430px, 1.5fr); height: auto; min-height: 0; }
+  .nschat-conversation-card, .nschat-chat-card { height: 660px; flex: none; }
+  .nschat-info-column { grid-column: 1 / -1; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: auto; overflow: visible; }
+  .nschat-hours-card { min-height: 220px; }
+}
+
+@media (max-width: 1020px) {
+  .nschat-main { padding: 18px 16px 22px; }
+  .nschat-workspace { grid-template-columns: minmax(250px, .72fr) minmax(400px, 1.28fr); }
+}
+
+@media (max-width: 760px) {
+  .nschat-conversation-column > .nschat-new-message { display: inline-flex; }
+  .nschat-main { padding-inline: 12px; }
+  .nschat-header { margin-bottom: 14px; }
+  .nschat-heading .nsd-greeting-sub { margin-left: 0; }
+  .nschat-heading-icon { width: 24px; height: 24px; }
+  .nschat-workspace { display: block; }
+  .nschat-conversation-column, .nschat-chat-column { width: 100%; }
+  .nschat-chat-column { display: none; }
+  .nschat-mobile-show-chat .nschat-conversation-column { display: none; }
+  .nschat-mobile-show-chat .nschat-chat-column { display: flex; }
+  .nschat-conversation-card, .nschat-chat-card { height: calc(100vh - 180px); min-height: 560px; }
+  .nschat-chat-toolbar { display: none; }
+  .nschat-mobile-back, .nschat-mobile-details { display: inline-flex; }
+  .nschat-mobile-details { margin-left: auto; border: 0; border-radius: 6px; background: var(--nschat-green-soft); padding: 6px 8px; color: var(--nschat-green-dark); font-size: 10.5px; cursor: pointer; }
+  .nschat-more { margin-left: 0; }
+  .nschat-info-column { display: none; grid-template-columns: minmax(0, 1fr); margin-top: 12px; }
+  .nschat-info-column.is-mobile-open { display: grid; }
+  .nschat-mobile-show-chat .nschat-info-column.is-mobile-open { display: grid; }
+  .nschat-message-content { max-width: 84%; }
+}
+
+@media (max-width: 480px) {
+  .nschat-header .nsd-header-right { gap: 8px; }
+  .nschat-header .nsd-bell { width: 36px; height: 36px; }
+  .nschat-list-controls { grid-template-columns: minmax(0, 1fr) 94px; }
+  .nschat-conversation-row { grid-template-columns: 40px minmax(0, 1fr) 34px; min-height: 76px; padding-inline: 8px; }
+  .nschat-avatar { width: 40px; height: 40px; }
+  .nschat-avatar--small { width: 28px; height: 28px; }
+  .nschat-avatar--large { width: 50px; height: 50px; }
+  .nschat-conversation-name { font-size: 12px; }
+  .nschat-preview { font-size: 11px; }
+  .nschat-chat-card-header { padding-inline: 9px; }
+  .nschat-chat-card-header h2 em { display: none; }
+  .nschat-messages { padding-inline: 11px; }
+  .nschat-bubble { font-size: 12px; line-height: 17px; }
+  .nschat-composer { grid-template-columns: 30px minmax(0, 1fr) 30px 40px; padding-inline: 6px; }
+}
+
+/* ─── Admin & Monitor Dashboard container adaptations ─────────────────────── */
+.nschat-root--admin,
+.nschat-root--monitor {
+  padding: 16px 20px;
+  box-sizing: border-box;
+}
+
+.nschat-root--admin .nschat-workspace,
+.nschat-root--monitor .nschat-workspace {
+  height: calc(100vh - 110px);
+}
+
+@media (max-width: 1180px) {
+  .nschat-root--admin .nschat-workspace,
+  .nschat-root--monitor .nschat-workspace {
+    height: auto;
+  }
+}
+
+@media (max-width: 760px) {
+  .nschat-root--admin,
+  .nschat-root--monitor {
+    padding: 12px;
+  }
+}

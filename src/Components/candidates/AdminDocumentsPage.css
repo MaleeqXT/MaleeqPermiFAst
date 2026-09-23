@@ -1,0 +1,354 @@
+.ad-doc-page {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 28px 30px;
+  color: #17253c;
+}
+
+.ad-doc-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.ad-doc-heading h1 {
+  margin: 0;
+  font-size: 25px;
+  font-weight: 700;
+  color: #1a202c;
+}
+
+.ad-doc-heading p {
+  margin: 6px 0 0;
+  color: #718096;
+  font-size: 14px;
+}
+
+.ad-doc-card {
+  background: #ffffff;
+  border: 1px solid #e8edf4;
+  border-radius: 14px;
+  box-shadow: 0 4px 16px rgba(24, 44, 76, 0.05);
+}
+
+.ad-doc-list {
+  overflow-x: auto;
+}
+
+.ad-doc-list table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 720px;
+}
+
+.ad-doc-list th {
+  padding: 15px 18px;
+  text-align: left;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #8290a4;
+  background: #f8fafc;
+  font-weight: 700;
+}
+
+.ad-doc-list td {
+  padding: 16px 18px;
+  border-top: 1px solid #edf1f5;
+  font-size: 14px;
+  vertical-align: middle;
+}
+
+.ad-doc-list strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.ad-doc-list small,
+.ad-doc-upload {
+  display: block;
+  margin-top: 4px;
+  color: #8794a7;
+  font-size: 12px;
+}
+
+/* Static Status Badges */
+.ad-doc-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.ad-doc-status--approved {
+  background: #e8f8ef;
+  color: #0e7043;
+  border: 1px solid #bcf0da;
+}
+
+.ad-doc-status--rejected {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.ad-doc-status--pending {
+  background: #fff8e6;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+/* Status Dropdown / Select Badge Wrapper */
+.ad-doc-select-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  user-select: none;
+}
+
+.ad-doc-select-wrapper:hover:not(.is-disabled) {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+}
+
+.ad-doc-select-wrapper:focus-within {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  border-color: #93c5fd;
+}
+
+/* Status Indicator Dot */
+.ad-doc-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-left: 11px;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+/* Themes per status */
+.ad-doc-select-wrapper--approved {
+  background: #e8f8ef;
+  color: #0e7043;
+  border-color: #bcf0da;
+}
+.ad-doc-select-wrapper--approved .ad-doc-status-dot {
+  background: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
+}
+
+.ad-doc-select-wrapper--pending {
+  background: #fff8e6;
+  color: #b45309;
+  border-color: #fde68a;
+}
+.ad-doc-select-wrapper--pending .ad-doc-status-dot {
+  background: #f59e0b;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.25);
+}
+
+.ad-doc-select-wrapper--rejected {
+  background: #fef2f2;
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+.ad-doc-select-wrapper--rejected .ad-doc-status-dot {
+  background: #ef4444;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.25);
+}
+
+/* Native Select inside wrapper */
+.ad-doc-status-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: inherit;
+  padding: 6px 26px 6px 8px;
+  cursor: pointer;
+  line-height: 1.4;
+}
+
+.ad-doc-status-select option {
+  background: #ffffff;
+  color: #1e293b;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 12px;
+}
+
+/* Dropdown Arrow Icon */
+.ad-doc-select-arrow {
+  position: absolute;
+  right: 10px;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: currentColor;
+}
+
+.ad-doc-select-wrapper.is-disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: none;
+  filter: grayscale(0.2);
+}
+
+/* Buttons */
+.ad-doc-view,
+.ad-doc-approve,
+.ad-doc-reject,
+.ad-doc-back {
+  border: 0;
+  border-radius: 8px;
+  padding: 7px 14px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ad-doc-view {
+  background: #edf4ff;
+  color: #2f67b1;
+}
+
+.ad-doc-view:hover {
+  background: #deebff;
+  color: #205396;
+}
+
+.ad-doc-approve {
+  background: #e8f8ef;
+  color: #18794e;
+}
+
+.ad-doc-reject {
+  background: #fff0f0;
+  color: #c53737;
+}
+
+.ad-doc-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.ad-doc-actions button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ad-doc-back {
+  padding-left: 0;
+  margin-bottom: 16px;
+  background: transparent;
+  color: #3469a9;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ad-doc-back:hover {
+  color: #1e4b85;
+  text-decoration: underline;
+}
+
+.ad-doc-neph {
+  padding: 7px 14px;
+  border-radius: 9999px;
+  background: #edf4ff;
+  color: #2f67b1;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.ad-doc-detail-table {
+  overflow: hidden;
+}
+
+.ad-doc-row {
+  display: grid;
+  grid-template-columns: minmax(230px, 1.5fr) minmax(145px, 0.9fr) minmax(260px, 1fr);
+  gap: 16px;
+  align-items: center;
+  padding: 18px 22px;
+  border-top: 1px solid #edf1f5;
+}
+
+.ad-doc-row:first-child {
+  border-top: 0;
+}
+
+.ad-doc-file strong,
+.ad-doc-file small {
+  display: block;
+}
+
+.ad-doc-file strong {
+  font-size: 14px;
+  color: #1e293b;
+}
+
+.ad-doc-file small {
+  margin-top: 4px;
+  color: #718096;
+  font-size: 12px;
+}
+
+.ad-doc-upload {
+  display: block;
+}
+
+.ad-doc-alert {
+  padding: 12px 16px;
+  margin-bottom: 18px;
+  border-radius: 10px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  font-size: 14px;
+}
+
+.ad-doc-empty {
+  padding: 36px;
+  text-align: center;
+  color: #718096;
+  font-size: 14px;
+}
+
+@media (max-width: 760px) {
+  .ad-doc-page {
+    padding: 20px 14px;
+  }
+  .ad-doc-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .ad-doc-actions {
+    justify-content: flex-start;
+  }
+}
