@@ -215,6 +215,7 @@ export default function CandidateProgressPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeCompetencyId, setActiveCompetencyId] = useState("C1");
   const [progressData, setProgressData] = useState(null);
+  const [progressLoading, setProgressLoading] = useState(true);
   const [openQuestionKey, setOpenQuestionKey] = useState(null);
   const [studentQuestionDetails, setStudentQuestionDetails] = useState({});
   const [historyExpanded, setHistoryExpanded] = useState(false);
@@ -232,6 +233,9 @@ export default function CandidateProgressPage() {
       })
       .catch(() => {
         if (!cancelled) setProgressData(null);
+      })
+      .finally(() => {
+        if (!cancelled) setProgressLoading(false);
       });
 
     return () => { cancelled = true; };
@@ -245,6 +249,18 @@ export default function CandidateProgressPage() {
   const visibleLessons = historyExpanded ? lessons : lessons.slice(0, 5);
   const nextAppointment = progressData?.nextAppointment;
   const studentName = progressData?.student?.name || "Linda";
+
+  if (progressLoading) {
+    return (
+      <div className="nsd-root nsp-root">
+        <StudentSidebar activePath="/student-progress" isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} onNavigate={(path) => { setSidebarOpen(false); navigate(path); }} />
+        <main className="nsd-main nsp-main">
+          <StudentHeader className="nsp-header" headingClassName="nsp-page-heading" titleNode={<div className="nsp-title-row"><h1 className="nsd-greeting-title">Ma progression détaillée</h1><span className="nsp-title-icon"><ProgressIcon /></span></div>} subtitle="Votre apprentissage en temps réel et votre livret numérique connecté." onMenuOpen={() => setSidebarOpen(true)} />
+          <section className="nsp-progress-loading" aria-live="polite" aria-busy="true"><span className="nsp-progress-spinner" aria-hidden="true" /><div><strong>Chargement de votre progression</strong><span>Veuillez patienter, vos données sont en cours de chargement.</span></div></section>
+        </main>
+      </div>
+    );
+  }
 
   const handleSidebarNavigate = (path) => {
     setSidebarOpen(false);
@@ -301,7 +317,7 @@ export default function CandidateProgressPage() {
             <h2>Détail de la compétence sélectionnée</h2>
             <div className="nsp-competency-tabs" role="tablist" aria-label="Choisir une compétence">{competencies.map((competency) => <button key={competency.id} type="button" role="tab" aria-selected={activeCompetencyId === competency.id} className={activeCompetencyId === competency.id ? "active" : ""} onClick={() => { setActiveCompetencyId(competency.id); setOpenQuestionKey(null); }}><strong>{competency.id}</strong><span>{competency.shortTitle}</span></button>)}</div>
             <div className={`nsp-detail-summary nsp-tone-${activeCompetency.tone}`}><div><h3>{activeCompetency.id} - {activeCompetency.title}</h3><p>{activeCompetency.description}</p></div><span><strong>{activeCompetency.progress}%</strong><small>Niveau atteint</small></span></div>
-            <div className="nsp-detail-table" role="table" aria-label={`Détails de la compétence ${activeCompetency.id}`}><div className="nsp-detail-row nsp-detail-row--head" role="row"><span>Compétence</span><span>Niveau atteint</span><span>Statut</span></div>{activeCompetency.details.map(([code, description, level, status, tone, observations, questionId, savedStudentResponse, savedStudentEvaluation, savedActiveTab]) => { const questionKey = `${activeCompetency.id}-${code}`; const detail = studentQuestionDetails[questionKey] ?? { studentResponse: savedStudentResponse, studentEvaluation: savedStudentEvaluation, activeTab: savedActiveTab }; const isOpen = openQuestionKey === questionKey; return <div className="nsp-question-wrap" key={questionKey}><div className={`nsp-detail-row nsp-detail-row--interactive ${isOpen ? "active" : ""}`} role="button" tabIndex={0} onClick={() => setOpenQuestionKey((current) => current === questionKey ? null : questionKey)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setOpenQuestionKey((current) => current === questionKey ? null : questionKey); } }}><span><b>{code}</b>{description}</span><LevelSquares filled={level} tone={tone} total={5} /><span className={`nsp-detail-status ${tone}`}>{status}</span></div>{isOpen && <div className="nsp-question-detail"><QuestionDetail role="student" observations={observations} studentResponse={detail.studentResponse ?? ""} studentEvaluation={detail.studentEvaluation ?? false} activeTab={detail.activeTab ?? "pourquoi"} onSave={(nextDetail) => saveStudentQuestionDetail(questionKey, questionId, nextDetail)} /></div>}</div>; })}</div>
+            <div className="nsp-detail-table" role="table" aria-label={`Détails de la compétence ${activeCompetency.id}`}><div className="nsp-detail-row nsp-detail-row--head" role="row"><span>Compétence</span><span>Niveau atteint</span><span>Statut</span><span aria-hidden="true" /></div>{activeCompetency.details.map(([code, description, level, status, tone, observations, questionId, savedStudentResponse, savedStudentEvaluation, savedActiveTab]) => { const questionKey = `${activeCompetency.id}-${code}`; const detail = studentQuestionDetails[questionKey] ?? { studentResponse: savedStudentResponse, studentEvaluation: savedStudentEvaluation, activeTab: savedActiveTab }; const isOpen = openQuestionKey === questionKey; return <div className="nsp-question-wrap" key={questionKey}><div className={`nsp-detail-row nsp-detail-row--interactive ${isOpen ? "active" : ""}`}><span><b>{code}</b>{description}</span><LevelSquares filled={level} tone={tone} total={5} /><span className={`nsp-detail-status ${tone}`}>{status}</span><button type="button" className={`nsp-question-toggle ${isOpen ? "open" : ""}`} aria-label={`${isOpen ? "Fermer" : "Ouvrir"} les commentaires de ${description}`} aria-expanded={isOpen} onClick={() => setOpenQuestionKey((current) => current === questionKey ? null : questionKey)}><ChevronDownIcon /></button></div>{isOpen && <div className="nsp-question-detail"><QuestionDetail role="student" observations={observations} studentResponse={detail.studentResponse ?? ""} studentEvaluation={detail.studentEvaluation ?? false} activeTab={detail.activeTab ?? "pourquoi"} onSave={(nextDetail) => saveStudentQuestionDetail(questionKey, questionId, nextDetail)} /></div>}</div>; })}</div>
             <button type="button" className="nsp-advice-button" onClick={() => { const firstCode = activeCompetency.details[0]?.[0]; if (firstCode) setOpenQuestionKey(`${activeCompetency.id}-${firstCode}`); }}><ChatIcon />Voir les conseils de moniteur pour cette compétence</button>
           </article>
         </section>

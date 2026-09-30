@@ -57,6 +57,26 @@
   margin-bottom: 10px;
 }
 
+.nsp-progress-loading {
+  min-height: 310px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  border: 1px solid var(--nsp-border);
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 2px 12px rgba(51, 51, 51, .055);
+  color: var(--nsp-text);
+}
+
+.nsp-progress-loading > div { display: flex; flex-direction: column; gap: 4px; }
+.nsp-progress-loading strong { font-size: 15px; }
+.nsp-progress-loading span:last-child { color: var(--nsp-muted); font-size: 12px; }
+.nsp-progress-spinner { width: 32px; height: 32px; flex: 0 0 32px; border: 3px solid #d7eee2; border-top-color: var(--nsp-green); border-radius: 50%; animation: nsp-progress-spin .8s linear infinite; }
+
+@keyframes nsp-progress-spin { to { transform: rotate(360deg); } }
+
 .nsp-action-button,
 .nsp-global-copy button,
 .nsp-appointment-copy button,
@@ -733,7 +753,7 @@
 .nsp-detail-row {
   min-height: 26px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 112px 78px;
+  grid-template-columns: minmax(0, 1fr) 112px 78px 32px;
   align-items: center;
   gap: 10px;
   border-bottom: 1px solid #f0f1f2;
@@ -771,13 +791,31 @@
 }
 
 .nsp-detail-row--interactive {
-  cursor: pointer;
+  cursor: default;
 }
 
 .nsp-detail-row--interactive:hover,
 .nsp-detail-row--interactive.active {
   background: #f8fbfa;
 }
+
+.nsp-question-toggle {
+  width: 27px;
+  height: 27px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--nsp-green-border);
+  border-radius: 8px;
+  background: #f7fdf9;
+  color: var(--nsp-green-dark);
+  cursor: pointer;
+  transition: background .16s ease, border-color .16s ease, transform .16s ease;
+}
+
+.nsp-question-toggle svg { width: 14px; height: 14px; transition: transform .16s ease; }
+.nsp-question-toggle:hover, .nsp-question-toggle:focus-visible { border-color: var(--nsp-green); background: var(--nsp-green-soft); outline: none; }
+.nsp-question-toggle.open svg { transform: rotate(180deg); }
 
 .nsp-question-detail {
   margin: 0 0 7px;
@@ -1220,7 +1258,7 @@
 
   .nsp-detail-row {
     min-width: 620px;
-    grid-template-columns: minmax(300px, 1fr) 112px 78px;
+    grid-template-columns: minmax(300px, 1fr) 112px 78px 32px;
   }
 }
 
