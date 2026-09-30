@@ -1,6 +1,24 @@
   import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
   import http from '../../helpers/http';
 
+  const preloadProfileImage = (user) => {
+    if (typeof window === "undefined" || !user) return;
+
+    const raw = typeof user.media === "string" ? user.media
+      : user.media?.path || user.media?.url || user.profile_photo_url || user.avatar || null;
+    if (!raw) return;
+
+    const baseUrl = (import.meta.env.VITE_API_URL || window.location.origin).replace(/\/$/, "");
+    const value = String(raw).trim();
+    const storagePosition = value.indexOf("/storage/");
+    const source = storagePosition >= 0 ? `${baseUrl}${value.slice(storagePosition)}`
+      : /^https?:\/\//i.test(value) ? value
+        : `${baseUrl}/storage/${value.replace(/^\/?storage\//, "")}`;
+
+    const image = new Image();
+    image.src = source;
+  };
+
 
   export const loginUser = createAsyncThunk(
     'auth/login',
@@ -10,6 +28,7 @@
         if (response.data?.token) {
           window.localStorage.setItem('ppf_auth_token', response.data.token);
         }
+        preloadProfileImage(response.data.user);
         return response.data.user;
       } catch (error) {
         return rejectWithValue(error.response?.data || { message: 'Impossible de joindre le serveur.' });
@@ -36,6 +55,7 @@
   async (_, { rejectWithValue }) => {
     try {
       const response = await http.get('/auth/me'); // cookie automatically sent if configured
+      preloadProfileImage(response.data.user);
       return response.data.user;
     } catch (error) {
       return rejectWithValue(error.response?.data || { message: 'Unauthorized' });

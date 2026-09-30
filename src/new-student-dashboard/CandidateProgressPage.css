@@ -389,6 +389,69 @@
   margin-bottom: 12px;
 }
 
+.nsp-manoeuvres-card {
+  margin: -2px -2px 12px;
+  padding: 0 2px 12px;
+  border-bottom: 1px solid #e8eeea;
+}
+
+.nsp-manoeuvres-card h3 {
+  margin-bottom: 12px;
+  color: var(--nsp-text);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.nsp-manoeuvres-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 24px;
+}
+
+.nsp-manoeuvre-item {
+  display: grid;
+  min-width: 76px;
+  justify-items: center;
+  gap: 4px;
+  color: var(--nsp-green);
+}
+
+.nsp-manoeuvre-icon {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border: 1px solid #ccebdd;
+  border-radius: 50%;
+  background: #eefaf4;
+  box-shadow: inset 0 1px 2px rgba(23, 121, 79, .06);
+}
+
+.nsp-manoeuvre-icon svg {
+  width: 30px;
+  height: 30px;
+  color: #55b787;
+}
+
+.nsp-manoeuvre-item > strong {
+  min-width: 34px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: #d7f2e3;
+  color: var(--nsp-green-dark);
+  font-size: 11px;
+  line-height: 17px;
+  text-align: center;
+}
+
+.nsp-manoeuvre-item > span:last-child {
+  max-width: 96px;
+  color: #647078;
+  font-size: 9.5px;
+  line-height: 12px;
+  text-align: center;
+}
+
 .nsp-breakdown-card,
 .nsp-detail-card {
   padding: 13px 14px;
@@ -699,6 +762,54 @@
   font-weight: 600;
 }
 
+.nsp-question-wrap {
+  border-bottom: 1px solid #edf0f1;
+}
+
+.nsp-question-wrap .nsp-detail-row {
+  border-bottom: 0;
+}
+
+.nsp-detail-row--interactive {
+  cursor: pointer;
+}
+
+.nsp-detail-row--interactive:hover,
+.nsp-detail-row--interactive.active {
+  background: #f8fbfa;
+}
+
+.nsp-question-detail {
+  margin: 0 0 7px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.nsp-question-detail .mc-question-detail-container {
+  gap: 9px;
+  padding: 10px;
+}
+
+.nsp-question-detail .mc-detail-block {
+  gap: 5px;
+}
+
+.nsp-question-detail .mc-detail-textarea {
+  min-height: 76px;
+  padding: 10px 12px;
+}
+
+.nsp-question-detail .mc-student-pov-block {
+  margin-top: 0;
+  gap: 6px;
+}
+
+.nsp-question-detail .mc-detail-actions {
+  margin-top: 4px;
+}
+
 .nsp-level-squares {
   display: inline-flex;
   align-items: center;
@@ -783,7 +894,7 @@
 
 .nsp-history-table {
   width: 100%;
-  min-width: 920px;
+  min-width: 1200px;
   border-collapse: collapse;
   table-layout: fixed;
 }
@@ -796,12 +907,12 @@
   text-align: left;
 }
 
-.nsp-history-table th:nth-child(1) { width: 166px; }
-.nsp-history-table th:nth-child(2) { width: 82px; }
-.nsp-history-table th:nth-child(3) { width: 57px; }
-.nsp-history-table th:nth-child(4) { width: 103px; }
-.nsp-history-table th:nth-child(5) { width: 132px; }
-.nsp-history-table th:nth-child(7) { width: 105px; }
+.nsp-history-table th:nth-child(1) { width: 190px; }
+.nsp-history-table th:nth-child(2) { width: 175px; }
+.nsp-history-table th:nth-child(3) { width: 76px; }
+.nsp-history-table th:nth-child(4) { width: 185px; }
+.nsp-history-table th:nth-child(5) { width: 158px; }
+.nsp-history-table th:nth-child(7) { width: 122px; }
 .nsp-history-table th:nth-child(8) { width: 38px; }
 
 .nsp-history-table td {
@@ -811,6 +922,7 @@
   color: #4a5357;
   font-size: 10.5px;
   vertical-align: middle;
+  overflow: hidden;
 }
 
 .nsp-history-table td > strong {
@@ -984,6 +1096,39 @@
   font-weight: 600;
 }
 
+.nsp-history-modal-backdrop {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(24, 35, 42, .45);
+}
+
+.nsp-history-modal {
+  width: min(1180px, 100%);
+  max-height: min(760px, calc(100vh - 48px));
+  overflow: hidden;
+  border: 1px solid #dfe7e3;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 22px 60px rgba(20, 35, 29, .22);
+}
+
+.nsp-history-modal > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px 18px;
+  border-bottom: 1px solid #e8eeea;
+}
+
+.nsp-history-modal h2 { margin: 0; color: var(--nsp-text); font-size: 17px; }
+.nsp-history-modal > header button { width: 30px; height: 30px; border: 0; border-radius: 50%; background: #eef7f1; color: var(--nsp-green-dark); cursor: pointer; font-size: 24px; line-height: 1; }
+.nsp-history-modal-table { max-height: calc(min(760px, 100vh - 48px) - 62px); overflow: auto; }
+.nsp-history-empty { padding: 22px !important; color: var(--nsp-muted); text-align: center; }
+
 .nsp-action-button:focus-visible,
 .nsp-global-copy button:focus-visible,
 .nsp-appointment-copy button:focus-visible,
@@ -1099,6 +1244,18 @@
 
   .nsp-global-body {
     align-items: flex-start;
+  }
+
+  .nsp-manoeuvres-card {
+    padding-inline: 14px;
+  }
+
+  .nsp-manoeuvres-grid {
+    gap: 12px;
+  }
+
+  .nsp-manoeuvre-item {
+    min-width: 62px;
   }
 
   .nsp-competency-row {

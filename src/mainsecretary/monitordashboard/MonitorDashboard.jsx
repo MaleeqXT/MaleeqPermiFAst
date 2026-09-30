@@ -1009,7 +1009,11 @@ export default function MonitorDashboard({ onClose }) {
             />
           )}
           {activeTab === "accueil" && competenceCandidate && (
-            <MonitorCompetence onBack={() => setCompetenceCandidate(null)} />
+            <MonitorCompetence
+              candidate={competenceCandidate}
+              monitorName={monitorName}
+              onBack={() => setCompetenceCandidate(null)}
+            />
           )}
           {activeTab === "accueil" && allSessionsCandidate && (
             <AllSessions

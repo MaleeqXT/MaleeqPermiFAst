@@ -107,11 +107,20 @@ const IconMessage = () => (
   </svg>
 );
 
+const IconProgress = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M18 20V10" />
+    <path d="M12 20V4" />
+    <path d="M6 20v-6" />
+  </svg>
+);
+
 const NAV_ITEMS = [
-  { id: "accueil",   label: "Accueil",    icon: <IconHome />    },
-  { id: "sessions",  label: "Séances",    icon: <IconCalendar /> },
-  { id: "messages",  label: "Messages",   icon: <IconMessage />  },
-  { id: "settings",  label: "Paramètres", icon: <IconSettings /> },
+  { id: "accueil",   label: "Accueil",     icon: <IconHome />    },
+  { id: "sessions",  label: "Séances",     icon: <IconCalendar /> },
+  { id: "progress",  label: "Progression", icon: <IconProgress /> },
+  { id: "messages",  label: "Messages",    icon: <IconMessage />  },
+  { id: "settings",  label: "Paramètres",  icon: <IconSettings /> },
 ];
 
 const SESSIONS_DATA = [
@@ -771,12 +780,27 @@ export default function MonitorDashboard({ onClose }) {
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [selectedProposal, setSelectedProposal] = useState(null);
 
-  const rawTargetMonitor =
-    fetchedMonitorProfile ??
-    (location.state?.monitor ? resolveMonitorUser(location.state.monitor) : null) ??
-    (viewedMonitor ? resolveMonitorUser(viewedMonitor) : null) ??
-    (currentUser?.role === "monitor" || currentUser?.role === "moniteur" ? currentUser : null) ??
-    currentUser;
+  const isMonitorPreview = Boolean(location.state?.monitor || viewedMonitorId);
+  const authenticatedRole = String(currentUser?.role ?? "").toLowerCase();
+  const loggedInMonitor = authenticatedRole === "monitor" || authenticatedRole === "moniteur"
+    ? currentUser
+    : null;
+  // On a direct monitor login, the login response already contains the name
+  // and media path. Render it immediately; the richer profile response may
+  // arrive later and must never delay the visible identity.
+  const rawTargetMonitor = isMonitorPreview
+    ? fetchedMonitorProfile ??
+      (location.state?.monitor ? resolveMonitorUser(location.state.monitor) : null) ??
+      (viewedMonitor ? resolveMonitorUser(viewedMonitor) : null) ??
+      currentUser
+    : loggedInMonitor
+      ? {
+          ...(resolveMonitorUser(fetchedMonitorProfile) ?? {}),
+          ...loggedInMonitor,
+          media: loggedInMonitor.media || fetchedMonitorProfile?.media,
+          profile_photo_url: loggedInMonitor.profile_photo_url || fetchedMonitorProfile?.profile_photo_url,
+        }
+      : fetchedMonitorProfile ?? currentUser;
 
   const activeMonitorUser = resolveMonitorUser(rawTargetMonitor) || rawTargetMonitor;
   const monitorName = resolveDisplayName(activeMonitorUser);
@@ -989,6 +1013,8 @@ export default function MonitorDashboard({ onClose }) {
                   src={monitorAvatar}
                   alt=""
                   className="md-monitor-avatar-img"
+                  loading="eager"
+                  fetchPriority="high"
                   onError={() => setImgFailed(true)}
                 />
               ) : (
@@ -1039,6 +1065,8 @@ export default function MonitorDashboard({ onClose }) {
                     src={monitorAvatar}
                     alt=""
                     className="md-superadmin-avatar-img"
+                    loading="eager"
+                    fetchPriority="high"
                     onError={() => setImgFailed(true)}
                   />
                 ) : (
@@ -1105,7 +1133,20 @@ export default function MonitorDashboard({ onClose }) {
             />
           )}
           {activeTab === "accueil" && competenceCandidate && (
-            <MonitorCompetence onBack={() => setCompetenceCandidate(null)} />
+            <MonitorCompetence
+              candidate={competenceCandidate}
+              monitorName={monitorName}
+              monitorId={activeMonitorUser?.monitor?.id ?? activeMonitorUser?.monitor_id ?? viewedMonitorId}
+              onBack={() => setCompetenceCandidate(null)}
+            />
+          )}
+          {activeTab === "progress" && (
+            <MonitorCompetence
+              candidate={competenceCandidate}
+              monitorName={monitorName}
+              monitorId={activeMonitorUser?.monitor?.id ?? activeMonitorUser?.monitor_id ?? viewedMonitorId}
+              onBack={() => setActiveTab("accueil")}
+            />
           )}
           {activeTab === "accueil" && allSessionsCandidate && (
             <AllSessions

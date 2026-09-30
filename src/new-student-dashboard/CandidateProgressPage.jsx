@@ -1,13 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import StudentSidebar from "./StudentSidebar.jsx";
 import StudentHeader from "./StudentHeader.jsx";
+import http from "../helpers/http.jsx";
+import QuestionDetail from "../monitordashboard/QuestionDetail.jsx";
 import "./CandidateDashboard.css";
 import "./CandidateProgressPage.css";
-
-const BellIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></svg>
-);
 
 const ProgressIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18" /><path d="m7 15 4-4 3 3 5-7" /><path d="M15 7h4v4" /></svg>
@@ -41,16 +39,31 @@ const ChatIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" /><path d="M8 9h8" /><path d="M8 13h5" /></svg>
 );
 
+const ManoeuvreIcon = ({ type }) => {
+  const shared = { fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" };
+  if (type === "perpendicular") return <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M7 4v24M25 4v24M16 4v24" stroke="currentColor" strokeWidth="1.25" strokeDasharray="3 2" /><rect x="12" y="12" width="8" height="10" rx="2" fill="currentColor" opacity=".85" /><path d="M10 17H3m4-4-4 4 4 4" {...shared} /><text x="13.5" y="9" fontSize="7" fontWeight="700" fill="currentColor">P</text><text x="13.5" y="28" fontSize="7" fontWeight="700" fill="currentColor">P</text></svg>;
+  if (type === "parallel") return <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M4 6h24M4 26h24M8 6v20" stroke="currentColor" strokeWidth="1.25" strokeDasharray="3 2" /><rect x="13" y="11" width="7" height="10" rx="2" fill="currentColor" opacity=".85" /><path d="M16 9V3m-3 3 3-3 3 3" {...shared} /><text x="14" y="24" fontSize="7" fontWeight="700" fill="currentColor">P</text></svg>;
+  if (type === "straight") return <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3v26" stroke="currentColor" strokeWidth="1.25" strokeDasharray="3 2" /><rect x="12" y="11" width="8" height="10" rx="2" fill="currentColor" opacity=".85" /><path d="M25 9v14m-3-3 3 3 3-3" {...shared} /></svg>;
+  if (type === "uturn") return <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M10 24V13a6 6 0 0 1 12 0v11M7 20l3 4 3-4" {...shared} strokeWidth="2.6" /></svg>;
+  if (type === "roundabout") return <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="17" cy="16" r="7" {...shared} strokeWidth="2.2" /><circle cx="17" cy="16" r="2.5" fill="currentColor" /><path d="M17 9a7 7 0 0 1 7 7M10 16H3m4-3-4 3 4 3" {...shared} strokeWidth="2" /></svg>;
+  return <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="23" cy="7" r="2.5" fill="currentColor" /><path d="M6 8h12M12 7l-3 3m3-3-3-3" {...shared} /><rect x="12" y="14" width="8" height="10" rx="2" fill="currentColor" opacity=".85" /></svg>;
+};
+
+const MANOEUVRES = [
+  { id: "perpendicular", label: "Stationnement en bataille", count: 1 },
+  { id: "parallel", label: "Stationnement en créneau", count: 1 },
+  { id: "straight", label: "Marche arrière en ligne droite", count: 1 },
+  { id: "uturn", label: "Demi-tour", count: 2 },
+  { id: "roundabout", label: "Giratoire", count: 3 },
+  { id: "precision", label: "Arrêt de précision", count: 2 },
+];
+
 const ChevronDownIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
 );
 
 const ChevronRightIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
-);
-
-const HamburgerIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 6h16" /><path d="M4 12h16" /><path d="M4 18h16" /></svg>
 );
 
 const COMPETENCIES = [
@@ -106,19 +119,71 @@ const LESSONS = [
   { id: 3, weekday: "MAR.", day: "27", month: "MAI", date: "27 Mai 2025", time: "18h30 - 19h30", type: "Code en ligne", typeTone: "blue", duration: "1h00", instructor: "—", initials: "", competencies: [], assessment: "Série : 15 - Résultat : 88%", level: 5 },
 ];
 
-function ProgressRing() {
+function ProgressRing({ progress = 0 }) {
   const radius = 43;
   const circumference = 2 * Math.PI * radius;
   return (
-    <div className="nsp-progress-ring" aria-label="68 % de progression">
-      <svg viewBox="0 0 100 100" aria-hidden="true"><circle className="nsp-progress-track" cx="50" cy="50" r={radius} /><circle className="nsp-progress-fill" cx="50" cy="50" r={radius} strokeDasharray={circumference} strokeDashoffset={circumference * 0.32} /></svg>
-      <span><strong>68%</strong></span>
+    <div className="nsp-progress-ring" aria-label={`${progress} % de progression`}>
+      <svg viewBox="0 0 100 100" aria-hidden="true"><circle className="nsp-progress-track" cx="50" cy="50" r={radius} /><circle className="nsp-progress-fill" cx="50" cy="50" r={radius} strokeDasharray={circumference} strokeDashoffset={circumference * (1 - progress / 100)} /></svg>
+      <span><strong>{progress}%</strong></span>
     </div>
   );
 }
 
-function LevelSquares({ filled, tone = "green", total = 6 }) {
+function LevelSquares({ filled, tone = "green", total = 5 }) {
   return <span className="nsp-level-squares" aria-label={`${filled} niveaux sur ${total}`}>{Array.from({ length: total }, (_, index) => <i key={index} className={index < filled ? `filled ${tone}` : ""} />)}</span>;
+}
+
+function toneForIndex(index) {
+  return ["green", "blue", "purple", "amber"][index] ?? "green";
+}
+
+function toneForStatus(status) {
+  if (status === "acquired") return "green";
+  if (status === "in_progress") return "blue";
+  return "neutral";
+}
+
+function labelForStatus(status) {
+  if (status === "acquired") return "Acquis";
+  if (status === "in_progress") return "En cours";
+  return "À travailler";
+}
+
+function formatMinutes(minutes = 0) {
+  return `${Math.floor(minutes / 60)}h${String(minutes % 60).padStart(2, "0")}`;
+}
+
+function toStudentCompetencies(data) {
+  if (!Array.isArray(data?.competencies)) return COMPETENCIES;
+
+  return data.competencies.map((competency, index) => {
+    const tone = toneForIndex(index);
+    const status = competency.progress >= 80 ? "Acquis" : competency.progress > 0 ? "En cours" : "À travailler";
+
+    return {
+      id: competency.code,
+      shortTitle: competency.title,
+      title: competency.title,
+      description: "Évaluation détaillée des compétences travaillées par votre moniteur.",
+      progress: competency.progress,
+      hours: `${competency.questions?.length ?? 0} sous-compétences`,
+      status,
+      tone,
+      details: (competency.questions ?? []).map((question) => [
+        question.letter,
+        question.title,
+        question.level ?? 0,
+        labelForStatus(question.status),
+        toneForStatus(question.status),
+        question.observations ?? "",
+        question.id,
+        question.studentResponse ?? "",
+        question.studentEvaluation ?? false,
+        question.activeTab ?? "pourquoi",
+      ]),
+    };
+  });
 }
 
 function CompetencySummary({ competency }) {
@@ -141,15 +206,78 @@ function LessonDate({ lesson }) {
   );
 }
 
+function StudentHistoryTable({ lessons }) {
+  return <table className="nsp-history-table"><thead><tr><th>Date</th><th>Type</th><th>Durée</th><th>Moniteur</th><th>Compétences travaillées</th><th>Bilan du moniteur</th><th>Niveau atteint</th><th aria-label="Action" /></tr></thead><tbody>{lessons.length ? lessons.map((lesson) => <tr key={lesson.id}><td><LessonDate lesson={lesson} /></td><td><span className={`nsp-type-badge ${lesson.typeTone || (lesson.type === "Code en ligne" ? "blue" : "green")}`}>{lesson.type}</span></td><td><strong>{lesson.duration}</strong></td><td>{lesson.instructor === "—" ? "—" : <span className="nsp-history-instructor"><i>{lesson.initials}</i>{lesson.instructor}</span>}</td><td>{lesson.competencies.length ? <span className="nsp-history-competencies">{lesson.competencies.map(([code, tone]) => <i key={code} className={tone}>{code}</i>)}</span> : "—"}</td><td><p>{lesson.assessment || "—"}</p></td><td><span className="nsp-history-level"><LevelSquares filled={lesson.level} total={5} /><small>{lesson.level}/5</small></span></td><td><button type="button" className="nsp-row-action" aria-label={`Voir la leçon du ${lesson.date}`}><ChevronRightIcon /></button></td></tr>) : <tr><td colSpan="8" className="nsp-history-empty">Aucune leçon disponible.</td></tr>}</tbody></table>;
+}
+
 export default function CandidateProgressPage() {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeCompetencyId, setActiveCompetencyId] = useState("C1");
-  const activeCompetency = COMPETENCIES.find((competency) => competency.id === activeCompetencyId) ?? COMPETENCIES[0];
+  const [progressData, setProgressData] = useState(null);
+  const [openQuestionKey, setOpenQuestionKey] = useState(null);
+  const [studentQuestionDetails, setStudentQuestionDetails] = useState({});
+  const [historyExpanded, setHistoryExpanded] = useState(false);
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    http.get("/student/progress")
+      .then((response) => {
+        if (cancelled) return;
+        const data = response.data?.data ?? null;
+        setProgressData(data);
+        if (data?.competencies?.[0]?.code) setActiveCompetencyId(data.competencies[0].code);
+      })
+      .catch(() => {
+        if (!cancelled) setProgressData(null);
+      });
+
+    return () => { cancelled = true; };
+  }, []);
+
+  const competencies = toStudentCompetencies(progressData);
+  const activeCompetency = competencies.find((competency) => competency.id === activeCompetencyId) ?? competencies[0];
+  const overallPercentage = progressData?.overallPercentage ?? 68;
+  const hours = progressData?.hours ?? { plannedMinutes: 30 * 60, completedMinutes: 24 * 60 + 30, remainingMinutes: 5 * 60 + 30 };
+  const lessons = progressData?.lessons ?? LESSONS;
+  const visibleLessons = historyExpanded ? lessons : lessons.slice(0, 5);
+  const nextAppointment = progressData?.nextAppointment;
+  const studentName = progressData?.student?.name || "Linda";
 
   const handleSidebarNavigate = (path) => {
     setSidebarOpen(false);
     navigate(path);
+  };
+
+  const saveStudentQuestionDetail = (questionKey, questionId, detail) => {
+    setStudentQuestionDetails((current) => ({
+      ...current,
+      [questionKey]: {
+        studentResponse: detail.studentResponse,
+        studentEvaluation: detail.studentEvaluation,
+        activeTab: detail.activeTab,
+      },
+    }));
+
+    if (!questionId) return;
+
+    http.put(`/student/progress/competencies/${questionId}/comment`, {
+      student_response: detail.studentResponse,
+      student_evaluation: detail.studentEvaluation,
+      active_tab: detail.activeTab,
+    }).then((response) => {
+      const saved = response.data?.data;
+      if (!saved) return;
+      setStudentQuestionDetails((current) => ({
+        ...current,
+        [questionKey]: saved,
+      }));
+    }).catch(() => {
+      // Keep the typed text visible. A later refresh continues to display the
+      // last server-saved value if the network request could not be completed.
+    });
   };
 
   return (
@@ -161,28 +289,29 @@ export default function CandidateProgressPage() {
         <div className="nsp-actions" aria-label="Actions du livret"><button type="button" className="nsp-action-button"><FileIcon />Exporter mon livret (PDF)</button><button type="button" className="nsp-action-button nsp-action-button--green"><ShareIcon />Partager mon livret</button></div>
 
         <section className="nsp-overview-grid" aria-label="Vue d'ensemble de la progression">
-          <article className="nsp-panel nsp-overview-card nsp-global-card"><h2>Ma progression globale</h2><div className="nsp-global-body"><ProgressRing /><div className="nsp-global-copy"><strong>Bravo Linda !</strong><span>Vous êtes sur la bonne voie.</span><span>Continuez vos efforts pour atteindre vos objectifs.</span><button type="button"><TargetIcon />Voir mes objectifs</button></div></div></article>
-          <article className="nsp-panel nsp-overview-card nsp-hours-card"><h2><ClockIcon />Heures de conduite</h2><div className="nsp-hours-values"><span><strong>24h30</strong><small>réalisées</small></span><span><b>sur 30h</b><small>prévues</small></span></div><div className="nsp-hours-progress"><span /></div><div className="nsp-next-lesson"><small>Prochaine leçon prévue</small><strong><CalendarIcon />Mercredi 4 Juin à 14h00</strong></div></article>
-          <article className="nsp-panel nsp-overview-card nsp-appointment-card"><h2><CalendarIcon />Prochain rendez-vous</h2><div className="nsp-appointment-body"><div className="nsp-appointment-date"><span>MER.</span><strong>04</strong><small>JUIN</small></div><div className="nsp-appointment-copy"><strong>Leçon de conduite</strong><span>Mercredi 4 Juin 2025 à 14h00</span><span>avec <b>Carl D.</b></span><span><PinIcon />Agence Creil</span><button type="button"><CalendarIcon />Voir mon planning</button></div></div></article>
+          <article className="nsp-panel nsp-overview-card nsp-global-card"><h2>Ma progression globale</h2><div className="nsp-global-body"><ProgressRing progress={overallPercentage} /><div className="nsp-global-copy"><strong>Bravo {studentName} !</strong><span>Votre moniteur met à jour votre progression.</span><span>Continuez vos efforts pour atteindre vos objectifs.</span><button type="button"><TargetIcon />Voir mes objectifs</button></div></div></article>
+          <article className="nsp-panel nsp-overview-card nsp-hours-card"><h2><ClockIcon />Heures de conduite</h2><div className="nsp-hours-values"><span><strong>{formatMinutes(hours.completedMinutes)}</strong><small>réalisées</small></span><span><b>sur {formatMinutes(hours.plannedMinutes)}</b><small>prévues</small></span></div><div className="nsp-hours-progress"><span style={{ width: `${hours.plannedMinutes ? Math.min(100, (hours.completedMinutes / hours.plannedMinutes) * 100) : 0}%` }} /></div><div className="nsp-next-lesson"><small>Heures restantes</small><strong><CalendarIcon />{formatMinutes(hours.remainingMinutes)}</strong></div></article>
+          <article className="nsp-panel nsp-overview-card nsp-appointment-card"><h2><CalendarIcon />Prochain rendez-vous</h2><div className="nsp-appointment-body"><div className="nsp-appointment-date"><span>{nextAppointment?.weekday ?? "—"}</span><strong>{nextAppointment?.day ?? "—"}</strong><small>{nextAppointment?.month ?? ""}</small></div><div className="nsp-appointment-copy"><strong>{nextAppointment?.title ?? "Aucun rendez-vous prévu"}</strong><span>{nextAppointment ? `${nextAppointment.date}${nextAppointment.time ? ` à ${nextAppointment.time}` : ""}` : "Votre prochain cours apparaîtra ici."}</span>{nextAppointment && <span>avec <b>{nextAppointment.monitorName || "votre moniteur"}</b></span>}<span><PinIcon />Agence à confirmer</span><button type="button" onClick={() => navigate("/student-courses")}><CalendarIcon />Voir mon planning</button></div></div></article>
         </section>
 
         <section className="nsp-competency-grid">
-          <article className="nsp-panel nsp-breakdown-card"><div className="nsp-section-title"><h2>Répartition par compétence (REMC)</h2><span className="nsp-info" title="Référentiel pour l'éducation à une mobilité citoyenne">i</span></div><div className="nsp-competency-list">{COMPETENCIES.map((competency) => <CompetencySummary key={competency.id} competency={competency} />)}</div><div className="nsp-legend" aria-label="Légende des statuts"><span><i className="green" />Acquis</span><span><i className="blue" />En cours d'acquisition</span><span><i className="amber" />En progression</span><span><i className="neutral" />À travailler</span></div></article>
+          <article className="nsp-panel nsp-breakdown-card"><div className="nsp-manoeuvres-card" aria-label="Manœuvres effectuées lors des leçons"><h3>Manœuvres effectuées lors des leçons</h3><div className="nsp-manoeuvres-grid">{MANOEUVRES.map((manoeuvre) => <div className="nsp-manoeuvre-item" key={manoeuvre.id} title={manoeuvre.label}><span className="nsp-manoeuvre-icon"><ManoeuvreIcon type={manoeuvre.id} /></span><strong>{manoeuvre.count}</strong><span>{manoeuvre.label}</span></div>)}</div></div><div className="nsp-section-title"><h2>Répartition par compétence (REMC)</h2><span className="nsp-info" title="Référentiel pour l'éducation à une mobilité citoyenne">i</span></div><div className="nsp-competency-list">{competencies.map((competency) => <CompetencySummary key={competency.id} competency={competency} />)}</div><div className="nsp-legend" aria-label="Légende des statuts"><span><i className="green" />Acquis</span><span><i className="blue" />En cours d'acquisition</span><span><i className="amber" />En progression</span><span><i className="neutral" />À travailler</span></div></article>
 
           <article className="nsp-panel nsp-detail-card">
             <h2>Détail de la compétence sélectionnée</h2>
-            <div className="nsp-competency-tabs" role="tablist" aria-label="Choisir une compétence">{COMPETENCIES.map((competency) => <button key={competency.id} type="button" role="tab" aria-selected={activeCompetencyId === competency.id} className={activeCompetencyId === competency.id ? "active" : ""} onClick={() => setActiveCompetencyId(competency.id)}><strong>{competency.id}</strong><span>{competency.shortTitle}</span></button>)}</div>
+            <div className="nsp-competency-tabs" role="tablist" aria-label="Choisir une compétence">{competencies.map((competency) => <button key={competency.id} type="button" role="tab" aria-selected={activeCompetencyId === competency.id} className={activeCompetencyId === competency.id ? "active" : ""} onClick={() => { setActiveCompetencyId(competency.id); setOpenQuestionKey(null); }}><strong>{competency.id}</strong><span>{competency.shortTitle}</span></button>)}</div>
             <div className={`nsp-detail-summary nsp-tone-${activeCompetency.tone}`}><div><h3>{activeCompetency.id} - {activeCompetency.title}</h3><p>{activeCompetency.description}</p></div><span><strong>{activeCompetency.progress}%</strong><small>Niveau atteint</small></span></div>
-            <div className="nsp-detail-table" role="table" aria-label={`Détails de la compétence ${activeCompetency.id}`}><div className="nsp-detail-row nsp-detail-row--head" role="row"><span>Compétence</span><span>Niveau atteint</span><span>Statut</span></div>{activeCompetency.details.map(([code, description, level, status, tone]) => <div className="nsp-detail-row" role="row" key={code}><span><b>{code}</b>{description}</span><LevelSquares filled={level} tone={activeCompetency.tone} /><span className={`nsp-detail-status ${tone}`}>{status}</span></div>)}</div>
-            <button type="button" className="nsp-advice-button"><ChatIcon />Voir les conseils de moniteur pour cette compétence</button>
+            <div className="nsp-detail-table" role="table" aria-label={`Détails de la compétence ${activeCompetency.id}`}><div className="nsp-detail-row nsp-detail-row--head" role="row"><span>Compétence</span><span>Niveau atteint</span><span>Statut</span></div>{activeCompetency.details.map(([code, description, level, status, tone, observations, questionId, savedStudentResponse, savedStudentEvaluation, savedActiveTab]) => { const questionKey = `${activeCompetency.id}-${code}`; const detail = studentQuestionDetails[questionKey] ?? { studentResponse: savedStudentResponse, studentEvaluation: savedStudentEvaluation, activeTab: savedActiveTab }; const isOpen = openQuestionKey === questionKey; return <div className="nsp-question-wrap" key={questionKey}><div className={`nsp-detail-row nsp-detail-row--interactive ${isOpen ? "active" : ""}`} role="button" tabIndex={0} onClick={() => setOpenQuestionKey((current) => current === questionKey ? null : questionKey)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setOpenQuestionKey((current) => current === questionKey ? null : questionKey); } }}><span><b>{code}</b>{description}</span><LevelSquares filled={level} tone={tone} total={5} /><span className={`nsp-detail-status ${tone}`}>{status}</span></div>{isOpen && <div className="nsp-question-detail"><QuestionDetail role="student" observations={observations} studentResponse={detail.studentResponse ?? ""} studentEvaluation={detail.studentEvaluation ?? false} activeTab={detail.activeTab ?? "pourquoi"} onSave={(nextDetail) => saveStudentQuestionDetail(questionKey, questionId, nextDetail)} /></div>}</div>; })}</div>
+            <button type="button" className="nsp-advice-button" onClick={() => { const firstCode = activeCompetency.details[0]?.[0]; if (firstCode) setOpenQuestionKey(`${activeCompetency.id}-${firstCode}`); }}><ChatIcon />Voir les conseils de moniteur pour cette compétence</button>
           </article>
         </section>
 
         <section className="nsp-panel nsp-history-card">
-          <div className="nsp-history-heading"><h2>Mes dernières leçons</h2><button type="button">Voir tout l'historique <ChevronRightIcon /></button></div>
-          <div className="nsp-history-scroll"><table className="nsp-history-table"><thead><tr><th>Date</th><th>Type</th><th>Durée</th><th>Moniteur</th><th>Compétences travaillées</th><th>Bilan du moniteur</th><th>Niveau atteint</th><th aria-label="Action" /></tr></thead><tbody>{LESSONS.map((lesson) => <tr key={lesson.id}><td><LessonDate lesson={lesson} /></td><td><span className={`nsp-type-badge ${lesson.typeTone}`}>{lesson.type}</span></td><td><strong>{lesson.duration}</strong></td><td>{lesson.instructor === "—" ? "—" : <span className="nsp-history-instructor"><i>{lesson.initials}</i>{lesson.instructor}</span>}</td><td>{lesson.competencies.length ? <span className="nsp-history-competencies">{lesson.competencies.map(([code, tone]) => <i key={code} className={tone}>{code}</i>)}</span> : "—"}</td><td><p>{lesson.assessment}</p></td><td><span className="nsp-history-level"><LevelSquares filled={lesson.level} total={5} /><small>{lesson.level}/5</small></span></td><td><button type="button" className="nsp-row-action" aria-label={`Voir la leçon du ${lesson.date}`}><ChevronRightIcon /></button></td></tr>)}</tbody></table></div>
-          <button type="button" className="nsp-load-more">Charger plus d'historique <ChevronDownIcon /></button>
+          <div className="nsp-history-heading"><h2>Mes dernières leçons</h2><button type="button" onClick={() => setHistoryModalOpen(true)}>Voir tout l'historique <ChevronRightIcon /></button></div>
+          <div className="nsp-history-scroll"><StudentHistoryTable lessons={visibleLessons} /></div>
+          {lessons.length > 5 && <button type="button" className="nsp-load-more" onClick={() => setHistoryExpanded((expanded) => !expanded)}>{historyExpanded ? "Réduire l'historique" : "Charger plus d'historique"} <ChevronDownIcon /></button>}
         </section>
+        {historyModalOpen && <div className="nsp-history-modal-backdrop" role="presentation" onMouseDown={() => setHistoryModalOpen(false)}><section className="nsp-history-modal" role="dialog" aria-modal="true" aria-label="Historique complet des leçons" onMouseDown={(event) => event.stopPropagation()}><header><h2>Historique complet des leçons</h2><button type="button" aria-label="Fermer l'historique" onClick={() => setHistoryModalOpen(false)}>×</button></header><div className="nsp-history-modal-table"><StudentHistoryTable lessons={lessons} /></div></section></div>}
       </main>
     </div>
   );
