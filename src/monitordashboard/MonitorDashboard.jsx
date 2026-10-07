@@ -7,6 +7,7 @@ import BookingDrawer from "./BookingDrawer.jsx";
 import MonitorSessions, { SuccessModal } from "./MonitorSessions.jsx";
 import ProposeSession from "./ProposeSession.jsx";
 import MonitorCompetence from "./MonitorCompetence.jsx";
+import BilansPage from "./BilansPage.jsx";
 import AllSessions from "./AllSessions.jsx";
 import NoticeDrawer from "./NoticeDrawer.jsx";
 import SessionList from "./SessionList.jsx";
@@ -34,6 +35,7 @@ import { selectMonitorProposalsItems } from "../redux/reducers/monitorProposalsS
 import { fetchMonitorProfile, selectMonitorProfile } from "../redux/reducers/monitorProfileSlice.jsx";
 
 import { profileImageUrl } from "../new-student-dashboard/StudentHeader.jsx";
+import http from "../helpers/http.jsx";
 
 const resolveDisplayName = (user) => {
   if (!user) return "Moniteur";
@@ -115,10 +117,18 @@ const IconProgress = () => (
   </svg>
 );
 
+const IconBilans = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M7 3h10v18H7z" />
+    <path d="M10 8h4M10 12h4M10 16h4" />
+  </svg>
+);
+
 const NAV_ITEMS = [
   { id: "accueil",   label: "Accueil",     icon: <IconHome />    },
   { id: "sessions",  label: "Séances",     icon: <IconCalendar /> },
   { id: "progress",  label: "Progression", icon: <IconProgress /> },
+  { id: "bilans",    label: "Bilans",      icon: <IconBilans /> },
   { id: "messages",  label: "Messages",    icon: <IconMessage />  },
   { id: "settings",  label: "Paramètres",  icon: <IconSettings /> },
 ];
@@ -760,7 +770,7 @@ export default function MonitorDashboard({ onClose }) {
   const scheduleLoading = useSelector(selectMonitorScheduleLoading);
   const scheduleError = useSelector(selectMonitorScheduleError);
   const proposalItems = useSelector(selectMonitorProposalsItems);
-  const [activeTab, setActiveTab] = useState("sessions");
+  const [activeTab, setActiveTab] = useState(() => location.pathname === "/monitor/bilans" ? "bilans" : "sessions");
   const [collapsed, setCollapsed] = useState(false);
   const initialWeekStart = useMemo(() => getStartOfWeek(new Date()), []);
   const [selectedWeekStart, setSelectedWeekStart] = useState(initialWeekStart);
@@ -779,6 +789,11 @@ export default function MonitorDashboard({ onClose }) {
   const [settingsView, setSettingsView] = useState("settings");
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [selectedProposal, setSelectedProposal] = useState(null);
+  const [bilanStudents, setBilanStudents] = useState([]);
+  const [selectedBilanStudentId, setSelectedBilanStudentId] = useState("");
+  const [bilanData, setBilanData] = useState(null);
+  const [bilanLoading, setBilanLoading] = useState(false);
+  const [bilanError, setBilanError] = useState("");
 
   const isMonitorPreview = Boolean(location.state?.monitor || viewedMonitorId);
   const authenticatedRole = String(currentUser?.role ?? "").toLowerCase();
@@ -820,6 +835,61 @@ export default function MonitorDashboard({ onClose }) {
     const date_2 = formatIsoDate(getEndOfWeek(selectedWeekStart));
     dispatch(fetchMonitorSchedule({ date_1, date_2, all: true, monitor_id: viewedMonitorId }));
   }, [dispatch, selectedWeekStart, viewedMonitorId]);
+
+  useEffect(() => {
+    if (activeTab !== "bilans") return undefined;
+
+    let active = true;
+    setBilanLoading(true);
+    setBilanError("");
+    http.get("/monitor/bilans/students", { params: viewedMonitorId ? { monitor_id: viewedMonitorId } : undefined })
+      .then(({ data }) => {
+        if (!active) return;
+        const students = data?.data ?? [];
+        setBilanStudents(students);
+        setSelectedBilanStudentId((current) => students.some((student) => student.id === current) ? current : (students[0]?.id ?? ""));
+      })
+      .catch(() => active && setBilanError("Impossible de charger vos élèves pour le moment."))
+      .finally(() => active && setBilanLoading(false));
+
+    return () => { active = false; };
+  }, [activeTab, viewedMonitorId]);
+
+  useEffect(() => {
+    if (activeTab !== "bilans" || !selectedBilanStudentId) return undefined;
+
+    let active = true;
+    setBilanLoading(true);
+    setBilanError("");
+    http.get(`/monitor/bilans/${selectedBilanStudentId}`, { params: viewedMonitorId ? { monitor_id: viewedMonitorId } : undefined })
+      .then(({ data }) => active && setBilanData(data?.data ?? null))
+      .catch(() => active && setBilanError("Impossible de charger ce bilan pour le moment."))
+      .finally(() => active && setBilanLoading(false));
+
+    return () => { active = false; };
+  }, [activeTab, selectedBilanStudentId, viewedMonitorId]);
+
+  const selectBilanStudent = (studentId) => {
+    setSelectedBilanStudentId(studentId);
+    setBilanData(null);
+    setBilanError("");
+  };
+
+  const saveBilan = (changes) => {
+    if (!selectedBilanStudentId) return;
+
+    const nextBilan = {
+      evaluations: bilanData?.evaluations ?? {},
+      hours: bilanData?.hours ?? { bilan1: "0", bilan2: "0" },
+      ...changes,
+    };
+    setBilanData(nextBilan);
+    setBilanError("");
+
+    http.put(`/monitor/bilans/${selectedBilanStudentId}`, nextBilan, { params: viewedMonitorId ? { monitor_id: viewedMonitorId } : undefined })
+      .then(({ data }) => setBilanData(data?.data ?? nextBilan))
+      .catch(() => setBilanError("Impossible d’enregistrer le bilan. Réessayez."));
+  };
 
   // Keep sessionEvents (used by ProposeSession & AllSessions) in sync with Redux
   useEffect(() => {
@@ -1033,6 +1103,11 @@ export default function MonitorDashboard({ onClose }) {
               className={`md-nav-item ${activeTab === item.id ? "md-nav-item--active" : ""}`}
               onClick={() => {
                 setActiveTab(item.id);
+                if (item.id === "bilans") {
+                  navigate("/monitor/bilans", { state: location.state });
+                } else if (location.pathname === "/monitor/bilans") {
+                  navigate("/monitor-dashboard", { state: location.state });
+                }
                 if (item.id === "settings") {
                   setSettingsView("settings");
                 }
@@ -1146,6 +1221,20 @@ export default function MonitorDashboard({ onClose }) {
               monitorName={monitorName}
               monitorId={activeMonitorUser?.monitor?.id ?? activeMonitorUser?.monitor_id ?? viewedMonitorId}
               onBack={() => setActiveTab("accueil")}
+            />
+          )}
+          {activeTab === "bilans" && (
+            <BilansPage
+              key={selectedBilanStudentId || "no-student"}
+              students={bilanStudents}
+              selectedStudentId={selectedBilanStudentId}
+              onStudentChange={selectBilanStudent}
+              initialEvaluations={bilanData?.evaluations ?? {}}
+              initialHours={bilanData?.hours ?? { bilan1: "0", bilan2: "0" }}
+              onEvaluationsChange={(evaluations) => saveBilan({ evaluations })}
+              onHoursChange={(hours) => saveBilan({ hours })}
+              loading={bilanLoading}
+              error={bilanError}
             />
           )}
           {activeTab === "accueil" && allSessionsCandidate && (

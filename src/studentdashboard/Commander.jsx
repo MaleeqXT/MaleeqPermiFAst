@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import "./Commander.css";
 import FilterDrawer from "./FilterDrawer";
 import http from "../helpers/http.jsx";
@@ -117,6 +119,11 @@ function formatPrice(amount) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })} €`;
+}
+
+function itemQuantity(item) {
+  const quantity = Number(item.quantity);
+  return Number.isSafeInteger(quantity) && quantity > 0 ? quantity : 1;
 }
 
 function plainText(value) {
@@ -444,7 +451,7 @@ function OffersDrawer({ items, total, onClose, onRemove, onCheckout }) {
   );
 }
 
-function CheckoutPage({ items, total, studentId, onBack, onRemove, onPaymentSuccess }) {
+function CheckoutPage({ items, total, studentId, student, onBack, onRemove, onPaymentSuccess }) {
   const [paymentMode, setPaymentMode] = useState("standard");
   const [stripeContext, setStripeContext] = useState(null);
   const [cardholderName, setCardholderName] = useState("");
@@ -453,7 +460,7 @@ function CheckoutPage({ items, total, studentId, onBack, onRemove, onPaymentSucc
 
   const amountToPay = useMemo(() => (
     paymentMode === "split"
-      ? items.reduce((sum, item) => sum + Number(item.paymentAmount || item.price || 0), 0)
+      ? items.reduce((sum, item) => sum + Number(item.installments > 1 ? item.paymentAmount : item.price) * itemQuantity(item), 0)
       : total
   ), [items, paymentMode, total]);
 
@@ -489,7 +496,7 @@ function CheckoutPage({ items, total, studentId, onBack, onRemove, onPaymentSucc
 
         return {
           offer_id: item.id,
-          quantity: 1,
+          quantity: itemQuantity(item),
           tranches: trancheCount,
           selected_price_type: isInstallment ? "installment" : "final",
           ...(isInstallment ? { selected_installment_no: 1 } : {}),
@@ -515,7 +522,7 @@ function CheckoutPage({ items, total, studentId, onBack, onRemove, onPaymentSucc
 
       const { data: intentData } = await http.post(stripeStoreUrl, {
         amount: amountToPay,
-        balance: cartData.reduce((sum, item) => sum + Number(item.balance || 0), 0),
+        balance: cartData.reduce((sum, item) => sum + Number(item.balance || 0) * item.quantity, 0),
         ...(studentId ? { student_id: studentId } : {}),
         ...(installments.length ? { installments } : {}),
       });
@@ -572,10 +579,10 @@ function CheckoutPage({ items, total, studentId, onBack, onRemove, onPaymentSucc
 
         <div className="cmd-checkout-section-title">Informations élève</div>
         <div className="cmd-student-card">
-          <div className="cmd-student-avatar">{STUDENT.initials}</div>
+          <div className="cmd-student-avatar">{student.initials}</div>
           <div className="cmd-student-meta">
-            <div className="cmd-student-name">{STUDENT.name}</div>
-            <div className="cmd-student-sub">{`${STUDENT.email} | ${STUDENT.phone}`}</div>
+            <div className="cmd-student-name">{student.name}</div>
+            <div className="cmd-student-sub">{[student.email, student.phone].filter(Boolean).join(" | ")}</div>
           </div>
           <div className="cmd-student-arrow">
             <IconArrowRight />
@@ -646,11 +653,11 @@ function CheckoutPage({ items, total, studentId, onBack, onRemove, onPaymentSucc
           {items.map((item) => (
             <div key={item.id} className="cmd-checkout-summary-item">
               <div>
-                <div className="cmd-checkout-summary-name">{item.name}</div>
-                <div className="cmd-checkout-summary-balance">{`Solde : ${Number(item.balance || 0)}h`}</div>
+                <div className="cmd-checkout-summary-name">{item.name}{itemQuantity(item) > 1 ? ` × ${itemQuantity(item)}` : ""}</div>
+                <div className="cmd-checkout-summary-balance">{`Solde : ${Number(item.balance || 0) * itemQuantity(item)}h`}</div>
               </div>
               <div className="cmd-checkout-summary-side">
-                <strong>{formatPrice(item.price)}</strong>
+                <strong>{formatPrice(item.price * itemQuantity(item))}</strong>
                 <button className="cmd-checkout-remove" onClick={() => onRemove(item.id)}>
                   Retirer
                 </button>
@@ -679,13 +686,22 @@ function CheckoutPage({ items, total, studentId, onBack, onRemove, onPaymentSucc
 }
 
 export default function Commander({ studentId = null, initialCheckout = false, onHome, onPaymentCompleted = () => {}, onOpenNotifications = () => {}, notifCount = 0 }) {
+  const navigate = useNavigate();
+  const user = useSelector((state) => state.auth.user);
+  const studentName = [user?.first_name, user?.last_name].filter(Boolean).join(" ") || user?.name || "Élève";
+  const checkoutStudent = studentId ? STUDENT : {
+    name: studentName,
+    initials: studentName.split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase(),
+    email: user?.email || "",
+    phone: user?.phone || user?.telephone || "",
+  };
   const [cartItems, setCartItems] = useState([]);
   const [offers, setOffers] = useState([]);
   const [offersLoading, setOffersLoading] = useState(true);
   const [offersError, setOffersError] = useState("");
   const [showSuccess, setShowSuccess] = useState(false);
   const [showCart, setShowCart] = useState(false);
-  const [showFilter, setShowFilter] = useState(true);
+  const [showFilter, setShowFilter] = useState(!initialCheckout);
   const [view, setView] = useState("catalog");
   const [paidOffers, setPaidOffers] = useState([]);
   const [showPaymentSuccess, setShowPaymentSuccess] = useState(false);
@@ -698,13 +714,32 @@ export default function Commander({ studentId = null, initialCheckout = false, o
       setOffersError("");
 
       try {
+        let savedItems = [];
+        if (initialCheckout) {
+          try { savedItems = JSON.parse(window.localStorage.getItem("ppf_cart") || "[]"); } catch (_) {}
+          if (!Array.isArray(savedItems) || !savedItems.length) {
+            throw new Error("Votre panier est vide. Choisissez une offre pour continuer.");
+          }
+        }
         const response = await http.get("/student/offers", {
           params: {
             ...(studentId ? { student_id: studentId } : {}),
+            ...(initialCheckout ? { per_page: 100 } : {}),
           },
         });
         const payload = response.data?.offers;
         const rows = Array.isArray(payload) ? payload : payload?.data ?? [];
+        // Selected website offers may be beyond the first page of the catalogue.
+        if (initialCheckout) {
+          for (let page = 2; page <= Number(payload?.last_page || 1); page += 1) {
+            if (savedItems.every((saved) => rows.some((offer) => String(offer.id) === String(saved?.id)))) break;
+            const next = await http.get("/student/offers", {
+              params: { per_page: 100, page, ...(studentId ? { student_id: studentId } : {}) },
+            });
+            if (!active) return;
+            rows.push(...(next.data?.offers?.data || []));
+          }
+        }
         const loggedBoiteType = normalizeBoiteType(response.data?.boite_type);
         if (loggedBoiteType === null) {
           throw new Error("Le type de boîte de l'élève est introuvable.");
@@ -721,23 +756,15 @@ export default function Commander({ studentId = null, initialCheckout = false, o
         setOffers(commanderOffers);
 
         if (initialCheckout) {
-          let savedItems = [];
-          try { savedItems = JSON.parse(window.localStorage.getItem("ppf_cart") || "[]"); } catch (_) {}
-
           const importedItems = savedItems
             .map((saved) => {
-              const offer = commanderOffers.find((item) => String(item.id) === String(saved.id));
-              if (!offer) return null;
+              const offer = commanderOffers.find((item) => String(item.id) === String(saved?.id));
+              if (!offer) throw new Error("Une offre du panier n'est plus disponible pour votre agence ou votre type de boîte. Veuillez modifier votre panier.");
               return {
                 ...offer,
-                quantity: Math.max(1, Number(saved.quantity) || 1),
-                balance: Number(saved.balance ?? offer.balance ?? 0),
-                price: Number(saved.price ?? offer.price ?? 0),
-                installments: Math.max(1, Number(saved.installments ?? offer.installments ?? 1)),
-                paymentAmount: Number(saved.paymentAmount ?? offer.paymentAmount ?? offer.price ?? 0),
+                quantity: itemQuantity(saved),
               };
-            })
-            .filter(Boolean);
+            });
 
           if (importedItems.length) {
             setCartItems(importedItems);
@@ -747,7 +774,7 @@ export default function Commander({ studentId = null, initialCheckout = false, o
       } catch (requestError) {
         if (active) {
           setOffers([]);
-          setOffersError(requestError.response?.data?.message || "Impossible de charger les offres de votre agence.");
+          setOffersError(requestError.response?.data?.message || requestError.message || "Impossible de charger les offres de votre agence.");
         }
       } finally {
         if (active) setOffersLoading(false);
@@ -758,7 +785,7 @@ export default function Commander({ studentId = null, initialCheckout = false, o
     return () => { active = false; };
   }, [studentId, initialCheckout]);
 
-  const total = useMemo(() => cartItems.reduce((sum, item) => sum + item.price, 0), [cartItems]);
+  const total = useMemo(() => cartItems.reduce((sum, item) => sum + item.price * itemQuantity(item), 0), [cartItems]);
 
   const totalLabel = useMemo(() => {
     if (cartItems.length === 0) return "Choisissez une offre";
@@ -772,14 +799,22 @@ export default function Commander({ studentId = null, initialCheckout = false, o
 
   function handleRemoveOffer(id) {
     setCartItems((prev) => prev.filter((item) => item.id !== id));
+    if (initialCheckout) {
+      try {
+        const savedItems = JSON.parse(window.localStorage.getItem("ppf_cart") || "[]");
+        window.localStorage.setItem("ppf_cart", JSON.stringify(savedItems.filter((item) => String(item.id) !== String(id))));
+      } catch (_) {}
+    }
   }
 
   function handlePaymentSuccess() {
+    if (initialCheckout) window.localStorage.removeItem("ppf_cart");
     setPaidOffers(cartItems);
     setCartItems([]);
     setView("catalog");
     setShowPaymentSuccess(true);
     onPaymentCompleted();
+    navigate("/", { replace: true });
   }
 
   if (view === "checkout" && cartItems.length > 0) {
@@ -788,10 +823,21 @@ export default function Commander({ studentId = null, initialCheckout = false, o
         items={cartItems}
         total={total}
         studentId={studentId}
-        onBack={() => setView("catalog")}
+        student={checkoutStudent}
+        onBack={initialCheckout ? onHome : () => setView("catalog")}
         onRemove={handleRemoveOffer}
         onPaymentSuccess={handlePaymentSuccess}
       />
+    );
+  }
+
+  if (initialCheckout && paidOffers.length === 0) {
+    return (
+      <div className="cmd-page">
+        <h1 className="cmd-title">Finalisez votre commande</h1>
+        <p role={offersError ? "alert" : "status"}>{offersLoading ? "Chargement de votre panier…" : offersError || "Votre panier est vide."}</p>
+        <button className="cmd-filter-button" onClick={onHome}>Retour aux offres</button>
+      </div>
     );
   }
 

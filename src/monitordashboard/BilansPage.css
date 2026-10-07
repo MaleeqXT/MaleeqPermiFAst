@@ -1,0 +1,226 @@
+.mb-page {
+  --mb-dashboard-border: #e5e7ef;
+  --mb-dashboard-text: #1a1a2e;
+  --mb-green: #168a5b;
+  --mb-green-dark: #116b47;
+  --mb-green-soft: #eaf7f1;
+  --mb-green-border: #c5e7d6;
+  --mb-muted: #8a8fa8;
+  width: min(100%, 980px);
+  margin: 0 auto;
+  padding: 8px 16px 48px;
+  box-sizing: border-box;
+  color: var(--mb-dashboard-text);
+}
+
+.mb-page-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 20px;
+  margin: 4px 0 18px;
+}
+
+.mb-page-heading-actions {
+  display: flex;
+  align-items: end;
+  gap: 18px;
+}
+
+.mb-student-picker {
+  display: grid;
+  gap: 4px;
+  color: var(--mb-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.mb-student-picker select {
+  min-width: 185px;
+  height: 34px;
+  padding: 0 28px 0 10px;
+  border: 1px solid var(--mb-green-border);
+  border-radius: 8px;
+  background: linear-gradient(180deg, #fff 0%, #f8fafc 100%);
+  color: var(--mb-dashboard-text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.mb-student-picker select:focus {
+  border-color: var(--mb-green);
+  box-shadow: 0 0 0 3px rgba(22, 138, 91, 0.14);
+  outline: none;
+}
+
+.mb-data-message {
+  margin: -5px 0 12px;
+  color: #b54a32;
+  font-size: 13px;
+}
+
+.mb-page-heading p,
+.mb-page-heading h1,
+.mb-hours h2 { margin: 0; }
+
+.mb-page-heading p {
+  color: var(--mb-green-dark);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.mb-page-heading h1 {
+  margin-top: 3px;
+  color: var(--mb-dashboard-text);
+  font-size: 25px;
+  line-height: 1.2;
+}
+
+.mb-column-legend {
+  display: grid;
+  grid-template-columns: repeat(2, 34px);
+  gap: 12px;
+  color: var(--mb-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  white-space: nowrap;
+  margin-right:25px;
+}
+
+.mb-sections { display: grid; gap: 14px; }
+
+.mb-section {
+  overflow: hidden;
+  border: 1px solid var(--mb-dashboard-border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.07);
+}
+
+.mb-section-header {
+  width: 100%;
+  min-height: 52px;
+  display: grid;
+  grid-template-columns: 1fr 28px;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px 12px 20px;
+  border: 0;
+  border-bottom: 1px solid var(--mb-green-border);
+  background: var(--mb-green-soft);
+  color: var(--mb-green-dark);
+  cursor: pointer;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.mb-section-header > span { grid-column: 1; }
+
+.mb-chevron {
+  grid-column: 2;
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+  transition: transform 0.18s ease;
+}
+
+.mb-chevron--open { transform: rotate(180deg); }
+
+.mb-question-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 80px;
+  align-items: center;
+  gap: 18px;
+  min-height: 58px;
+  padding: 10px 16px 10px 20px;
+  border-top: 1px solid #eff0f2;
+}
+
+.mb-question-row p {
+  margin: 0;
+  color: var(--mb-dashboard-text);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.mb-question-actions {
+  display: grid;
+  grid-template-columns: repeat(2, 34px);
+  gap: 12px;
+  justify-content: end;
+}
+
+.mb-evaluation-box {
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #727980;
+  border-radius: 2px;
+  background: #fff;
+  cursor: pointer;
+  transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.mb-evaluation-box:hover { transform: translateY(-1px); }
+.mb-evaluation-box:disabled { cursor: default; }
+.mb-evaluation-box:disabled:hover { transform: none; }
+.mb-evaluation-box:focus-visible { outline: 3px solid rgba(22, 138, 91, 0.25); outline-offset: 2px; }
+.mb-evaluation-box--orange { border-color: #f0a51e; background: #fff; }
+.mb-evaluation-box--green { border-color: var(--mb-green-dark); background: #fff; }
+.mb-evaluation-mark {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: square;
+  stroke-width: 3;
+}
+.mb-evaluation-box--orange { color: #f0a51e; }
+.mb-evaluation-box--green { color: var(--mb-green-dark); }
+
+.mb-hours {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 22px;
+  margin-top: 22px;
+  padding: 18px 20px;
+  border: 1px solid var(--mb-dashboard-border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.07);
+}
+
+.mb-hours h2 { color: var(--mb-dashboard-text); font-size: 16px; }
+.mb-hours-fields { display: grid; grid-template-columns: repeat(2, 58px); gap: 14px; }
+.mb-hours-fields label { display: grid; gap: 6px; color: var(--mb-muted); font-size: 11px; font-weight: 700; text-align: center; }
+.mb-hours-fields input { width: 58px; height: 38px; box-sizing: border-box; border: 1px solid var(--mb-green-border); border-radius: 6px; color: var(--mb-dashboard-text); font: inherit; font-size: 15px; font-weight: 700; text-align: center; }
+.mb-hours-fields input:focus { border-color: var(--mb-green); box-shadow: 0 0 0 3px rgba(22, 138, 91, 0.14); outline: none; }
+
+@media (max-width: 640px) {
+  .mb-page { padding: 2px 0 32px; }
+  .mb-page-heading { margin: 0 4px 14px; }
+  .mb-page-heading h1 { font-size: 22px; }
+  .mb-page-heading-actions { gap: 10px; }
+  .mb-student-picker select { min-width: 150px; max-width: 160px; }
+  .mb-column-legend { display: none; }
+  .mb-sections { gap: 10px; }
+  .mb-section { border-radius: 10px; }
+  .mb-section-header { min-height: 48px; padding: 10px 10px 10px 14px; font-size: 14px; }
+  .mb-question-row { grid-template-columns: minmax(0, 1fr) 74px; gap: 10px; min-height: 54px; padding: 9px 10px 9px 14px; }
+  .mb-question-row p { font-size: 13px; }
+  .mb-question-actions { grid-template-columns: repeat(2, 32px); gap: 10px; }
+  .mb-evaluation-box { width: 32px; height: 32px; border-radius: 2px; }
+  .mb-evaluation-mark { width: 20px; height: 20px; }
+  .mb-hours { margin-top: 16px; padding: 15px 14px; }
+}

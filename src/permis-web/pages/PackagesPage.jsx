@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { useSelector } from 'react-redux'
 import Navbar from '../components/shared/Navbar'
 import Packages from '../components/shared/Packages'
 import ServicesHero from '../components/shared/ServicesHero'
@@ -54,7 +55,10 @@ const PackagesPage = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [searchParams, setSearchParams] = useSearchParams()
+  const currentUser = useSelector((state) => state.auth.user)
   const selectedAgency = agencyKey(searchParams.get('agency')) === 'toulouse' ? 'toulouse' : 'creil'
+  const rawBoiteType = currentUser?.student?.boite_type ?? currentUser?.boite_type
+  const studentBoiteType = [0, 1, '0', '1'].includes(rawBoiteType) ? Number(rawBoiteType) : null
 
   const handleAgencyChange = (event) => {
     const agency = event.target.value
@@ -65,12 +69,20 @@ const PackagesPage = () => {
     let active = true
     async function loadOffers() {
       try {
-        // Fetch both gearbox types explicitly: 0 = manual, 1 = automatic.
+        const rows = (response) => response?.data?.data?.data ?? []
+        if (studentBoiteType !== null) {
+          // A logged-in student sees only offers for their registered gearbox:
+          // 0 = boîte manuelle (BM), 1 = boîte automatique (BA).
+          const response = await http.get('/public/offers', { params: { is_auto: studentBoiteType, status: 1 } })
+          if (active) setOffers(rows(response).filter((offer) => Number(offer.is_auto) === studentBoiteType))
+          return
+        }
+
+        // Visitors without a student profile may browse both catalogues.
         const [manual, automatic] = await Promise.all([
           http.get('/public/offers', { params: { is_auto: 0, status: 1 } }),
           http.get('/public/offers', { params: { is_auto: 1, status: 1 } }),
         ])
-        const rows = (response) => response?.data?.data?.data ?? []
         if (active) setOffers([...rows(manual), ...rows(automatic)])
       } catch (requestError) {
         if (active) setError(requestError?.response?.data?.message || "Impossible de charger les formules.")
@@ -80,7 +92,7 @@ const PackagesPage = () => {
     }
     loadOffers()
     return () => { active = false }
-  }, [])
+  }, [studentBoiteType])
 
   return (
     <>
@@ -103,7 +115,7 @@ const PackagesPage = () => {
         title="NOS FORMULES DE PERMIS"
         subtitle="Découvrez toutes nos formules de conduite conçues pour répondre à chaque besoin. Que vous recherchiez une formation classique, accélérée, moto ou spécialisée, choisissez la formule qui vous accompagnera jusqu'à la réussite de votre permis."
         showSubtitle={true}
-         showTabs={true}
+         showTabs={studentBoiteType === null}
         loading={loading}
         error={error}
       />

@@ -39,18 +39,18 @@ const CartDrawer = () => {
 
   const handleContinue = () => {
     closeDrawer();
-    const role = String(user?.role || "").toLowerCase();
+    const role = String(user?.role || "").trim().toLowerCase();
     const checkoutState = { cartCheckout: true };
 
     // Keep the cart in localStorage. After authentication, LoginPage forwards
     // the student directly to Commander where it is rehydrated.
     if (!user) {
-      navigate("/login-page", { state: { postLoginPath: "/student-dashboard", ...checkoutState } });
+      navigate("/login-page", { state: { postLoginPath: "/student-checkout", ...checkoutState } });
       return;
     }
 
     if (role === "student") {
-      navigate("/student-dashboard", { state: checkoutState });
+      navigate("/student-checkout", { state: checkoutState });
       return;
     }
 

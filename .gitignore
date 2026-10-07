@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Root-level backup archives can contain .env and credentials.
+/*.zip
+/*.7z
+/*.tar
+/*.tar.gz

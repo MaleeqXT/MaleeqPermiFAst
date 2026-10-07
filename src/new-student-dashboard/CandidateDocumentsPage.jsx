@@ -140,17 +140,17 @@ function DocumentRow({ document, onDownload, onPreview, onInfo, onDelete, menuOp
         </div>
         <div className="nsdoc-added-date"><span>Ajouté le</span><strong>{document.added_at}</strong></div>
         <span className={`nsdoc-status nsdoc-status--${tone}`}>{statusLabel}</span>
-        {document.downloadable ? <button type="button" className="nsdoc-icon-action nsdoc-download" title="Télécharger" aria-label={`Télécharger ${document.title}`} onClick={() => onDownload(document)}><DownloadIcon /></button> : <span className="nsdoc-action-placeholder" />}
+        {document.downloadable ? <button type="button" className="nsdoc-icon-action nsdoc-download" title={document.contract ? "Voir le contrat" : "Télécharger"} aria-label={`${document.contract ? "Voir" : "Télécharger"} ${document.title}`} onClick={() => document.contract ? onPreview(document) : onDownload(document)}>{document.contract ? <EyeIcon /> : <DownloadIcon />}</button> : <span className="nsdoc-action-placeholder" />}
         <div className="nsdoc-more-wrap">
           <button type="button" className={`nsdoc-icon-action nsdoc-more${menuOpen ? " is-active" : ""}`} title="Plus d'options" aria-label={`Plus d'options pour ${document.title}`} onClick={() => onToggleMenu(document.id)}><MoreIcon /></button>
           {menuOpen && <div className="nsdoc-action-menu" role="menu">
             {document.downloadable && (
               <button type="button" role="menuitem" onClick={() => onPreview(document)}>
                 <EyeIcon />
-                <span>Voir le document</span>
+                <span>{document.contract ? "Voir le contrat" : "Voir le document"}</span>
               </button>
             )}
-            {document.downloadable && (
+            {document.downloadable && !document.contract && (
               <button type="button" role="menuitem" onClick={() => onDownload(document)}>
                 <DownloadIcon />
                 <span>Télécharger</span>

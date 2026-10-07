@@ -52,8 +52,8 @@ const LoginPage = () => {
     if (loginUser.fulfilled.match(result)) {
       const role = String(result.payload.role || "").toLowerCase();
       const requestedPath = location.state?.postLoginPath;
-      const continueToCheckout = requestedPath === "/student-dashboard" && role === "student";
-      navigate(continueToCheckout ? requestedPath : getHomePath(role), {
+      const continueToCheckout = ["/student-checkout", "/student-dashboard"].includes(requestedPath) && role === "student";
+      navigate(continueToCheckout ? "/student-checkout" : getHomePath(role), {
         replace: true,
         state: continueToCheckout ? { cartCheckout: true } : undefined,
       });

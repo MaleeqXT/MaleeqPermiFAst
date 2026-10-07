@@ -145,7 +145,7 @@ export default function NewCandidate({ onBack }) {
     if (!form.ville) nextErrors.ville = true;
     if (!form.postal) nextErrors.postal = true;
     if (!form.adresse.trim()) nextErrors.adresse = true;
-    if (form.neph && !/^\d{12}$/.test(form.neph)) nextErrors.neph = true;
+    if (form.neph && !form.neph.trim()) nextErrors.neph = true;
     if (form.password && form.password !== form.password_confirmation) nextErrors.password_confirmation = true;
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
@@ -287,7 +287,7 @@ if (!mediaFile && media ) {
           <div className="nc-grid-2">
             <div className={`nc-field ${errors.neph ? "error" : ""}`}>
               <label>Neph <span className="nc-req">*</span></label>
-              <input className="nc-input" value={form.neph} onChange={e => set("neph", e.target.value.replace(/\D/g, "").slice(0, 12))} inputMode="numeric" maxLength={12} />
+              <input className="nc-input" value={form.neph} onChange={e => set("neph", e.target.value)} />
             </div>
             <div className="nc-field">
               <label>Date du code</label>

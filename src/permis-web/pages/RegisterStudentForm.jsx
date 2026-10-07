@@ -594,11 +594,9 @@ export default function RegisterStudentForm({ onSubmit = () => {} }) {
                     <span className="sp-label">Numéro NEPH (si vous le possédez déjà)</span>
                     <input
                       className="sp-input"
-                      placeholder="Entrez votre numéro NEPH (12 chiffres)"
+                      placeholder="Entrez votre numéro NEPH"
                       value={form.neph}
-                      onChange={(e) => setField("neph", e.target.value.replace(/\D/g, "").slice(0, 12))}
-                      inputMode="numeric"
-                      maxLength={12}
+                      onChange={(e) => setField("neph", e.target.value)}
                     />
                   </label>
                 )}

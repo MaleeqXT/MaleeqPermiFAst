@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import blacklogo from './assets/logo.webp'
 import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import loginpage from './Components/loginpage/LoginPage.jsx'
@@ -8,15 +8,6 @@ import { fetchSchools, setSelectedSchool,selectSchool } from "./redux/reducers/s
 import CancellationRequests from './Components/request-cancellations/CancellationRequests.jsx'
 import MessageClients from './Components/message-clients/MessageClients.jsx'
 import ZonePlaces from "./Preferences/ZonePlaces.jsx";
-import CandidateDashboard from "./new-student-dashboard/CandidateDashboard.jsx";
-import CandidateCoursePage from "./new-student-dashboard/CandidateCoursePage.jsx";
-import CandidateProgressPage from "./new-student-dashboard/CandidateProgressPage.jsx";
-import CandidateExamPage from "./new-student-dashboard/CandidateExamPage.jsx";
-import CandidateDocumentsPage from "./new-student-dashboard/CandidateDocumentsPage.jsx";
-import CandidateAccountPage from "./new-student-dashboard/CandidateAccountPage.jsx";
-import CandidatePaymentPage from "./new-student-dashboard/CandidatePaymentPage.jsx";
-import CandidateContactPage from "./new-student-dashboard/CandidateContactPage.jsx";
-import CandidateChatPage from "./new-student-dashboard/CandidateChatPage.jsx";
 import AdminChatPage from "./Components/chat/AdminChatPage.jsx";
 
 // ── Shared / layout
@@ -94,6 +85,7 @@ import Propositions from "./Components/propositions/Propositions.jsx";
 // ── Online site
 import Online from "./Components/Online/Online.jsx";
 import StudentDashboard from "./studentdashboard/StudentsDashboard.jsx";
+import Commander from "./studentdashboard/Commander.jsx";
 import MonitorDashboard from "./monitordashboard/MonitorDashboard.jsx";
 import SatisfactionPage from "./satisfaction/SatisfactionPage.jsx";
 import AdminSatisfactionPage from "./satisfaction/AdminSatisfactionPage.jsx";
@@ -119,6 +111,19 @@ import PW_CodePage                 from "./permis-web/pages/CodePage.jsx";
 import PW_LoginPage                from "./permis-web/pages/LoginPage.jsx";
 import CPFPositioningPage from "./permis-web/pages/CPFPositioningPage.jsx";
 import RegisterStudentForm from "./permis-web/pages/RegisterStudentForm.jsx";
+
+// Student pages are loaded only after the student opens them. This keeps the
+// first dashboard download small and makes the portal appear sooner after login.
+const CandidateDashboard = lazy(() => import("./new-student-dashboard/CandidateDashboard.jsx"));
+const CandidateCoursePage = lazy(() => import("./new-student-dashboard/CandidateCoursePage.jsx"));
+const CandidateProgressPage = lazy(() => import("./new-student-dashboard/CandidateProgressPage.jsx"));
+const CandidateBilansPage = lazy(() => import("./new-student-dashboard/CandidateBilansPage.jsx"));
+const CandidateExamPage = lazy(() => import("./new-student-dashboard/CandidateExamPage.jsx"));
+const CandidateDocumentsPage = lazy(() => import("./new-student-dashboard/CandidateDocumentsPage.jsx"));
+const CandidateAccountPage = lazy(() => import("./new-student-dashboard/CandidateAccountPage.jsx"));
+const CandidatePaymentPage = lazy(() => import("./new-student-dashboard/CandidatePaymentPage.jsx"));
+const CandidateContactPage = lazy(() => import("./new-student-dashboard/CandidateContactPage.jsx"));
+const CandidateChatPage = lazy(() => import("./new-student-dashboard/CandidateChatPage.jsx"));
 
 const PAGE_TITLES = {
   "/dashboard":                "Tableau de bord",
@@ -210,10 +215,12 @@ const ROLE_HOME_PATH = {
 };
 
 const PRIVATE_ROLE_DASHBOARD_PATHS = new Set([
+  "/student-checkout",
   "/student-dashboard",
   "/new-student-dashboard",
   "/student-courses",
   "/student-progress",
+  "/student-bilans",
   "/student-exams",
   "/student-documents",
   "/student-account",
@@ -221,6 +228,7 @@ const PRIVATE_ROLE_DASHBOARD_PATHS = new Set([
   "/student-contact",
   "/student-messages",
   "/monitor-dashboard",
+  "/monitor/bilans",
   "/secretary-dashboard",
 ]);
 
@@ -228,6 +236,7 @@ const NEW_STUDENT_DASHBOARD_PATHS = new Set([
   "/new-student-dashboard",
   "/student-courses",
   "/student-progress",
+  "/student-bilans",
   "/student-exams",
   "/student-documents",
   "/student-account",
@@ -257,11 +266,11 @@ function canAccessPath(role, pathname, state) {
   }
 
   if (currentRole === "student") {
-    return NEW_STUDENT_DASHBOARD_PATHS.has(pathname) || pathname === "/satisfaction";
+    return NEW_STUDENT_DASHBOARD_PATHS.has(pathname) || pathname === "/satisfaction" || pathname === "/student-checkout";
   }
 
   if (currentRole === "monitor") {
-    return pathname === "/monitor-dashboard";
+    return pathname === "/monitor-dashboard" || pathname === "/monitor/bilans";
   }
 
   // Staff users share the same Components and routes. The secretary has a
@@ -279,7 +288,7 @@ function canAccessPath(role, pathname, state) {
         ? Boolean(state?.fromSecretaryDashboard)
         : Boolean(state?.fromCandidateProfile);
     }
-    if (pathname === "/monitor-dashboard") {
+    if (pathname === "/monitor-dashboard" || pathname === "/monitor/bilans") {
       return currentRole === "secretary"
         ? Boolean(state?.fromSecretaryDashboard)
         : Boolean(state?.fromMonitorProfile);
@@ -463,7 +472,8 @@ const handleLogout=async()=>{
   if (PUBLIC_ROUTES.has(location.pathname)) {
     // If user is already logged in and hits the public /login-page, redirect to their dashboard
     if (location.pathname === "/login-page" && authReady && user) {
-      return <Navigate to={homePath} replace />;
+      const checkoutRequested = role === "student" && location.state?.postLoginPath === "/student-checkout";
+      return <Navigate to={checkoutRequested ? "/student-checkout" : homePath} replace />;
     }
     return (
       <CartProvider>
@@ -497,6 +507,10 @@ const handleLogout=async()=>{
     );
   }
 
+  if (!user && location.pathname === "/student-checkout") {
+    return <Navigate to="/login-page" replace state={{ postLoginPath: "/student-checkout" }} />;
+  }
+
   if (!user && location.pathname !== "/loginpage") {
     return <Navigate to="/loginpage" replace />;
   }
@@ -507,15 +521,23 @@ const handleLogout=async()=>{
 
   // New student portal: students land here after login and can navigate only
   // inside this dedicated dashboard.
-  if (location.pathname === "/new-student-dashboard") return <CandidateDashboard />;
-  if (location.pathname === "/student-courses") return <CandidateCoursePage />;
-  if (location.pathname === "/student-progress") return <CandidateProgressPage />;
-  if (location.pathname === "/student-exams") return <CandidateExamPage />;
-  if (location.pathname === "/student-documents") return <CandidateDocumentsPage />;
-  if (location.pathname === "/student-account") return <CandidateAccountPage />;
-  if (location.pathname === "/student-payments") return <CandidatePaymentPage />;
-  if (location.pathname === "/student-contact") return <CandidateContactPage />;
-  if (location.pathname === "/student-messages") return <CandidateChatPage />;
+  if (location.pathname === "/student-checkout") return (
+    <StudentPageLoader>
+      <main style={{ maxWidth: 1200, margin: "0 auto", padding: 24 }}>
+        <Commander initialCheckout onHome={() => navigate("/packages-page")} />
+      </main>
+    </StudentPageLoader>
+  );
+  if (location.pathname === "/new-student-dashboard") return <StudentPageLoader><CandidateDashboard /></StudentPageLoader>;
+  if (location.pathname === "/student-courses") return <StudentPageLoader><CandidateCoursePage /></StudentPageLoader>;
+  if (location.pathname === "/student-progress") return <StudentPageLoader><CandidateProgressPage /></StudentPageLoader>;
+  if (location.pathname === "/student-bilans") return <StudentPageLoader><CandidateBilansPage /></StudentPageLoader>;
+  if (location.pathname === "/student-exams") return <StudentPageLoader><CandidateExamPage /></StudentPageLoader>;
+  if (location.pathname === "/student-documents") return <StudentPageLoader><CandidateDocumentsPage /></StudentPageLoader>;
+  if (location.pathname === "/student-account") return <StudentPageLoader><CandidateAccountPage /></StudentPageLoader>;
+  if (location.pathname === "/student-payments") return <StudentPageLoader><CandidatePaymentPage /></StudentPageLoader>;
+  if (location.pathname === "/student-contact") return <StudentPageLoader><CandidateContactPage /></StudentPageLoader>;
+  if (location.pathname === "/student-messages") return <StudentPageLoader><CandidateChatPage /></StudentPageLoader>;
 
   if (location.pathname === "/student-dashboard") {
     const returnTo = location.state?.returnTo || "/dashboard/general";
@@ -543,7 +565,7 @@ const handleLogout=async()=>{
     return <SatisfactionPage />;
   }
 
-  if (location.pathname === "/monitor-dashboard") {
+  if (location.pathname === "/monitor-dashboard" || location.pathname === "/monitor/bilans") {
     const returnTo = location.state?.returnTo || "/dashboard/general";
     const isSecretaryReturn = Boolean(location.state?.fromSecretaryDashboard);
     const DashboardComponent = MonitorDashboard;
@@ -840,4 +862,8 @@ function PlaceholderPage({ title }) {
       <div className="placeholder-card">Cette page sera bientôt disponible.</div>
     </div>
   );
+}
+
+function StudentPageLoader({ children }) {
+  return <Suspense fallback={<div className="app-root"><div className="main-content">Chargement...</div></div>}>{children}</Suspense>;
 }

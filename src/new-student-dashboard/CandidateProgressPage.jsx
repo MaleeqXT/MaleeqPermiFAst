@@ -4,6 +4,7 @@ import StudentSidebar from "./StudentSidebar.jsx";
 import StudentHeader from "./StudentHeader.jsx";
 import http from "../helpers/http.jsx";
 import QuestionDetail from "../monitordashboard/QuestionDetail.jsx";
+import CandidateLessonDrawer from "./CandidateLessonDrawer.jsx";
 import "./CandidateDashboard.css";
 import "./CandidateProgressPage.css";
 
@@ -206,8 +207,8 @@ function LessonDate({ lesson }) {
   );
 }
 
-function StudentHistoryTable({ lessons }) {
-  return <table className="nsp-history-table"><thead><tr><th>Date</th><th>Type</th><th>Durée</th><th>Moniteur</th><th>Compétences travaillées</th><th>Bilan du moniteur</th><th>Niveau atteint</th><th aria-label="Action" /></tr></thead><tbody>{lessons.length ? lessons.map((lesson) => <tr key={lesson.id}><td><LessonDate lesson={lesson} /></td><td><span className={`nsp-type-badge ${lesson.typeTone || (lesson.type === "Code en ligne" ? "blue" : "green")}`}>{lesson.type}</span></td><td><strong>{lesson.duration}</strong></td><td>{lesson.instructor === "—" ? "—" : <span className="nsp-history-instructor"><i>{lesson.initials}</i>{lesson.instructor}</span>}</td><td>{lesson.competencies.length ? <span className="nsp-history-competencies">{lesson.competencies.map(([code, tone]) => <i key={code} className={tone}>{code}</i>)}</span> : "—"}</td><td><p>{lesson.assessment || "—"}</p></td><td><span className="nsp-history-level"><LevelSquares filled={lesson.level} total={5} /><small>{lesson.level}/5</small></span></td><td><button type="button" className="nsp-row-action" aria-label={`Voir la leçon du ${lesson.date}`}><ChevronRightIcon /></button></td></tr>) : <tr><td colSpan="8" className="nsp-history-empty">Aucune leçon disponible.</td></tr>}</tbody></table>;
+function StudentHistoryTable({ lessons, onLessonOpen }) {
+  return <table className="nsp-history-table"><thead><tr><th>Date</th><th>Type</th><th>Durée</th><th>Moniteur</th><th>Compétences travaillées</th><th>Bilan du moniteur</th><th>Niveau atteint</th><th aria-label="Action" /></tr></thead><tbody>{lessons.length ? lessons.map((lesson) => <tr key={lesson.id}><td><LessonDate lesson={lesson} /></td><td><span className={`nsp-type-badge ${lesson.typeTone || (lesson.type === "Code en ligne" ? "blue" : "green")}`}>{lesson.type}</span></td><td><strong>{lesson.duration}</strong></td><td>{lesson.instructor === "—" ? "—" : <span className="nsp-history-instructor"><i>{lesson.initials}</i>{lesson.instructor}</span>}</td><td>{lesson.competencies.length ? <span className="nsp-history-competencies">{lesson.competencies.map(([code, tone]) => <i key={code} className={tone}>{code}</i>)}</span> : "—"}</td><td><p>{lesson.assessment || "—"}</p></td><td><span className="nsp-history-level"><LevelSquares filled={lesson.level} total={5} /><small>{lesson.level}/5</small></span></td><td><button type="button" className="nsp-row-action" onClick={() => onLessonOpen(lesson)} aria-label={`Voir la leçon du ${lesson.date}`}><ChevronRightIcon /></button></td></tr>) : <tr><td colSpan="8" className="nsp-history-empty">Aucune leçon disponible.</td></tr>}</tbody></table>;
 }
 
 export default function CandidateProgressPage() {
@@ -220,6 +221,7 @@ export default function CandidateProgressPage() {
   const [studentQuestionDetails, setStudentQuestionDetails] = useState({});
   const [historyExpanded, setHistoryExpanded] = useState(false);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
+  const [selectedLessonId, setSelectedLessonId] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -324,10 +326,11 @@ export default function CandidateProgressPage() {
 
         <section className="nsp-panel nsp-history-card">
           <div className="nsp-history-heading"><h2>Mes dernières leçons</h2><button type="button" onClick={() => setHistoryModalOpen(true)}>Voir tout l'historique <ChevronRightIcon /></button></div>
-          <div className="nsp-history-scroll"><StudentHistoryTable lessons={visibleLessons} /></div>
+          <div className="nsp-history-scroll"><StudentHistoryTable lessons={visibleLessons} onLessonOpen={(lesson) => setSelectedLessonId(lesson.id)} /></div>
           {lessons.length > 5 && <button type="button" className="nsp-load-more" onClick={() => setHistoryExpanded((expanded) => !expanded)}>{historyExpanded ? "Réduire l'historique" : "Charger plus d'historique"} <ChevronDownIcon /></button>}
         </section>
-        {historyModalOpen && <div className="nsp-history-modal-backdrop" role="presentation" onMouseDown={() => setHistoryModalOpen(false)}><section className="nsp-history-modal" role="dialog" aria-modal="true" aria-label="Historique complet des leçons" onMouseDown={(event) => event.stopPropagation()}><header><h2>Historique complet des leçons</h2><button type="button" aria-label="Fermer l'historique" onClick={() => setHistoryModalOpen(false)}>×</button></header><div className="nsp-history-modal-table"><StudentHistoryTable lessons={lessons} /></div></section></div>}
+        {historyModalOpen && <div className="nsp-history-modal-backdrop" role="presentation" onMouseDown={() => setHistoryModalOpen(false)}><section className="nsp-history-modal" role="dialog" aria-modal="true" aria-label="Historique complet des leçons" onMouseDown={(event) => event.stopPropagation()}><header><h2>Historique complet des leçons</h2><button type="button" aria-label="Fermer l'historique" onClick={() => setHistoryModalOpen(false)}>×</button></header><div className="nsp-history-modal-table"><StudentHistoryTable lessons={lessons} onLessonOpen={(lesson) => setSelectedLessonId(lesson.id)} /></div></section></div>}
+        <CandidateLessonDrawer lessonId={selectedLessonId} onClose={() => setSelectedLessonId(null)} />
       </main>
     </div>
   );
