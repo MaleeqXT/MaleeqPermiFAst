@@ -112,10 +112,6 @@ export default function CandidateLessonDrawer({ lessonId, onClose }) {
             <div className="nld-observation">{lesson.publicObservation || "Aucune observation renseignée."}</div>
           </section>
 
-          <section className="nld-section">
-            <h3>Observations pour les enseignants</h3>
-            <div className="nld-observation">{lesson.teacherObservation || "Aucune observation renseignée."}</div>
-          </section>
         </>}
       </div>
     </aside>

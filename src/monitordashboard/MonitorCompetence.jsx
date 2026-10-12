@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import "./MonitorCompetence.css";
 import QuestionDetail from "./QuestionDetail.jsx";
 import http from "../helpers/http";
+import { MANEUVER_GROUPS, ManeuverGlyph } from "./formation/FormationManeuvers.jsx";
 
 // ── Icons ───────────────────────────────────────────────────────────────────
 const IconBack = () => (
@@ -483,25 +484,7 @@ const IconMessage = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" /><path d="M8 9h8" /><path d="M8 13h5" /></svg>
 );
 
-const IconManoeuvre = ({ type }) => {
-  const shared = { fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" };
-
-  if (type === "perpendicular") return <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M7 4v24M25 4v24M16 4v24" stroke="currentColor" strokeWidth="1.25" strokeDasharray="3 2" /><rect x="12" y="12" width="8" height="10" rx="2" fill="currentColor" opacity=".85" /><path d="M10 17H3m4-4-4 4 4 4" {...shared} /><text x="13.5" y="9" fontSize="7" fontWeight="700" fill="currentColor">P</text><text x="13.5" y="28" fontSize="7" fontWeight="700" fill="currentColor">P</text></svg>;
-  if (type === "parallel") return <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M4 6h24M4 26h24M8 6v20" stroke="currentColor" strokeWidth="1.25" strokeDasharray="3 2" /><rect x="13" y="11" width="7" height="10" rx="2" fill="currentColor" opacity=".85" /><path d="M16 9V3m-3 3 3-3 3 3" {...shared} /><text x="14" y="24" fontSize="7" fontWeight="700" fill="currentColor">P</text></svg>;
-  if (type === "straight") return <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3v26" stroke="currentColor" strokeWidth="1.25" strokeDasharray="3 2" /><rect x="12" y="11" width="8" height="10" rx="2" fill="currentColor" opacity=".85" /><path d="M25 9v14m-3-3 3 3 3-3" {...shared} /></svg>;
-  if (type === "uturn") return <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M10 24V13a6 6 0 0 1 12 0v11M7 20l3 4 3-4" {...shared} strokeWidth="2.6" /></svg>;
-  if (type === "roundabout") return <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="17" cy="16" r="7" {...shared} strokeWidth="2.2" /><circle cx="17" cy="16" r="2.5" fill="currentColor" /><path d="M17 9a7 7 0 0 1 7 7M10 16H3m4-3-4 3 4 3" {...shared} strokeWidth="2" /></svg>;
-  return <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="23" cy="7" r="2.5" fill="currentColor" /><path d="M6 8h12M12 7l-3 3m3-3-3-3" {...shared} /><rect x="12" y="14" width="8" height="10" rx="2" fill="currentColor" opacity=".85" /></svg>;
-};
-
-const MANOEUVRES = [
-  { id: "perpendicular", label: "Stationnement en bataille", count: 1 },
-  { id: "parallel", label: "Stationnement en créneau", count: 1 },
-  { id: "straight", label: "Marche arrière en ligne droite", count: 1 },
-  { id: "uturn", label: "Demi-tour", count: 2 },
-  { id: "roundabout", label: "Giratoire", count: 3 },
-  { id: "precision", label: "Arrêt de précision", count: 2 },
-];
+const MANOEUVRES = MANEUVER_GROUPS.flatMap((group) => group.maneuvers);
 
 const COMPETENCE_TONES = ["green", "blue", "purple", "amber"];
 
@@ -579,6 +562,7 @@ export default function MonitorCompetence({
   const [progressLoading, setProgressLoading] = useState(true);
   const [savingQuestionId, setSavingQuestionId] = useState(null);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
+  const candidateStudentId = getStudentId(candidate);
 
   useEffect(() => {
     let cancelled = false;
@@ -592,9 +576,13 @@ export default function MonitorCompetence({
           .filter(([id]) => id)).values());
 
         setStudents(uniqueStudents);
-        const firstStudentId = getStudentId(uniqueStudents[0]) ?? null;
-        setProgressLoading(Boolean(firstStudentId));
-        setSelectedStudentId(firstStudentId);
+        // Keep the candidate opened from Formation/Accueil selected. Previously
+        // this always switched back to the first student and hid that candidate's
+        // saved Formation manoeuvres in the monitor Progression screen.
+        const candidateInList = uniqueStudents.find((student) => String(getStudentId(student)) === String(candidateStudentId));
+        const nextStudentId = getStudentId(candidateInList ?? uniqueStudents[0]) ?? null;
+        setProgressLoading(Boolean(nextStudentId));
+        setSelectedStudentId(nextStudentId);
       })
       .catch(() => {
         if (!cancelled) {
@@ -608,7 +596,7 @@ export default function MonitorCompetence({
       });
 
     return () => { cancelled = true; };
-  }, [monitorId]);
+  }, [monitorId, candidateStudentId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -680,6 +668,8 @@ export default function MonitorCompetence({
   const overallPercentage = progressData?.overallPercentage ?? (totalSkills ? Math.round((completedSkills / totalSkills) * 100) : 0);
   const hours = progressData?.hours ?? { plannedMinutes: 0, completedMinutes: 0, remainingMinutes: 0 };
   const lessons = progressData?.lessons ?? RECENT_LESSONS;
+  const maneuverCounts = progressData?.maneuverCounts ?? {};
+  const maneuvers = MANOEUVRES.filter((maneuver) => Number(maneuverCounts[maneuver.id] || 0) > 0);
 
   if (studentsLoading || progressLoading) {
     return <div className="mc-new-progress-loading">Chargement de la progression…</div>;
@@ -724,13 +714,13 @@ export default function MonitorCompetence({
           <div className="mc-new-manoeuvres-card" aria-label="Manœuvres effectuées lors des leçons">
             <h3>Manœuvres effectuées lors des leçons</h3>
             <div className="mc-new-manoeuvres-grid">
-              {MANOEUVRES.map((manoeuvre) => (
+              {maneuvers.length ? maneuvers.map((manoeuvre) => (
                 <div className="mc-new-manoeuvre-item" key={manoeuvre.id} title={manoeuvre.label}>
-                  <span className="mc-new-manoeuvre-icon"><IconManoeuvre type={manoeuvre.id} /></span>
-                  <strong>{manoeuvre.count}</strong>
+                  <span className="mc-new-manoeuvre-icon"><ManeuverGlyph variant={manoeuvre.icon} /></span>
+                  <strong>{Number(maneuverCounts[manoeuvre.id] || 0)}</strong>
                   <span>{manoeuvre.label}</span>
                 </div>
-              ))}
+              )) : <p className="mc-new-manoeuvres-empty">Aucune manœuvre enregistrée pour ce candidat.</p>}
             </div>
           </div>
           <div className="mc-new-section-title"><h2>Répartition par compétence (REMC)</h2><span title="Référentiel pour l'éducation à une mobilité citoyenne">i</span></div>

@@ -28,6 +28,9 @@ const CoursesIcon = () => (
 const ProgressIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"></path><path d="M7 16.5v-3"></path><path d="M12 16.5v-8"></path><path d="M17 16.5v-5"></path></svg>
 );
+const FormationIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 10.5 12 5l10 5.5L12 16z"/><path d="M6 12.7V17c2.7 2.1 9.3 2.1 12 0v-4.3"/><path d="M22 10.5V16"/></svg>
+);
 const BilansIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 3h10v18H7z"></path><path d="M10 8h4M10 12h4M10 16h4"></path></svg>
 );
@@ -59,6 +62,7 @@ const STUDENT_NAV = [
   { path: "/student-courses",       label: "Mes cours",       icon: <CoursesIcon />   },
   { path: "/student-progress",      label: "Ma progression",  icon: <ProgressIcon />  },
   { path: "/student-bilans",        label: "Bilans",          icon: <BilansIcon />    },
+  { path: "/student-formation",     label: "Formation",       icon: <FormationIcon /> },
   { path: "/student-exams",         label: "Mes examens",     icon: <ExamsIcon />     },
   { path: "/student-documents",     label: "Documents",   icon: <DocumentsIcon /> },
   { path: "/student-messages",      label: "Messagerie",  icon: <MessagesIcon /> },

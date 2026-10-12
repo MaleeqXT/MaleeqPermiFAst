@@ -118,6 +118,7 @@ const CandidateDashboard = lazy(() => import("./new-student-dashboard/CandidateD
 const CandidateCoursePage = lazy(() => import("./new-student-dashboard/CandidateCoursePage.jsx"));
 const CandidateProgressPage = lazy(() => import("./new-student-dashboard/CandidateProgressPage.jsx"));
 const CandidateBilansPage = lazy(() => import("./new-student-dashboard/CandidateBilansPage.jsx"));
+const StudentFormationPage = lazy(() => import("./new-student-dashboard/StudentFormationPage.jsx"));
 const CandidateExamPage = lazy(() => import("./new-student-dashboard/CandidateExamPage.jsx"));
 const CandidateDocumentsPage = lazy(() => import("./new-student-dashboard/CandidateDocumentsPage.jsx"));
 const CandidateAccountPage = lazy(() => import("./new-student-dashboard/CandidateAccountPage.jsx"));
@@ -221,6 +222,7 @@ const PRIVATE_ROLE_DASHBOARD_PATHS = new Set([
   "/student-courses",
   "/student-progress",
   "/student-bilans",
+  "/student-formation",
   "/student-exams",
   "/student-documents",
   "/student-account",
@@ -229,6 +231,7 @@ const PRIVATE_ROLE_DASHBOARD_PATHS = new Set([
   "/student-messages",
   "/monitor-dashboard",
   "/monitor/bilans",
+  "/monitor/formation",
   "/secretary-dashboard",
 ]);
 
@@ -237,6 +240,7 @@ const NEW_STUDENT_DASHBOARD_PATHS = new Set([
   "/student-courses",
   "/student-progress",
   "/student-bilans",
+  "/student-formation",
   "/student-exams",
   "/student-documents",
   "/student-account",
@@ -270,7 +274,7 @@ function canAccessPath(role, pathname, state) {
   }
 
   if (currentRole === "monitor") {
-    return pathname === "/monitor-dashboard" || pathname === "/monitor/bilans";
+    return pathname === "/monitor-dashboard" || pathname === "/monitor/bilans" || pathname === "/monitor/formation";
   }
 
   // Staff users share the same Components and routes. The secretary has a
@@ -288,7 +292,7 @@ function canAccessPath(role, pathname, state) {
         ? Boolean(state?.fromSecretaryDashboard)
         : Boolean(state?.fromCandidateProfile);
     }
-    if (pathname === "/monitor-dashboard" || pathname === "/monitor/bilans") {
+    if (pathname === "/monitor-dashboard" || pathname === "/monitor/bilans" || pathname === "/monitor/formation") {
       return currentRole === "secretary"
         ? Boolean(state?.fromSecretaryDashboard)
         : Boolean(state?.fromMonitorProfile);
@@ -532,6 +536,7 @@ const handleLogout=async()=>{
   if (location.pathname === "/student-courses") return <StudentPageLoader><CandidateCoursePage /></StudentPageLoader>;
   if (location.pathname === "/student-progress") return <StudentPageLoader><CandidateProgressPage /></StudentPageLoader>;
   if (location.pathname === "/student-bilans") return <StudentPageLoader><CandidateBilansPage /></StudentPageLoader>;
+  if (location.pathname === "/student-formation") return <StudentPageLoader><StudentFormationPage /></StudentPageLoader>;
   if (location.pathname === "/student-exams") return <StudentPageLoader><CandidateExamPage /></StudentPageLoader>;
   if (location.pathname === "/student-documents") return <StudentPageLoader><CandidateDocumentsPage /></StudentPageLoader>;
   if (location.pathname === "/student-account") return <StudentPageLoader><CandidateAccountPage /></StudentPageLoader>;
@@ -565,7 +570,7 @@ const handleLogout=async()=>{
     return <SatisfactionPage />;
   }
 
-  if (location.pathname === "/monitor-dashboard" || location.pathname === "/monitor/bilans") {
+  if (location.pathname === "/monitor-dashboard" || location.pathname === "/monitor/bilans" || location.pathname === "/monitor/formation") {
     const returnTo = location.state?.returnTo || "/dashboard/general";
     const isSecretaryReturn = Boolean(location.state?.fromSecretaryDashboard);
     const DashboardComponent = MonitorDashboard;

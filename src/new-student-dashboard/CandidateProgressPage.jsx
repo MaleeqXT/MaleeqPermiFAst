@@ -4,6 +4,7 @@ import StudentSidebar from "./StudentSidebar.jsx";
 import StudentHeader from "./StudentHeader.jsx";
 import http from "../helpers/http.jsx";
 import QuestionDetail from "../monitordashboard/QuestionDetail.jsx";
+import { MANEUVER_GROUPS, ManeuverGlyph } from "../monitordashboard/formation/FormationManeuvers.jsx";
 import CandidateLessonDrawer from "./CandidateLessonDrawer.jsx";
 import "./CandidateDashboard.css";
 import "./CandidateProgressPage.css";
@@ -40,24 +41,7 @@ const ChatIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" /><path d="M8 9h8" /><path d="M8 13h5" /></svg>
 );
 
-const ManoeuvreIcon = ({ type }) => {
-  const shared = { fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" };
-  if (type === "perpendicular") return <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M7 4v24M25 4v24M16 4v24" stroke="currentColor" strokeWidth="1.25" strokeDasharray="3 2" /><rect x="12" y="12" width="8" height="10" rx="2" fill="currentColor" opacity=".85" /><path d="M10 17H3m4-4-4 4 4 4" {...shared} /><text x="13.5" y="9" fontSize="7" fontWeight="700" fill="currentColor">P</text><text x="13.5" y="28" fontSize="7" fontWeight="700" fill="currentColor">P</text></svg>;
-  if (type === "parallel") return <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M4 6h24M4 26h24M8 6v20" stroke="currentColor" strokeWidth="1.25" strokeDasharray="3 2" /><rect x="13" y="11" width="7" height="10" rx="2" fill="currentColor" opacity=".85" /><path d="M16 9V3m-3 3 3-3 3 3" {...shared} /><text x="14" y="24" fontSize="7" fontWeight="700" fill="currentColor">P</text></svg>;
-  if (type === "straight") return <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3v26" stroke="currentColor" strokeWidth="1.25" strokeDasharray="3 2" /><rect x="12" y="11" width="8" height="10" rx="2" fill="currentColor" opacity=".85" /><path d="M25 9v14m-3-3 3 3 3-3" {...shared} /></svg>;
-  if (type === "uturn") return <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M10 24V13a6 6 0 0 1 12 0v11M7 20l3 4 3-4" {...shared} strokeWidth="2.6" /></svg>;
-  if (type === "roundabout") return <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="17" cy="16" r="7" {...shared} strokeWidth="2.2" /><circle cx="17" cy="16" r="2.5" fill="currentColor" /><path d="M17 9a7 7 0 0 1 7 7M10 16H3m4-3-4 3 4 3" {...shared} strokeWidth="2" /></svg>;
-  return <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="23" cy="7" r="2.5" fill="currentColor" /><path d="M6 8h12M12 7l-3 3m3-3-3-3" {...shared} /><rect x="12" y="14" width="8" height="10" rx="2" fill="currentColor" opacity=".85" /></svg>;
-};
-
-const MANOEUVRES = [
-  { id: "perpendicular", label: "Stationnement en bataille", count: 1 },
-  { id: "parallel", label: "Stationnement en créneau", count: 1 },
-  { id: "straight", label: "Marche arrière en ligne droite", count: 1 },
-  { id: "uturn", label: "Demi-tour", count: 2 },
-  { id: "roundabout", label: "Giratoire", count: 3 },
-  { id: "precision", label: "Arrêt de précision", count: 2 },
-];
+const MANOEUVRES = MANEUVER_GROUPS.flatMap((group) => group.maneuvers);
 
 const ChevronDownIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
@@ -251,6 +235,8 @@ export default function CandidateProgressPage() {
   const visibleLessons = historyExpanded ? lessons : lessons.slice(0, 5);
   const nextAppointment = progressData?.nextAppointment;
   const studentName = progressData?.student?.name || "Linda";
+  const maneuverCounts = progressData?.maneuverCounts ?? {};
+  const maneuvers = MANOEUVRES.filter((maneuver) => Number(maneuverCounts[maneuver.id] || 0) > 0);
 
   if (progressLoading) {
     return (
@@ -313,7 +299,7 @@ export default function CandidateProgressPage() {
         </section>
 
         <section className="nsp-competency-grid">
-          <article className="nsp-panel nsp-breakdown-card"><div className="nsp-manoeuvres-card" aria-label="Manœuvres effectuées lors des leçons"><h3>Manœuvres effectuées lors des leçons</h3><div className="nsp-manoeuvres-grid">{MANOEUVRES.map((manoeuvre) => <div className="nsp-manoeuvre-item" key={manoeuvre.id} title={manoeuvre.label}><span className="nsp-manoeuvre-icon"><ManoeuvreIcon type={manoeuvre.id} /></span><strong>{manoeuvre.count}</strong><span>{manoeuvre.label}</span></div>)}</div></div><div className="nsp-section-title"><h2>Répartition par compétence (REMC)</h2><span className="nsp-info" title="Référentiel pour l'éducation à une mobilité citoyenne">i</span></div><div className="nsp-competency-list">{competencies.map((competency) => <CompetencySummary key={competency.id} competency={competency} />)}</div><div className="nsp-legend" aria-label="Légende des statuts"><span><i className="green" />Acquis</span><span><i className="blue" />En cours d'acquisition</span><span><i className="amber" />En progression</span><span><i className="neutral" />À travailler</span></div></article>
+          <article className="nsp-panel nsp-breakdown-card"><div className="nsp-manoeuvres-card" aria-label="Manœuvres effectuées lors des leçons"><h3>Manœuvres effectuées lors des leçons</h3><div className="nsp-manoeuvres-grid">{maneuvers.map((manoeuvre) => <div className="nsp-manoeuvre-item" key={manoeuvre.id} title={manoeuvre.label}><span className="nsp-manoeuvre-icon"><ManeuverGlyph variant={manoeuvre.icon} /></span><strong>{Number(maneuverCounts[manoeuvre.id] || 0)}</strong><span>{manoeuvre.label}</span></div>)}</div></div><div className="nsp-section-title"><h2>Répartition par compétence (REMC)</h2><span className="nsp-info" title="Référentiel pour l'éducation à une mobilité citoyenne">i</span></div><div className="nsp-competency-list">{competencies.map((competency) => <CompetencySummary key={competency.id} competency={competency} />)}</div><div className="nsp-legend" aria-label="Légende des statuts"><span><i className="green" />Acquis</span><span><i className="blue" />En cours d'acquisition</span><span><i className="amber" />En progression</span><span><i className="neutral" />À travailler</span></div></article>
 
           <article className="nsp-panel nsp-detail-card">
             <h2>Détail de la compétence sélectionnée</h2>

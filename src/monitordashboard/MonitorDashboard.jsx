@@ -8,6 +8,8 @@ import MonitorSessions, { SuccessModal } from "./MonitorSessions.jsx";
 import ProposeSession from "./ProposeSession.jsx";
 import MonitorCompetence from "./MonitorCompetence.jsx";
 import BilansPage from "./BilansPage.jsx";
+import FormationPage from "./formation/FormationPage.jsx";
+import { GraduationCap } from "lucide-react";
 import AllSessions from "./AllSessions.jsx";
 import NoticeDrawer from "./NoticeDrawer.jsx";
 import SessionList from "./SessionList.jsx";
@@ -127,6 +129,7 @@ const IconBilans = () => (
 const NAV_ITEMS = [
   { id: "accueil",   label: "Accueil",     icon: <IconHome />    },
   { id: "sessions",  label: "Séances",     icon: <IconCalendar /> },
+  { id: "formation", label: "Formation", icon: <GraduationCap size={18} /> },
   { id: "progress",  label: "Progression", icon: <IconProgress /> },
   { id: "bilans",    label: "Bilans",      icon: <IconBilans /> },
   { id: "messages",  label: "Messages",    icon: <IconMessage />  },
@@ -770,7 +773,15 @@ export default function MonitorDashboard({ onClose }) {
   const scheduleLoading = useSelector(selectMonitorScheduleLoading);
   const scheduleError = useSelector(selectMonitorScheduleError);
   const proposalItems = useSelector(selectMonitorProposalsItems);
-  const [activeTab, setActiveTab] = useState(() => location.pathname === "/monitor/bilans" ? "bilans" : "sessions");
+  const [activeTab, setActiveTab] = useState(() => location.pathname === "/monitor/formation" ? "formation" : location.pathname === "/monitor/bilans" ? "bilans" : "sessions");
+  const [formationDirty, setFormationDirty] = useState(false);
+  const [formationBusy, setFormationBusy] = useState(false);
+  const mayLeaveFormation = () => !formationBusy && (!formationDirty || window.confirm("Quitter sans sauvegarder les modifications de la leçon ?"));
+  useEffect(() => {
+    if (location.pathname === "/monitor/formation") setActiveTab("formation");
+    else if (location.pathname === "/monitor/bilans") setActiveTab("bilans");
+    else setActiveTab((tab) => ["formation", "bilans"].includes(tab) ? "sessions" : tab);
+  }, [location.pathname]);
   const [collapsed, setCollapsed] = useState(false);
   const initialWeekStart = useMemo(() => getStartOfWeek(new Date()), []);
   const [selectedWeekStart, setSelectedWeekStart] = useState(initialWeekStart);
@@ -1066,6 +1077,8 @@ export default function MonitorDashboard({ onClose }) {
             type="button"
             className="md-monitor-card"
             onClick={() => {
+              if (!mayLeaveFormation()) return;
+              if (location.pathname === "/monitor/formation") navigate("/monitor-dashboard", { state: location.state });
               setActiveTab("settings");
               setSettingsView("profile");
               setIsCalendrierOpen(false);
@@ -1102,10 +1115,11 @@ export default function MonitorDashboard({ onClose }) {
               type="button"
               className={`md-nav-item ${activeTab === item.id ? "md-nav-item--active" : ""}`}
               onClick={() => {
+                if (item.id !== activeTab && !mayLeaveFormation()) return;
                 setActiveTab(item.id);
-                if (item.id === "bilans") {
-                  navigate("/monitor/bilans", { state: location.state });
-                } else if (location.pathname === "/monitor/bilans") {
+                if (item.id === "bilans" || item.id === "formation") {
+                  navigate("/monitor/" + item.id, { state: location.state });
+                } else if (["/monitor/bilans", "/monitor/formation"].includes(location.pathname)) {
                   navigate("/monitor-dashboard", { state: location.state });
                 }
                 if (item.id === "settings") {
@@ -1151,13 +1165,22 @@ export default function MonitorDashboard({ onClose }) {
               <span>{monitorName}</span>
               <IconChevronDown />
             </div>
-            <button type="button" className="md-leave-btn" onClick={onClose}>
+            <button type="button" className="md-leave-btn" onClick={() => { if (mayLeaveFormation()) onClose?.(); }}>
               Quitter
             </button>
           </div>
         </header>
 
         <main className="md-content">
+          {activeTab === "formation" && (
+            <FormationPage
+              monitorId={viewedMonitorId}
+              onDirtyChange={setFormationDirty}
+              onBusyChange={setFormationBusy}
+              onBack={() => { setActiveTab("accueil"); navigate("/monitor-dashboard", { state: location.state }); }}
+              onLessonChanged={() => dispatch(fetchMonitorSchedule({ date_1: formatIsoDate(selectedWeekStart), date_2: formatIsoDate(getEndOfWeek(selectedWeekStart)), all: true, monitor_id: viewedMonitorId }))}
+            />
+          )}
           {activeTab === "accueil" && !proposeCandidate && !competenceCandidate && !allSessionsCandidate && !reviewListBooking && (
             <>
               <DashboardOverview
