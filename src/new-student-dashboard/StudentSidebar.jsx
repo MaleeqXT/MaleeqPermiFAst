@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import ChatUnreadBadge from '../chat/ChatUnreadBadge.jsx';
+import http from "../helpers/http.jsx";
 import "../Components/shared/Sidebar.css";
 import "./CandidateDashboard.css";
 
@@ -64,6 +65,7 @@ const STUDENT_NAV = [
   { path: "/student-bilans",        label: "Bilans",          icon: <BilansIcon />    },
   { path: "/student-formation",     label: "Formation",       icon: <FormationIcon /> },
   { path: "/student-exams",         label: "Mes examens",     icon: <ExamsIcon />     },
+  { path: "/student-code-route",    label: "Code de la route", icon: <ExamsIcon />, requiresCodeAccess: true },
   { path: "/student-documents",     label: "Documents",   icon: <DocumentsIcon /> },
   { path: "/student-messages",      label: "Messagerie",  icon: <MessagesIcon /> },
   { path: "/student-account",       label: "Mon compte",  icon: <AccountIcon />   },
@@ -72,6 +74,7 @@ const STUDENT_NAV = [
 
 export default function StudentSidebar({ activePath, onNavigate, onLogout, isOpen, onClose }) {
   const [collapsed, setCollapsed] = useState(false);
+  const [hasCodeAccess, setHasCodeAccess] = useState(false);
   const isMobile = useIsMobile();
   const location = useLocation();
   const navigate = useNavigate();
@@ -81,6 +84,18 @@ export default function StudentSidebar({ activePath, onNavigate, onLogout, isOpe
     onClose?.();
     navigate(path, { state: location.state });
   };
+
+  useEffect(() => {
+    let mounted = true;
+    http.get("/student/theory/access")
+      .then((response) => {
+        if (mounted) setHasCodeAccess(Boolean(response.data?.data?.has_access));
+      })
+      .catch(() => {
+        if (mounted) setHasCodeAccess(false);
+      });
+    return () => { mounted = false; };
+  }, []);
 
   return (
     <>
@@ -96,7 +111,7 @@ export default function StudentSidebar({ activePath, onNavigate, onLogout, isOpe
         </div>
 
         <div className="sidebar-nav">
-          {STUDENT_NAV.map((entry) => (
+          {STUDENT_NAV.filter((entry) => !entry.requiresCodeAccess || hasCodeAccess).map((entry) => (
             <div
               key={entry.path}
               className={`nav-item ${activePath === entry.path ? "active" : ""}`}

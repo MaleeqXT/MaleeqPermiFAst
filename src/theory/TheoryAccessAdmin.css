@@ -1,0 +1,41 @@
+.theory-access-admin { box-sizing: border-box; width: 100%; max-width: 1300px; margin: 0 auto; padding: 34px 36px 48px; color: #17324d; }
+.theory-access-heading h1 { margin: 4px 0 8px; font-size: clamp(1.7rem, 3vw, 2.25rem); }
+.theory-access-heading p:not(.theory-eyebrow) { margin: 0; color: #58718a; font-size: 1.02rem; }
+.theory-access-agency { display: inline-flex; margin-top: 13px; padding: 7px 10px; border-radius: 7px; background: #e6f4ef; color: #137047; font-size: .84rem; }
+.theory-access-notice { margin: 22px 0 0; padding: 13px 16px; border-radius: 10px; font-weight: 650; }
+.theory-access-notice--success { background: #e4f7ee; color: #137047; }
+.theory-access-notice--error { background: #fff0f0; color: #b42318; }
+.theory-access-search { display: flex; align-items: end; gap: 12px; margin: 24px 0 16px; padding: 18px; background: #fff; border: 1px solid #dce5e9; border-radius: 14px; box-shadow: 0 4px 18px rgba(27, 53, 82, .05); }
+.theory-access-search label { display: grid; flex: 1 1 320px; gap: 7px; font-size: .82rem; font-weight: 750; letter-spacing: .02em; text-transform: uppercase; color: #48657b; }
+.theory-access-search input, .theory-access-modal input, .theory-access-modal textarea { width: 100%; box-sizing: border-box; border: 1px solid #cbd8de; border-radius: 8px; padding: 11px 12px; color: #193450; font: inherit; background: #fff; }
+.theory-access-modal textarea { min-height: 92px; resize: vertical; }
+.theory-access-list { overflow: hidden; border: 1px solid #dce5e9; border-radius: 14px; background: #fff; }
+.theory-access-row { display: grid; grid-template-columns: minmax(190px, 1.35fr) minmax(200px, 1fr) auto; align-items: center; gap: 20px; padding: 17px 19px; border-bottom: 1px solid #e7eef1; }
+.theory-access-row:last-child { border-bottom: 0; }
+.theory-access-student, .theory-access-state { min-width: 0; display: grid; gap: 5px; }
+.theory-access-student strong { font-size: 1rem; }
+.theory-access-student span, .theory-access-state small { overflow: hidden; color: #667f91; font-size: .86rem; text-overflow: ellipsis; white-space: nowrap; }
+.theory-access-state { justify-items: start; }
+.theory-access-badge { display: inline-flex; width: fit-content; align-items: center; min-height: 25px; border-radius: 999px; padding: 0 9px; font-size: .78rem; font-weight: 750; }
+.theory-access-badge--online { background: #e1f2ff; color: #116496; }
+.theory-access-badge--manual { background: #e4f7ee; color: #137047; }
+.theory-access-badge--none { background: #f1f4f5; color: #66727a; }
+.theory-access-actions { display: flex; justify-content: end; gap: 8px; }
+.theory-access-included { color: #137047; font-size: .87rem; font-weight: 750; }
+.theory-primary, .theory-secondary, .theory-danger { min-height: 39px; border: 0; border-radius: 8px; padding: 0 13px; cursor: pointer; font: inherit; font-weight: 750; white-space: nowrap; }
+.theory-primary { background: #12865f; color: #fff; }
+.theory-primary:hover:not(:disabled) { background: #0d7350; }
+.theory-secondary { background: #edf2f3; color: #21405a; }
+.theory-secondary:hover:not(:disabled) { background: #dde7e9; }
+.theory-danger { background: #fff0f0; color: #b42318; }
+.theory-danger:hover:not(:disabled) { background: #ffdddd; }
+.theory-primary:disabled, .theory-secondary:disabled, .theory-danger:disabled { cursor: not-allowed; opacity: .55; }
+.theory-access-empty { margin: 0; padding: 34px 20px; color: #667f91; text-align: center; }
+.theory-access-pagination { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 18px; color: #627a8d; font-size: .88rem; }
+.theory-access-modal-backdrop { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; padding: 18px; background: rgba(15, 37, 58, .5); }
+.theory-access-modal { width: min(100%, 540px); display: grid; gap: 14px; padding: 26px; border-radius: 16px; background: #fff; box-shadow: 0 24px 70px rgba(10, 32, 54, .28); }
+.theory-access-modal h2 { margin: -8px 0 0; font-size: 1.35rem; }
+.theory-access-modal > p:not(.theory-eyebrow) { margin: 0; color: #61798b; line-height: 1.48; }
+.theory-access-modal label { display: grid; gap: 7px; color: #476278; font-size: .87rem; font-weight: 750; }
+.theory-access-modal-actions { display: flex; justify-content: end; gap: 10px; margin-top: 4px; }
+@media (max-width: 720px) { .theory-access-admin { padding: 24px 16px 40px; } .theory-access-search { align-items: stretch; flex-direction: column; } .theory-access-row { grid-template-columns: 1fr; gap: 11px; } .theory-access-actions { justify-content: start; } .theory-access-pagination { gap: 8px; flex-wrap: wrap; } }

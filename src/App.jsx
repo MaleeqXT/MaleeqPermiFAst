@@ -91,6 +91,9 @@ import SatisfactionPage from "./satisfaction/SatisfactionPage.jsx";
 import AdminSatisfactionPage from "./satisfaction/AdminSatisfactionPage.jsx";
 import SatisfactionSurveyPage from "./satisfaction/SatisfactionSurveyPage.jsx";
 import VehicleManagementPage from "./vehicles/VehicleManagementPage.jsx";
+import AdminTheoryQuestionsPage from "./theory/AdminTheoryQuestionsPage.jsx";
+import AdminTheorySeriesPage from "./theory/AdminTheorySeriesPage.jsx";
+import AdminTheoryAccessPage from "./theory/AdminTheoryAccessPage.jsx";
 
 import "./App.css";
 import LoginPage from "./Components/loginpage/LoginPage.jsx";
@@ -125,6 +128,7 @@ const CandidateAccountPage = lazy(() => import("./new-student-dashboard/Candidat
 const CandidatePaymentPage = lazy(() => import("./new-student-dashboard/CandidatePaymentPage.jsx"));
 const CandidateContactPage = lazy(() => import("./new-student-dashboard/CandidateContactPage.jsx"));
 const CandidateChatPage = lazy(() => import("./new-student-dashboard/CandidateChatPage.jsx"));
+const CodeRouteTestPage = lazy(() => import("./theory/CodeRouteTestPage.jsx"));
 
 const PAGE_TITLES = {
   "/dashboard":                "Tableau de bord",
@@ -162,6 +166,9 @@ const PAGE_TITLES = {
   "/locations":                "Localisations",
   "/site-en-ligne":            "Site en ligne",
   "/admin/satisfaction":       "Satisfaction / Avis",
+  "/theory-questions":         "Code de la Route Questions",
+  "/theory-series":            "Séries Code de la Route",
+  "/theory-accesses":          "Accès Code en espèces",
   "/satisfaction-survey":      "Enquêtes de satisfaction",
   "/cpf-positioning":          "Positionnement CPF",
 };
@@ -229,6 +236,7 @@ const PRIVATE_ROLE_DASHBOARD_PATHS = new Set([
   "/student-payments",
   "/student-contact",
   "/student-messages",
+  "/student-code-route",
   "/monitor-dashboard",
   "/monitor/bilans",
   "/monitor/formation",
@@ -247,6 +255,7 @@ const NEW_STUDENT_DASHBOARD_PATHS = new Set([
   "/student-payments",
   "/student-contact",
   "/student-messages",
+  "/student-code-route",
 ]);
 
 function normalizeRole(role) {
@@ -543,6 +552,7 @@ const handleLogout=async()=>{
   if (location.pathname === "/student-payments") return <StudentPageLoader><CandidatePaymentPage /></StudentPageLoader>;
   if (location.pathname === "/student-contact") return <StudentPageLoader><CandidateContactPage /></StudentPageLoader>;
   if (location.pathname === "/student-messages") return <StudentPageLoader><CandidateChatPage /></StudentPageLoader>;
+  if (location.pathname === "/student-code-route") return <StudentPageLoader><CodeRouteTestPage /></StudentPageLoader>;
 
   if (location.pathname === "/student-dashboard") {
     const returnTo = location.state?.returnTo || "/dashboard/general";
@@ -832,6 +842,9 @@ const handleLogout=async()=>{
                 {/* ── Students Report ── */}
                 <Route path="/active-students" element={<StudentsReport title="Rapport des élèves actifs" />} />
                 <Route path="/admin/satisfaction" element={<AdminSatisfactionPage />} />
+                <Route path="/theory-questions" element={<AdminTheoryQuestionsPage />} />
+                <Route path="/theory-series" element={<AdminTheorySeriesPage />} />
+                <Route path="/theory-accesses" element={<AdminTheoryAccessPage />} />
                 <Route path="/satisfaction-survey" element={<SatisfactionSurveyPage />} />
 
                 {/* ── Vehicles ── */}
