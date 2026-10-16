@@ -44,6 +44,8 @@ import Online from "../../../Components/Online/Online.jsx";
 import AdminChatPage from "../../../Components/chat/AdminChatPage.jsx";
 import { logoutUser } from "../../../redux/reducers/authReducer.jsx";
 import { fetchSchools, selectSchool } from "../../../redux/reducers/schoolReducer.jsx";
+import http from "../../../helpers/http.jsx";
+import DrivingMilestoneAlert from "../../../Components/shared/DrivingMilestoneAlert.jsx";
 
 const DASHBOARD_PATH = "/active-agency";
 
@@ -109,6 +111,7 @@ export default function SecretaryDashboardPage({ initialPath = DASHBOARD_PATH })
   const [activePath, setActivePath] = useState(initialPath);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [milestoneAlert, setMilestoneAlert] = useState(null);
   const accountMenuRef = useRef(null);
 
   // ── School selection state (mirrors App.jsx behaviour) ──────────────────
@@ -171,6 +174,19 @@ export default function SecretaryDashboardPage({ initialPath = DASHBOARD_PATH })
   }, []);
 
   useEffect(() => {
+    let active = true;
+    http.get("/driving-lesson-milestones/pending")
+      .then(({ data }) => {
+        if (active) setMilestoneAlert(data?.data ?? null);
+      })
+      .catch(() => {
+        if (active) setMilestoneAlert(null);
+      });
+
+    return () => { active = false; };
+  }, [user?.id]);
+
+  useEffect(() => {
     const handleOutsideClick = (event) => {
       if (accountMenuRef.current && !accountMenuRef.current.contains(event.target)) {
         setAccountMenuOpen(false);
@@ -193,6 +209,7 @@ export default function SecretaryDashboardPage({ initialPath = DASHBOARD_PATH })
             selectedSchoolId={selectedSchool?.id ?? null}
             onSelectSchool={handleSelectSchool}
             onNavigate={handleNavigate}
+            showMilestoneAlert={false}
           />
         );
       case "/sessions":
@@ -280,6 +297,10 @@ export default function SecretaryDashboardPage({ initialPath = DASHBOARD_PATH })
     <CandidatesProvider>
       <MonitorsProvider>
         <div className="app-root">
+          <DrivingMilestoneAlert
+            alert={milestoneAlert}
+            onAcknowledged={() => setMilestoneAlert(null)}
+          />
           <Sidebar
             activePath={activeSidebarPath} 
             onNavigate={handleNavigate}

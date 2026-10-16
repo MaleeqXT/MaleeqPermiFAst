@@ -1,0 +1,75 @@
+.driving-milestone-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.52);
+  animation: drivingMilestoneFadeIn 160ms ease-out;
+}
+
+.driving-milestone-modal {
+  display: flex;
+  gap: 16px;
+  width: min(100%, 520px);
+  padding: 25px;
+  border: 1px solid #fde68a;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
+  animation: drivingMilestoneRise 180ms ease-out;
+}
+
+.driving-milestone-icon {
+  display: grid;
+  flex: 0 0 54px;
+  width: 54px;
+  height: 54px;
+  place-items: center;
+  border-radius: 50%;
+  background: #fff7d6;
+  color: #c67a00;
+}
+
+.driving-milestone-content { min-width: 0; flex: 1; }
+.driving-milestone-kicker { margin: 1px 0 5px; color: #b45309; font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.driving-milestone-content h2 { margin: 0; color: #17233d; font-size: 20px; line-height: 1.25; }
+.driving-milestone-content > p:not(.driving-milestone-kicker):not(.driving-milestone-error) { margin: 9px 0 20px; color: #475569; font-size: 15px; line-height: 1.55; }
+.driving-milestone-content > .driving-milestone-student { margin: 9px 0 0; color: #17233d; font-size: 14px; line-height: 1.45; }
+.driving-milestone-student + #driving-milestone-message { margin-top: 5px; }
+.driving-milestone-error { margin: -10px 0 14px; color: #b91c1c; font-size: 13px; }
+
+.driving-milestone-confirm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  min-width: 118px;
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 18px;
+  background: #16885e;
+  color: #fff;
+  font: inherit;
+  font-weight: 750;
+  cursor: pointer;
+}
+.driving-milestone-confirm:hover:not(:disabled) { background: #107654; }
+.driving-milestone-confirm:focus-visible { outline: 3px solid #93c5fd; outline-offset: 3px; }
+.driving-milestone-confirm:disabled { cursor: wait; opacity: .72; }
+.driving-milestone-spinner { animation: drivingMilestoneSpin 800ms linear infinite; }
+
+@keyframes drivingMilestoneFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes drivingMilestoneRise { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes drivingMilestoneSpin { to { transform: rotate(360deg); } }
+
+@media (max-width: 520px) {
+  .driving-milestone-backdrop { align-items: end; padding: 12px; }
+  .driving-milestone-modal { gap: 12px; padding: 20px; border-radius: 16px; }
+  .driving-milestone-icon { flex-basis: 44px; width: 44px; height: 44px; }
+  .driving-milestone-icon svg { width: 25px; height: 25px; }
+  .driving-milestone-content h2 { font-size: 18px; }
+  .driving-milestone-confirm { width: 100%; }
+}

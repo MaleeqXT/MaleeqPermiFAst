@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useState, useRef, useEffect } from "react";
 import http from "../../helpers/http.jsx";
+import DrivingMilestoneAlert from "../shared/DrivingMilestoneAlert.jsx";
 import './Dashboard.css';
 
 // ── Carte statistique ─────────────────────────────────────────────────────────
@@ -140,12 +141,13 @@ function OrdersTab({ orders }) {
 }
 
 // ── Tableau de bord principal ─────────────────────────────────────────────────
-export default function Dashboard({ tab, schools, selectedSchoolId, onSelectSchool, onNavigate }) {
+export default function Dashboard({ tab, schools, selectedSchoolId, onSelectSchool, onNavigate, showMilestoneAlert = true }) {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("reservations");
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [milestoneAlert, setMilestoneAlert] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -166,6 +168,27 @@ export default function Dashboard({ tab, schools, selectedSchoolId, onSelectScho
     loadDashboard();
     return () => { active = false; };
   }, [selectedSchoolId]);
+
+  useEffect(() => {
+    if (!showMilestoneAlert) {
+      setMilestoneAlert(null);
+      return undefined;
+    }
+
+    let active = true;
+
+    http.get("/driving-lesson-milestones/pending", {
+      params: selectedSchoolId ? { zone_id: selectedSchoolId } : undefined,
+    })
+      .then(({ data }) => {
+        if (active) setMilestoneAlert(data?.data ?? null);
+      })
+      .catch(() => {
+        if (active) setMilestoneAlert(null);
+      });
+
+    return () => { active = false; };
+  }, [selectedSchoolId, showMilestoneAlert]);
 
   const stats = dashboardData?.totalPerMonth || {};
   const reservations = Object.entries(dashboardData?.lastReservations || {}).map(([date, items]) => ({
@@ -200,6 +223,10 @@ export default function Dashboard({ tab, schools, selectedSchoolId, onSelectScho
 
   return (
     <div>
+      {showMilestoneAlert && <DrivingMilestoneAlert
+        alert={milestoneAlert}
+        onAcknowledged={() => setMilestoneAlert(null)}
+      />}
       {/* ── En-tête ── */}
       <div className="dashboard-header" style={{fontWeight: 700, fontSize: '48px', lineHeight: '54px'}}>
         Tableau de bord
