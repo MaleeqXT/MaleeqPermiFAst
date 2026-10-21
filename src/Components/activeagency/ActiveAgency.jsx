@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from "react-redux";
 import "./ActiveAgency.css";
 import DrivingSchoolForm from "./DrivingSchoolForm";
 import QRCode from "./QRCode";
+import { apiAssetUrl } from "../../config/api.js";
 
 // importing from redux
 import { fetchSchools, setSelectedSchool,selectSchool } from "../../redux/reducers/schoolReducer";
@@ -208,7 +209,7 @@ function CurrentStatusTab({ selectedSchool, schools, selectedSchoolId, searchQue
           <InfoIcon />
           <p className="aa-stat-label aa-qr-label">QR code de l'ecole</p>
                     <img 
-            src={`http://localhost:8000/storage/${selectedSchool?.qrcode}`}
+            src={apiAssetUrl(`storage/${selectedSchool?.qrcode ?? ""}`)}
             alt="QR Code"
             width={140}
             height={140}

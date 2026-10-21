@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import ChatUnreadBadge from '../chat/ChatUnreadBadge.jsx';
 import http from "../helpers/http.jsx";
+import { apiAssetUrl } from "../config/api.js";
+
 import "../Components/shared/Sidebar.css";
 import "./CandidateDashboard.css";
 
@@ -106,7 +108,7 @@ export default function StudentSidebar({ activePath, onNavigate, onLogout, isOpe
           {effectiveCollapsed ? (
             <img src="https://passpermisfacile.fr/assets/logo.svg" alt="PassPermis" className="logo-img" />
           ) : (
-            <img src="http://127.0.0.1:8000/assets/logo-permis-facile.webp" alt="Permis Facile" className="logo-img" />
+            <img src={apiAssetUrl("assets/logo-permis-facile.webp")} alt="Permis Facile" className="logo-img" />
           )}
         </div>
 

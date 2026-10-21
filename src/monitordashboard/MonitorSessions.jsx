@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import "./MonitorSessions.css";
+import http from "../helpers/http.jsx";
 import CalWeekView from "../sessions/Calweekview.jsx";
 import ZoneModal from "../sessions/ZoneModal.jsx";
 import BookingDrawer from "./BookingDrawer.jsx";
@@ -76,6 +77,36 @@ const IconCheck = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="9" />
     <path d="m8.5 12 2.4 2.4 4.6-5" />
+  </svg>
+);
+
+const IconDownload = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M12 3v12" />
+    <path d="m7 10 5 5 5-5" />
+    <path d="M5 21h14" />
+  </svg>
+);
+
+const IconLink = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M10 13a5 5 0 0 0 7.07.07l2-2a5 5 0 0 0-7.07-7.07l-1.15 1.15" />
+    <path d="M14 11a5 5 0 0 0-7.07-.07l-2 2A5 5 0 0 0 12 20l1.15-1.15" />
+  </svg>
+);
+
+const IconCopy = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <rect x="9" y="9" width="13" height="13" rx="2" />
+    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+  </svg>
+);
+
+const IconMoreVertical = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <circle cx="12" cy="5" r="1.8" />
+    <circle cx="12" cy="12" r="1.8" />
+    <circle cx="12" cy="19" r="1.8" />
   </svg>
 );
 
@@ -617,6 +648,18 @@ export default function MonitorSessions({
   const [selectedAvailabilityIds, setSelectedAvailabilityIds] = useState(initialSelectedAvailabilityIds);
   const [successMessage, setSuccessMessage] = useState("");
   const [availabilityError, setAvailabilityError] = useState("");
+  const [planningPdfError, setPlanningPdfError] = useState("");
+  const [isPlanningPdfDownloading, setIsPlanningPdfDownloading] = useState(false);
+  const [planningIcsError, setPlanningIcsError] = useState("");
+  const [isPlanningIcsDownloading, setIsPlanningIcsDownloading] = useState(false);
+  const [showPlanningActionsMenu, setShowPlanningActionsMenu] = useState(false);
+  const [isCalendarSyncOpen, setIsCalendarSyncOpen] = useState(false);
+  const [calendarSubscription, setCalendarSubscription] = useState(null);
+  const [calendarSyncError, setCalendarSyncError] = useState("");
+  const [calendarSyncNotice, setCalendarSyncNotice] = useState("");
+  const [isCalendarSubscriptionLoading, setIsCalendarSubscriptionLoading] = useState(false);
+  const [isCalendarSubscriptionUpdating, setIsCalendarSubscriptionUpdating] = useState(false);
+  const [calendarSyncConfirmation, setCalendarSyncConfirmation] = useState(null);
   const reservationGroups = useSelector(selectMonitorScheduleGroups);
   const reservationLoading = useSelector(selectMonitorScheduleLoading);
   const reservationError = useSelector(selectMonitorScheduleError);
@@ -678,6 +721,10 @@ const [cancelTargetBooking, setCancelTargetBooking] = useState(null);
   const events = controlledEvents ?? internalEvents;
   const setEvents = onEventsChange ?? setInternalEvents;
   const isProposalMode = mode === "proposal";
+  // Keep the calendar actions visible anywhere the established planning PDF
+  // action is visible. The Laravel endpoints still enforce the Moniteur's
+  // identity and never accept another Moniteur's planning through the UI.
+  const canManageCalendarSync = variant === "monitor" && mode === "default";
 
   const pageTitle = title || (variant === "student" ? "Mes séances" : `Séances de ${weekStart.toLocaleDateString("en-US", { month: "long", year: "numeric" })}`);
   const pageSubtitle = subtitle || (variant === "student" ? "Consultez les réservations et les disponibilités" : "Gérez vos séances et vos disponibilités");
@@ -986,6 +1033,189 @@ const handleConfirmSessionCancellation = async ({ justification }) => {
     setSuccessMessage("Demande envoyée à la direction avec succès.");
   };
 
+  const handleDownloadPlanningPdf = async () => {
+    setPlanningPdfError("");
+    setIsPlanningPdfDownloading(true);
+
+    try {
+      const response = await http.get("/monitor/reservations/export/pdf", {
+        params: monitorId ? { monitor_id: monitorId } : undefined,
+        responseType: "blob",
+      });
+      const disposition = response.headers?.["content-disposition"] || "";
+      const matchedFilename = disposition.match(/filename\*?=(?:UTF-8''|")?([^";\n]+)/i);
+      const fallbackFilename = "planning-complet.pdf";
+      const filename = matchedFilename
+        ? decodeURIComponent(matchedFilename[1].trim())
+        : fallbackFilename;
+      const blob = new Blob([response.data], {
+        type: response.headers?.["content-type"] || "application/pdf",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      setSuccessMessage("Le planning PDF a été téléchargé.");
+    } catch (error) {
+      let message = error.response?.data?.message || "Impossible de télécharger le planning PDF. Veuillez réessayer.";
+
+      if (error.response?.data instanceof Blob) {
+        try {
+          const payload = JSON.parse(await error.response.data.text());
+          message = payload.message || message;
+        } catch {
+          // A non-JSON error body still receives the clear fallback message.
+        }
+      }
+
+      setPlanningPdfError(message);
+    } finally {
+      setIsPlanningPdfDownloading(false);
+    }
+  };
+
+  const handleDownloadPlanningIcs = async () => {
+    setPlanningIcsError("");
+    setIsPlanningIcsDownloading(true);
+
+    try {
+      const response = await http.get("/monitor/reservations/export/ics", {
+        params: {
+          date_1: formatIsoDate(weekStart),
+          date_2: formatIsoDate(getEndOfWeek(weekStart)),
+          ...(monitorId ? { monitor_id: monitorId } : {}),
+        },
+        responseType: "blob",
+      });
+      const disposition = response.headers?.["content-disposition"] || "";
+      const matchedFilename = disposition.match(/filename\*?=(?:UTF-8''|")?([^";\n]+)/i);
+      const fallbackFilename = `planning-${formatIsoDate(weekStart)}-au-${formatIsoDate(getEndOfWeek(weekStart))}.ics`;
+      const filename = matchedFilename
+        ? decodeURIComponent(matchedFilename[1].trim())
+        : fallbackFilename;
+      const blob = new Blob([response.data], {
+        type: response.headers?.["content-type"] || "text/calendar;charset=UTF-8",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      setSuccessMessage("Le planning iCalendar a été téléchargé.");
+    } catch (error) {
+      let message = error.response?.data?.message || "Impossible d’exporter le planning iCalendar. Veuillez réessayer.";
+
+      if (error.response?.data instanceof Blob) {
+        try {
+          const payload = JSON.parse(await error.response.data.text());
+          message = payload.message || message;
+        } catch {
+          // Keep the useful fallback when the server returned a non-JSON body.
+        }
+      }
+
+      setPlanningIcsError(message);
+    } finally {
+      setIsPlanningIcsDownloading(false);
+    }
+  };
+
+  const loadCalendarSubscription = async () => {
+    setCalendarSyncError("");
+    setIsCalendarSubscriptionLoading(true);
+
+    try {
+      const response = await http.get("/monitor/calendar/subscription", {
+        params: monitorId ? { monitor_id: monitorId } : undefined,
+      });
+      setCalendarSubscription(response.data?.data ?? null);
+    } catch (error) {
+      setCalendarSyncError(error.response?.data?.message || "Impossible de charger le lien de synchronisation.");
+    } finally {
+      setIsCalendarSubscriptionLoading(false);
+    }
+  };
+
+  const openCalendarSync = () => {
+    setCalendarSyncNotice("");
+    setCalendarSyncConfirmation(null);
+    setIsCalendarSyncOpen(true);
+    void loadCalendarSubscription();
+  };
+
+  const handleCopySubscriptionUrl = async () => {
+    const subscriptionUrl = calendarSubscription?.subscription_url;
+    if (!subscriptionUrl) return;
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(subscriptionUrl);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = subscriptionUrl;
+        textarea.setAttribute("readonly", "");
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        textarea.remove();
+      }
+      setCalendarSyncNotice("Lien d’abonnement copié.");
+    } catch {
+      setCalendarSyncError("Impossible de copier le lien. Sélectionnez-le puis copiez-le manuellement.");
+    }
+  };
+
+  const handleRegenerateSubscription = async () => {
+    setCalendarSyncError("");
+    setCalendarSyncNotice("");
+    setIsCalendarSubscriptionUpdating(true);
+
+    try {
+      const response = await http.post(
+        "/monitor/calendar/subscription/regenerate",
+        {},
+        { params: monitorId ? { monitor_id: monitorId } : undefined },
+      );
+      setCalendarSubscription(response.data?.data ?? null);
+      setCalendarSyncNotice(response.data?.message || "Le lien a été régénéré. Les anciens liens ne fonctionnent plus.");
+      setCalendarSyncConfirmation(null);
+    } catch (error) {
+      setCalendarSyncError(error.response?.data?.message || "Impossible de régénérer le lien.");
+    } finally {
+      setIsCalendarSubscriptionUpdating(false);
+    }
+  };
+
+  const handleRevokeSubscription = async () => {
+    setCalendarSyncError("");
+    setCalendarSyncNotice("");
+    setIsCalendarSubscriptionUpdating(true);
+
+    try {
+      await http.delete("/monitor/calendar/subscription", {
+        params: monitorId ? { monitor_id: monitorId } : undefined,
+      });
+      setCalendarSubscription(null);
+      setCalendarSyncNotice("Le lien d’abonnement a été révoqué.");
+      setCalendarSyncConfirmation(null);
+    } catch (error) {
+      setCalendarSyncError(error.response?.data?.message || "Impossible de révoquer le lien.");
+    } finally {
+      setIsCalendarSubscriptionUpdating(false);
+    }
+  };
+
   const loading = reservationLoading || proposalLoading;
   const error = reservationError || proposalError;
 
@@ -1003,6 +1233,58 @@ const handleConfirmSessionCancellation = async ({ justification }) => {
         </div>
 
         <div className="ms-topbar-actions">
+          {canManageCalendarSync && (
+            <div className="ms-planning-actions">
+              <button
+                type="button"
+                className="ms-icon-btn"
+                aria-label="Ouvrir les actions du planning"
+                aria-expanded={showPlanningActionsMenu}
+                onClick={() => setShowPlanningActionsMenu((open) => !open)}
+              >
+                <IconMoreVertical />
+              </button>
+              {showPlanningActionsMenu && (
+                <div className="ms-planning-actions-menu" role="menu" aria-label="Actions du planning">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setShowPlanningActionsMenu(false);
+                      void handleDownloadPlanningPdf();
+                    }}
+                    disabled={isPlanningPdfDownloading}
+                  >
+                    <IconDownload />
+                    {isPlanningPdfDownloading ? "Génération du PDF…" : "Télécharger le planning (PDF)"}
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setShowPlanningActionsMenu(false);
+                      void handleDownloadPlanningIcs();
+                    }}
+                    disabled={isPlanningIcsDownloading}
+                  >
+                    <IconDownload />
+                    {isPlanningIcsDownloading ? "Export iCalendar…" : "Exporter le planning (.ics)"}
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setShowPlanningActionsMenu(false);
+                      openCalendarSync();
+                    }}
+                  >
+                    <IconLink />
+                    Synchroniser mon agenda
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
           <button
             type="button"
             className="ms-icon-btn"
@@ -1077,6 +1359,17 @@ const handleConfirmSessionCancellation = async ({ justification }) => {
       </section>
 
       <div className="ms-calendar-card">
+        {planningPdfError && (
+          <div className="ms-error-banner ms-export-error" role="alert">
+            {planningPdfError}
+          </div>
+        )}
+        {planningIcsError && (
+          <div className="ms-error-banner ms-export-error" role="alert">
+            {planningIcsError}
+          </div>
+        )}
+
         {variant === "monitor" && mode === "default" && loading && events.length === 0 && (
           <div className="ms-empty-state">
             <h2>Chargement des séances</h2>
@@ -1193,6 +1486,84 @@ const handleConfirmSessionCancellation = async ({ justification }) => {
           onClose={() => setShowSchedulingDrawer(false)}
           onSubmit={handleSubmitSchedulingRequest}
         />
+      )}
+
+      {isCalendarSyncOpen && (
+        <div className="ms-modal-backdrop" role="presentation">
+          <section className="ms-calendar-sync-modal" role="dialog" aria-modal="true" aria-labelledby="calendar-sync-title">
+            <div className="ms-calendar-sync-header">
+              <div>
+                <span>PLANNING</span>
+                <h3 id="calendar-sync-title">Synchroniser mon agenda</h3>
+              </div>
+              <button type="button" className="ms-calendar-sync-close" onClick={() => setIsCalendarSyncOpen(false)} aria-label="Fermer">
+                ×
+              </button>
+            </div>
+
+            <div className="ms-calendar-sync-content">
+              <p className="ms-calendar-sync-intro">
+                Ajoutez ce lien privé dans votre agenda. Les leçons, leurs mises à jour et les annulations seront disponibles dans le calendrier abonné.
+              </p>
+
+              {isCalendarSubscriptionLoading && <p className="ms-calendar-sync-loading">Création du lien sécurisé…</p>}
+              {calendarSyncError && <p className="ms-calendar-sync-error" role="alert">{calendarSyncError}</p>}
+              {calendarSyncNotice && <p className="ms-calendar-sync-notice" role="status">{calendarSyncNotice}</p>}
+
+              {!isCalendarSubscriptionLoading && calendarSubscription?.subscription_url && (
+                <>
+                  <label className="ms-calendar-url-label" htmlFor="calendar-subscription-url">Votre lien iCalendar privé</label>
+                  <div className="ms-calendar-url-row">
+                    <input id="calendar-subscription-url" value={calendarSubscription.subscription_url} readOnly onFocus={(event) => event.currentTarget.select()} />
+                    <button type="button" className="ms-calendar-copy-btn" onClick={handleCopySubscriptionUrl}>
+                      <IconCopy /> Copier
+                    </button>
+                  </div>
+
+                  <div className="ms-provider-instructions">
+                    <h4>Ajouter le lien à votre agenda</h4>
+                    <div className="ms-provider-grid">
+                      <article><strong>Google Calendar</strong><span>Autres agendas → À partir de l’URL → collez le lien.</span></article>
+                      <article><strong>Microsoft Outlook</strong><span>Ajouter un calendrier → S’abonner à partir du web → collez le lien.</span></article>
+                      <article><strong>Apple Calendar</strong><span>Fichier → Nouvel abonnement à un calendrier → collez le lien.</span></article>
+                    </div>
+                    <p>Le serveur reflète les changements immédiatement. Google, Outlook et Apple choisissent leur propre fréquence d’actualisation, qui peut prendre un certain temps.</p>
+                  </div>
+
+                  {calendarSyncConfirmation ? (
+                    <div className="ms-calendar-confirmation" role="alert">
+                      <strong>{calendarSyncConfirmation === "regenerate" ? "Régénérer le lien ?" : "Révoquer le lien ?"}</strong>
+                      <p>{calendarSyncConfirmation === "regenerate"
+                        ? "Les agendas utilisant l’ancien lien cesseront de recevoir les mises à jour."
+                        : "Les agendas utilisant ce lien ne pourront plus accéder à votre planning."}</p>
+                      <div>
+                        <button type="button" className="ms-calendar-text-btn" disabled={isCalendarSubscriptionUpdating} onClick={() => setCalendarSyncConfirmation(null)}>Annuler</button>
+                        <button
+                          type="button"
+                          className="ms-calendar-danger-btn"
+                          disabled={isCalendarSubscriptionUpdating}
+                          onClick={calendarSyncConfirmation === "regenerate" ? handleRegenerateSubscription : handleRevokeSubscription}
+                        >
+                          {isCalendarSubscriptionUpdating ? "Traitement…" : "Confirmer"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="ms-calendar-sync-actions">
+                      <button type="button" className="ms-calendar-text-btn" disabled={isCalendarSubscriptionUpdating} onClick={() => setCalendarSyncConfirmation("regenerate")}>Régénérer le lien</button>
+                      <button type="button" className="ms-calendar-danger-btn" disabled={isCalendarSubscriptionUpdating} onClick={() => setCalendarSyncConfirmation("revoke")}>Révoquer le lien</button>
+                    </div>
+                  )}
+                </>
+              )}
+              {!isCalendarSubscriptionLoading && !calendarSubscription?.subscription_url && (
+                <button type="button" className="ms-calendar-copy-btn" onClick={() => void loadCalendarSubscription()}>
+                  <IconLink /> Créer un nouveau lien d’abonnement
+                </button>
+              )}
+            </div>
+          </section>
+        </div>
       )}
 
       {activeBooking && (

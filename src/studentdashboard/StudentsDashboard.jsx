@@ -14,6 +14,7 @@ import StudentOfferDetail from "./StudentOfferDetail.jsx";
 import ReservationsCancellations from "./ReservationsCancellations.jsx";
 import StudentAvailableSessions from "./StudentAvailableSessions.jsx";
 import http from "../helpers/http.jsx";
+import { satisfactionStageLabel, uniquePendingSurveys } from "../satisfaction/satisfactionState.js";
 
 const IconHome = () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>);
 const IconCalendar = () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg>);
@@ -97,7 +98,7 @@ function NoTraining() {
 }
 
 // ── Welcome tab ───────────────────────────────────────────────────────────────
-function TabAccueil({ studentName, balance, usedBalance, canViewContract, satisfactionAvailable, notificationCount, onOpenSatisfaction, onOpenContract, onOpenNotifications, onOpenCommander, onOpenCarnet }) {
+function TabAccueil({ studentName, balance, usedBalance, canViewContract, showSatisfaction, satisfactionSurveys, satisfactionLoading, satisfactionError, onRetrySatisfaction, notificationCount, onOpenSatisfaction, onOpenContract, onOpenNotifications, onOpenCommander, onOpenCarnet }) {
   const [sessionTab,    setSessionTab]    = useState("upcoming");
   const [drawerSession, setDrawerSession] = useState(null);
 
@@ -158,13 +159,16 @@ function TabAccueil({ studentName, balance, usedBalance, canViewContract, satisf
         </div>
       </div>
 
-      {satisfactionAvailable && (
-        <button type="button" className="sd-satisfaction-link" onClick={onOpenSatisfaction}>
+      {showSatisfaction && satisfactionLoading && <p className="sd-satisfaction-status" aria-live="polite">Chargement de vos enquêtes de satisfaction…</p>}
+      {showSatisfaction && !satisfactionLoading && satisfactionError && <div className="sd-satisfaction-status sd-satisfaction-status--error" role="alert"><span>{satisfactionError}</span><button type="button" onClick={onRetrySatisfaction}>Réessayer</button></div>}
+      {showSatisfaction && !satisfactionLoading && !satisfactionError && satisfactionSurveys.length === 0 && <p className="sd-satisfaction-status" aria-live="polite">Aucune enquête de satisfaction à compléter pour le moment.</p>}
+      {showSatisfaction && !satisfactionLoading && satisfactionSurveys.map((survey) => (
+        <button type="button" className="sd-satisfaction-link" onClick={() => onOpenSatisfaction(survey.id)} key={survey.id}>
           <span aria-hidden="true">🚗</span>
-          <span>Enquête de satisfaction</span>
+          <span>{satisfactionStageLabel(survey.stage)} : {survey.name || "Enquête de satisfaction"}</span>
           <IconChevR />
         </button>
-      )}
+      ))}
 
       {drawerSession && <SessionDrawer session={drawerSession} onClose={() => setDrawerSession(null)} />}
     </div>
@@ -351,7 +355,9 @@ export default function StudentDashboard({ onClose, openFilterOnOpen = false }) 
   const [satisfactionReloadKey, setSatisfactionReloadKey] = useState(0);
   const viewedStudentId = location.state?.candidate?.student?.id ?? location.state?.student?.id ?? null;
   const [studentData, setStudentData] = useState(null);
-  const [satisfactionAvailable, setSatisfactionAvailable] = useState(false);
+  const [satisfactionSurveys, setSatisfactionSurveys] = useState([]);
+  const [satisfactionLoading, setSatisfactionLoading] = useState(() => !viewedStudentId);
+  const [satisfactionError, setSatisfactionError] = useState("");
   const [satisfactionNotification, setSatisfactionNotification] = useState(null);
 
   useEffect(() => {
@@ -380,9 +386,23 @@ export default function StudentDashboard({ onClose, openFilterOnOpen = false }) 
   useEffect(() => {
     let active = true;
     if (viewedStudentId) return undefined;
-    http.get("/student/satisfaction/available")
-      .then(({ data }) => active && setSatisfactionAvailable(Boolean(data?.data?.id)))
-      .catch(() => active && setSatisfactionAvailable(false));
+
+    const loadPendingSurveys = async () => {
+      setSatisfactionLoading(true);
+      setSatisfactionError("");
+      try {
+        const { data } = await http.get("/student/satisfaction/pending");
+        if (active) setSatisfactionSurveys(uniquePendingSurveys(data?.data));
+      } catch {
+        if (!active) return;
+        setSatisfactionSurveys([]);
+        setSatisfactionError("Impossible de charger vos enquêtes de satisfaction.");
+      } finally {
+        if (active) setSatisfactionLoading(false);
+      }
+    };
+
+    void loadPendingSurveys();
     return () => { active = false; };
   }, [satisfactionReloadKey, viewedStudentId]);
 
@@ -420,9 +440,9 @@ export default function StudentDashboard({ onClose, openFilterOnOpen = false }) 
     }
   };
 
-  const openSatisfaction = async () => {
+  const openSatisfaction = async (surveyId = null) => {
     await markSatisfactionNotificationRead();
-    navigate("/satisfaction");
+    navigate("/satisfaction", { state: surveyId ? { surveyId } : undefined });
   };
 
   const studentUser = studentData?.student?.user;
@@ -532,7 +552,7 @@ export default function StudentDashboard({ onClose, openFilterOnOpen = false }) 
 
   return (
     <DashboardShell {...shellProps}>
-      {activeTab==="accueil"  && <TabAccueil studentName={studentName} balance={studentBalance} usedBalance={usedBalance} canViewContract={canViewContract} satisfactionAvailable={satisfactionAvailable} notificationCount={NOTIF_COUNT + (satisfactionNotification ? 1 : 0)} onOpenSatisfaction={openSatisfaction} onOpenContract={handleOpenContract} onOpenNotifications={() => setShowNotifications(true)} onOpenCommander={() => setShowCommander(true)} onOpenCarnet={() => setShowCompetences(true)} />}
+      {activeTab==="accueil"  && <TabAccueil studentName={studentName} balance={studentBalance} usedBalance={usedBalance} canViewContract={canViewContract} showSatisfaction={!viewedStudentId} satisfactionSurveys={satisfactionSurveys} satisfactionLoading={satisfactionLoading} satisfactionError={satisfactionError} onRetrySatisfaction={() => setSatisfactionReloadKey((value) => value + 1)} notificationCount={NOTIF_COUNT + (satisfactionNotification ? 1 : 0)} onOpenSatisfaction={openSatisfaction} onOpenContract={handleOpenContract} onOpenNotifications={() => setShowNotifications(true)} onOpenCommander={() => setShowCommander(true)} onOpenCarnet={() => setShowCompetences(true)} />}
       {activeTab==="sessions" && <TabSessions studentId={viewedStudentId} onBookingComplete={() => {
         setDashboardReloadKey((value) => value + 1);
         setSatisfactionReloadKey((value) => value + 1);

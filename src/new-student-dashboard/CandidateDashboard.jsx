@@ -5,6 +5,7 @@ import StudentSidebar from "./StudentSidebar.jsx";
 import StudentHeader from "./StudentHeader.jsx";
 import { logoutUser } from "../redux/reducers/authReducer.jsx";
 import http from "../helpers/http.jsx";
+import { satisfactionStageLabel, uniquePendingSurveys } from "../satisfaction/satisfactionState.js";
 import "./CandidateDashboard.css";
 
 // ─── Icons ────────────────────────────────────────────────────────────────
@@ -143,6 +144,10 @@ export default function CandidateDashboard() {
   const [dashboardProgress, setDashboardProgress] = useState(null);
   const [progressLoading, setProgressLoading] = useState(true);
   const [satisfactionNotification, setSatisfactionNotification] = useState(null);
+  const [satisfactionSurveys, setSatisfactionSurveys] = useState([]);
+  const [satisfactionLoading, setSatisfactionLoading] = useState(true);
+  const [satisfactionError, setSatisfactionError] = useState("");
+  const [satisfactionRetry, setSatisfactionRetry] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useDispatch();
@@ -181,14 +186,25 @@ export default function CandidateDashboard() {
   useEffect(() => {
     let active = true;
 
-    const loadSatisfactionNotification = () => {
-      http.get("/student/satisfaction/notifications/unread")
-        .then(({ data }) => {
-          if (active) setSatisfactionNotification(data?.data ?? null);
-        })
-        .catch(() => {
-          if (active) setSatisfactionNotification(null);
-        });
+    const loadSatisfactionNotification = async () => {
+      setSatisfactionLoading(true);
+      setSatisfactionError("");
+      try {
+        const [notificationResponse, surveysResponse] = await Promise.all([
+          http.get("/student/satisfaction/notifications/unread"),
+          http.get("/student/satisfaction/pending"),
+        ]);
+        if (!active) return;
+        setSatisfactionNotification(notificationResponse.data?.data ?? null);
+        setSatisfactionSurveys(uniquePendingSurveys(surveysResponse.data?.data));
+      } catch {
+        if (!active) return;
+        setSatisfactionNotification(null);
+        setSatisfactionSurveys([]);
+        setSatisfactionError("Impossible de charger vos enquêtes de satisfaction.");
+      } finally {
+        if (active) setSatisfactionLoading(false);
+      }
     };
 
     loadSatisfactionNotification();
@@ -198,9 +214,9 @@ export default function CandidateDashboard() {
       active = false;
       window.removeEventListener("focus", loadSatisfactionNotification);
     };
-  }, [currentUser?.id]);
+  }, [currentUser?.id, satisfactionRetry]);
 
-  const openSatisfaction = async () => {
+  const openSatisfaction = async (surveyId = null) => {
     const notificationId = satisfactionNotification?.id;
 
     if (notificationId) {
@@ -212,7 +228,7 @@ export default function CandidateDashboard() {
     }
 
     setSatisfactionNotification(null);
-    navigate("/satisfaction");
+    navigate("/satisfaction", { state: surveyId ? { surveyId } : undefined });
   };
 
   const clampPercent = (value) => Math.min(100, Math.max(0, Number(value) || 0));
@@ -261,16 +277,50 @@ export default function CandidateDashboard() {
         <StudentHeader className="nsd-dashboard-header" title={`Bonjour ${firstName || ""} 👋`} subtitle="Bienvenue dans votre espace élève." onMenuOpen={() => setSidebarOpen(true)} user={displayUser} />
 
         <div className="nsd-grid">
-          {satisfactionNotification && (
-            <section className="nsd-satisfaction-card" aria-labelledby="nsd-satisfaction-title">
+          {satisfactionLoading && (
+            <section className="nsd-satisfaction-card nsd-satisfaction-card--state" aria-live="polite" aria-busy="true">
               <span className="nsd-satisfaction-icon" aria-hidden="true">🚗</span>
               <div className="nsd-satisfaction-copy">
-                <h2 id="nsd-satisfaction-title">Votre avis compte</h2>
-                <p>Votre formation avance ! Donnez-nous votre avis sur votre expérience chez PassPermisFacile.</p>
+                <h2>Enquêtes de satisfaction</h2>
+                <p>Chargement de vos enquêtes…</p>
               </div>
-              <button type="button" className="nsd-btn-dark" onClick={openSatisfaction}>Donner mon avis</button>
             </section>
           )}
+
+          {!satisfactionLoading && satisfactionError && (
+            <section className="nsd-satisfaction-card nsd-satisfaction-card--state" role="alert">
+              <span className="nsd-satisfaction-icon" aria-hidden="true">🚗</span>
+              <div className="nsd-satisfaction-copy">
+                <h2>Enquêtes de satisfaction</h2>
+                <p>{satisfactionError}</p>
+              </div>
+              <button type="button" className="nsd-btn-dark" onClick={() => setSatisfactionRetry((value) => value + 1)}>Réessayer</button>
+            </section>
+          )}
+
+          {!satisfactionLoading && !satisfactionError && satisfactionSurveys.length === 0 && (
+            <section className="nsd-satisfaction-card nsd-satisfaction-card--state" aria-live="polite">
+              <span className="nsd-satisfaction-icon" aria-hidden="true">✓</span>
+              <div className="nsd-satisfaction-copy">
+                <h2>Enquêtes de satisfaction</h2>
+                <p>Aucune enquête de satisfaction à compléter pour le moment.</p>
+              </div>
+            </section>
+          )}
+
+          {satisfactionSurveys.map((survey, index) => (
+            <section className="nsd-satisfaction-card" aria-labelledby={`nsd-satisfaction-title-${survey.id}`} key={survey.id}>
+              <span className="nsd-satisfaction-icon" aria-hidden="true">🚗</span>
+              <div className="nsd-satisfaction-copy">
+                <h2 id={`nsd-satisfaction-title-${survey.id}`}>{survey.name || "Votre avis compte"}</h2>
+                <span className="nsd-satisfaction-stage">{satisfactionStageLabel(survey.stage)}</span>
+                <p>{survey.description || "Votre avis nous aide à améliorer votre expérience chez PassPermisFacile."}</p>
+              </div>
+              <button type="button" className="nsd-btn-dark" onClick={() => openSatisfaction(survey.id)}>
+                Répondre à l’enquête{index > 0 ? ` ${index + 1}` : ""}
+              </button>
+            </section>
+          ))}
 
           {/* ── Overall progress ── */}
           <section className="nsd-card nsd-progress-card">

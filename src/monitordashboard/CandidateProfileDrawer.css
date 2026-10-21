@@ -9,6 +9,14 @@
 
 /* ── Drawer panel ── */
 .cpd-drawer {
+  --cpd-accent: #64748b;
+  --cpd-accent-strong: #334155;
+  --cpd-soft: #f1f5f9;
+  --cpd-card-border: #cbd5e1;
+  --cpd-header-background: #ffffff;
+  --cpd-header-text: #111827;
+  --cpd-header-hover-background: #f3f4f6;
+  --cpd-header-hover-text: #111827;
   position: fixed;
   top: 0;
   right: 0;
@@ -24,6 +32,52 @@
   font-family: 'Inter', sans-serif;
 }
 
+/* Transmission drives the family colour. First presentation has the lighter
+   shade; every following presentation intentionally uses the darker shade. */
+.cpd-drawer--manual.cpd-drawer--attempt-light {
+  --cpd-accent: #2563eb;
+  --cpd-accent-strong: #1e3a8a;
+  --cpd-soft: #eff6ff;
+  --cpd-card-border: #bfdbfe;
+  --cpd-header-background: #dbeafe;
+  --cpd-header-text: #172554;
+  --cpd-header-hover-background: #bfdbfe;
+  --cpd-header-hover-text: #172554;
+}
+
+.cpd-drawer--manual.cpd-drawer--attempt-dark {
+  --cpd-accent: #1d4ed8;
+  --cpd-accent-strong: #ffffff;
+  --cpd-soft: #dbeafe;
+  --cpd-card-border: #93c5fd;
+  --cpd-header-background: #1d4ed8;
+  --cpd-header-text: #ffffff;
+  --cpd-header-hover-background: rgba(255, 255, 255, 0.16);
+  --cpd-header-hover-text: #ffffff;
+}
+
+.cpd-drawer--automatic.cpd-drawer--attempt-light {
+  --cpd-accent: #15803d;
+  --cpd-accent-strong: #14532d;
+  --cpd-soft: #f0fdf4;
+  --cpd-card-border: #bbf7d0;
+  --cpd-header-background: #dcfce7;
+  --cpd-header-text: #14532d;
+  --cpd-header-hover-background: #bbf7d0;
+  --cpd-header-hover-text: #14532d;
+}
+
+.cpd-drawer--automatic.cpd-drawer--attempt-dark {
+  --cpd-accent: #15803d;
+  --cpd-accent-strong: #ffffff;
+  --cpd-soft: #dcfce7;
+  --cpd-card-border: #86efac;
+  --cpd-header-background: #15803d;
+  --cpd-header-text: #ffffff;
+  --cpd-header-hover-background: rgba(255, 255, 255, 0.16);
+  --cpd-header-hover-text: #ffffff;
+}
+
 @keyframes cpdSlideIn {
   from { transform: translateX(100%); opacity: 0; }
   to   { transform: translateX(0);    opacity: 1; }
@@ -35,7 +89,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 18px 22px;
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid var(--cpd-card-border);
+  background: var(--cpd-header-background);
   flex-shrink: 0;
 }
 
@@ -43,7 +98,7 @@
 .cpd-header-link {
   background: none;
   border: none;
-  color: #22c55e;
+  color: var(--cpd-header-text);
   font-family: 'Inter', sans-serif;
   font-size: 14px;
   font-weight: 600;
@@ -52,13 +107,13 @@
   min-width: 52px;
   transition: color 0.12s;
 }
-.cpd-header-link:hover { color: #16a34a; }
+.cpd-header-link:hover { color: var(--cpd-header-hover-text); }
 
 .cpd-header-title {
   font-family: 'Inter', sans-serif;
   font-size: 16px;
   font-weight: 700;
-  color: #111827;
+  color: var(--cpd-header-text);
   margin: 0;
 }
 
@@ -69,7 +124,7 @@
 .cpd-header-menu {
   background: none;
   border: none;
-  color: #6b7280;
+  color: var(--cpd-header-text);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -79,7 +134,7 @@
   min-width: 52px;
   justify-content: flex-end;
 }
-.cpd-header-menu:hover { background: #f3f4f6; color: #111827; }
+.cpd-header-menu:hover { background: var(--cpd-header-hover-background); color: var(--cpd-header-hover-text); }
 
 .cpd-header-menu-dropdown {
   position: absolute;
@@ -130,7 +185,7 @@
   align-items: center;
   gap: 14px;
   background: #fff;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--cpd-card-border);
   border-radius: 14px;
   padding: 16px 18px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
@@ -140,8 +195,8 @@
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: #e0e7ff;
-  color: #3730a3;
+  background: var(--cpd-soft);
+  color: var(--cpd-accent);
   font-size: 16px;
   font-weight: 700;
   display: flex;
@@ -200,6 +255,61 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+/* ── Transmission and examination presentation ── */
+.cpd-permit-code-card {
+  border-color: var(--cpd-card-border);
+  background: linear-gradient(135deg, var(--cpd-soft), #fff 72%);
+}
+
+.cpd-permit-code-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.cpd-permit-code-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.cpd-permit-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  max-width: 100%;
+  padding: 6px 9px;
+  border: 1px solid var(--cpd-card-border);
+  border-radius: 999px;
+  background: var(--cpd-soft);
+  color: var(--cpd-accent-strong);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.cpd-drawer--attempt-dark .cpd-permit-badge--attempt {
+  background: var(--cpd-accent);
+  border-color: var(--cpd-accent);
+  color: #fff;
+}
+
+.cpd-permit-code-fallback {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #d7dee8;
+  border-radius: 9px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 /* ── Progress header ── */
@@ -269,6 +379,236 @@
   color: #6b7280;
   line-height: 1.3;
 }
+
+/* ── Formation counters ── */
+.cpd-hours-card { gap: 12px; }
+
+.cpd-evaluation-estimate {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #f0f7ed;
+  border: 1px solid #d5e7cd;
+  color: #315d23;
+  font-size: 13px;
+}
+
+.cpd-evaluation-estimate span { font-weight: 600; }
+.cpd-evaluation-estimate strong { text-align: right; }
+
+.cpd-hours-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.cpd-hour-counter {
+  min-height: 86px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 12px;
+  border: 1px solid #e4e9e3;
+  border-radius: 10px;
+  background: #fbfdfb;
+}
+
+.cpd-hour-counter-label {
+  color: #536254;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.cpd-hour-counter-value {
+  margin-top: 10px;
+  color: #1e3a22;
+  font-size: 21px;
+  line-height: 1;
+}
+
+.cpd-hour-counter--completed { border-top: 3px solid #1f9d63; }
+.cpd-hour-counter--planned { border-top: 3px solid #3b82f6; }
+.cpd-hour-counter--remaining { border-top: 3px solid #638329; }
+.cpd-hour-counter--absence { border: 2px solid #e7a33e; background: #fff8eb; }
+.cpd-hour-counter--absence .cpd-hour-counter-value { color: #b45309; }
+
+.cpd-consumed-hours {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 2px 0;
+  border-top: 1px solid #e8eee7;
+  color: #50604f;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cpd-consumed-hours strong { color: #1e3a22; font-size: 15px; }
+.cpd-hours-error { margin: 0; color: #b91c1c; font-size: 13px; line-height: 1.4; }
+
+/* ── Exam preparation ── */
+.cpd-exam-readiness-card {
+  gap: 14px;
+  border-color: #d8e7d0;
+  background: linear-gradient(145deg, #fcfefb 0%, #ffffff 68%);
+}
+
+.cpd-exam-readiness-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cpd-exam-readiness-heading p {
+  margin: 5px 0 0;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.cpd-exam-status {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  min-height: 28px;
+  padding: 5px 9px;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.cpd-exam-status--booked { border-color: #86efac; background: #f0fdf4; color: #166534; }
+.cpd-exam-status--completed { border-color: #93c5fd; background: #eff6ff; color: #1d4ed8; }
+.cpd-exam-status--waiting { border-color: #fcd34d; background: #fffbeb; color: #92400e; }
+
+.cpd-exam-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.cpd-exam-summary-grid > div {
+  padding: 10px 11px;
+  border: 1px solid #e5ece1;
+  border-radius: 9px;
+  background: #fff;
+}
+
+.cpd-exam-summary-grid span,
+.cpd-exam-readiness-form label > span {
+  display: block;
+  color: #5d6b5d;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.cpd-exam-summary-grid strong {
+  display: block;
+  margin-top: 5px;
+  color: #1f3b22;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.cpd-exam-readiness-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cpd-exam-readiness-form label:not(.cpd-ready-toggle) {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cpd-exam-readiness-form select,
+.cpd-exam-readiness-form input:not([type="checkbox"]),
+.cpd-exam-readiness-form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #cddbc8;
+  border-radius: 9px;
+  outline: none;
+  padding: 10px 11px;
+  background: #fff;
+  color: #1f2937;
+  font: inherit;
+  font-size: 13px;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+
+.cpd-exam-readiness-form textarea { resize: vertical; min-height: 72px; }
+
+.cpd-exam-readiness-form select:focus,
+.cpd-exam-readiness-form input:not([type="checkbox"]):focus,
+.cpd-exam-readiness-form textarea:focus {
+  border-color: #638329;
+  box-shadow: 0 0 0 3px rgba(99, 131, 41, 0.13);
+}
+
+.cpd-exam-readiness-form select:disabled,
+.cpd-exam-readiness-form input:disabled,
+.cpd-exam-readiness-form textarea:disabled { background: #f5f7f4; color: #94a3b8; cursor: not-allowed; }
+
+.cpd-ready-toggle {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 11px;
+  border: 1px solid #cfe3c6;
+  border-radius: 9px;
+  background: #f4faef;
+  color: #315d23;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.cpd-ready-toggle input { width: 17px; height: 17px; accent-color: #638329; }
+.cpd-ready-toggle:has(input:disabled) { cursor: not-allowed; opacity: 0.72; }
+
+.cpd-exam-readiness-save {
+  width: 100%;
+  border: 0;
+  border-radius: 9px;
+  padding: 11px 14px;
+  background: #638329;
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.12s, transform 0.12s;
+}
+
+.cpd-exam-readiness-save:hover:not(:disabled) { background: #51701f; }
+.cpd-exam-readiness-save:active:not(:disabled) { transform: translateY(1px); }
+.cpd-exam-readiness-save:disabled { cursor: not-allowed; opacity: 0.62; }
+
+.cpd-exam-readiness-error,
+.cpd-exam-readiness-success {
+  margin: 0;
+  padding: 9px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.cpd-exam-readiness-error { border: 1px solid #fecaca; background: #fef2f2; color: #b91c1c; }
+.cpd-exam-readiness-success { border: 1px solid #bbf7d0; background: #f0fdf4; color: #166534; }
 
 /* ── Section title inside card ── */
 .cpd-section-title {
@@ -355,3 +695,12 @@
   transition: background 0.12s;
 }
 .cpd-call-btn:hover { background: #222; }
+
+@media (max-width: 380px) {
+  .cpd-hours-grid { grid-template-columns: 1fr; }
+  .cpd-permit-code-grid { grid-template-columns: 1fr; }
+  .cpd-exam-summary-grid { grid-template-columns: 1fr; }
+  .cpd-exam-readiness-heading { flex-direction: column; }
+  .cpd-evaluation-estimate { align-items: flex-start; flex-direction: column; }
+  .cpd-evaluation-estimate strong { text-align: left; }
+}

@@ -6,6 +6,7 @@ import http from "../helpers/http.jsx";
 import { fetchCurrentUser } from "../redux/reducers/authReducer.jsx";
 import StudentSidebar from "./StudentSidebar.jsx";
 import StudentHeader, { profileImageUrl } from "./StudentHeader.jsx";
+import { buildStudentExamSummary } from "./studentExamInfo.js";
 import "./CandidateDashboard.css";
 import "./CandidateAccountPage.css";
 
@@ -36,6 +37,7 @@ const ShieldIcon = () => <StrokeIcon><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8
 const MonitorIcon = () => <StrokeIcon><rect x="3" y="4" width="18" height="13" rx="2" /><path d="M8 21h8M12 17v4" /></StrokeIcon>;
 const InfoIcon = () => <StrokeIcon><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></StrokeIcon>;
 const CloseIcon = () => <StrokeIcon><path d="m6 6 12 12M18 6 6 18" /></StrokeIcon>;
+const ExamIcon = () => <StrokeIcon><rect x="5" y="3" width="14" height="18" rx="2" /><path d="M9 3.5h6V7H9zM9 11h6M9 15h3M9 19h3" /><path d="m15 16 1.5 1.5L20 14" /></StrokeIcon>;
 
 const INITIAL_PERSONAL_INFO = {
   fullName: "",
@@ -164,6 +166,10 @@ export default function CandidateAccountPage() {
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [saving, setSaving] = useState(false);
   const [accountError, setAccountError] = useState("");
+  const [examInfo, setExamInfo] = useState(null);
+  const [examLoading, setExamLoading] = useState(true);
+  const [examError, setExamError] = useState("");
+  const [examReloadKey, setExamReloadKey] = useState(0);
 
   const applyAccountData = (payload) => {
     const user = payload?.user ?? initialUser ?? {};
@@ -232,6 +238,28 @@ export default function CandidateAccountPage() {
       .catch((error) => active && setAccountError(error.response?.data?.message || "Impossible de charger votre profil."));
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    setExamLoading(true);
+    setExamError("");
+
+    http.get("/student/exams")
+      .then(({ data }) => {
+        if (active) setExamInfo(data?.data ?? null);
+      })
+      .catch((error) => {
+        if (active) {
+          setExamInfo(null);
+          setExamError(error.response?.data?.message || "Impossible de charger les informations d'examen.");
+        }
+      })
+      .finally(() => {
+        if (active) setExamLoading(false);
+      });
+
+    return () => { active = false; };
+  }, [examReloadKey]);
 
   useEffect(() => {
     if (!activeModal) return undefined;
@@ -347,6 +375,8 @@ export default function CandidateAccountPage() {
     return Array.isArray(value) && value.length ? value.join(", ") : "Aucune";
   };
 
+  const examSummary = buildStudentExamSummary(examInfo);
+
   const updateAvailabilitySlot = (day, slotId, field, value) => {
     setAvailabilityDraft((current) => ({ ...current, [day]: current[day].map((slot) => slot.id === slotId ? { ...slot, [field]: value } : slot) }));
     setAvailabilityError("");
@@ -445,15 +475,42 @@ export default function CandidateAccountPage() {
         </div>
 
         <div className="nsa-bottom-grid">
+          <section className="nsa-card nsa-exam-card" aria-busy={examLoading}>
+            <CardHeading title="3. Examen du permis" />
+            <p className="nsa-card-description">Consultez les informations enregistrées pour votre examen du permis.</p>
+
+            {examLoading && <div className="nsa-exam-state" role="status"><ExamIcon /><span>Chargement des informations d'examen…</span></div>}
+
+            {!examLoading && examError && (
+              <div className="nsa-exam-state nsa-exam-state--error" role="alert">
+                <span>{examError}</span>
+                <button type="button" onClick={() => setExamReloadKey((value) => value + 1)}>Réessayer</button>
+              </div>
+            )}
+
+            {!examLoading && !examError && !examSummary.hasExamRecord && (
+              <div className="nsa-exam-state nsa-exam-state--empty">
+                <ExamIcon />
+                <div><strong>Aucun examen du permis programmé</strong><span>Votre auto-école ajoutera les informations dès qu'une date sera réservée.</span></div>
+              </div>
+            )}
+
+            {!examLoading && !examError && examSummary.hasExamRecord && (
+              <div className="nsa-exam-grid" aria-label="Informations de l'examen du permis">
+                {examSummary.items.map((item) => <div key={item.label} className="nsa-exam-item"><span>{item.label}</span><strong>{item.value}</strong></div>)}
+              </div>
+            )}
+          </section>
+
           <section className="nsa-card nsa-preferences-card">
-            <CardHeading title="3. Mes préférences" />
+            <CardHeading title="4. Mes préférences" />
             <div className="nsa-settings-list">
               {PREFERENCE_ROWS.map((row) => <button key={row.key} type="button" className="nsa-setting-row" onClick={openPreferencesEditor}><span className="nsa-row-icon">{row.icon}</span><strong>{row.label}</strong><span>{preferenceValue(row.key, preferences[row.key])}</span><ChevronRightIcon /></button>)}
             </div>
           </section>
 
           <section className="nsa-card nsa-notifications-card">
-            <CardHeading title="4. Préférences de notifications" />
+            <CardHeading title="5. Préférences de notifications" />
             <p className="nsa-card-description">Choisissez comment vous souhaitez être informé.</p>
             <div className="nsa-notification-list">
               {NOTIFICATION_ROWS.map((row) => <div key={row.key} className="nsa-notification-row"><span className="nsa-row-icon">{row.icon}</span><span>{row.label}</span><button type="button" role="switch" aria-checked={notifications[row.key]} aria-label={row.label} className={`nsa-switch${notifications[row.key] ? " is-on" : ""}`} onClick={() => setNotifications((current) => ({ ...current, [row.key]: !current[row.key] }))}><i /></button></div>)}
@@ -461,7 +518,7 @@ export default function CandidateAccountPage() {
           </section>
 
           <section className="nsa-card nsa-security-card">
-            <CardHeading title="5. Sécurité & gestion du compte" />
+            <CardHeading title="6. Sécurité & gestion du compte" />
             <div className="nsa-security-list">
               <div className="nsa-security-row"><span className="nsa-security-icon"><LockIcon /></span><span><strong>Mot de passe</strong><small>Dernière modification le 15/04/2025</small></span><ChevronRightIcon /></div>
               <div className="nsa-security-row"><span className="nsa-security-icon"><ShieldIcon /></span><span><strong>Authentification à deux facteurs</strong><small>Sécurisez votre compte</small></span><em>Désactivée</em><ChevronRightIcon /></div>

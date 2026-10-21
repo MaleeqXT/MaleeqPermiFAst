@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import ChatUnreadBadge from '../../chat/ChatUnreadBadge.jsx';
+import { apiAssetUrl } from "../../config/api.js";
 
 // Returns true when viewport is ≤1020px
 function useIsMobile() {
@@ -13,7 +14,7 @@ function useIsMobile() {
   return isMobile;
 }
 import "./Sidebar.css";
-const logo = "http://127.0.0.1:8000/assets/logo-permis-facile.webp";
+const logo = apiAssetUrl("assets/logo-permis-facile.webp");
 const logo1 = "https://passpermisfacile.fr/assets/logo.svg";
 
 // ─── Icons ────────────────────────────────────────────────────────────────
@@ -31,6 +32,9 @@ const VehiclesIcon = () => (
 );
 const ExamsIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path><path d="M10 9H8"></path><path d="M16 13H8"></path><path d="M16 17H8"></path></svg>
+);
+const RdvPermisIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M7 10h10M8 15h3M13 15h3"/></svg>
 );
 const BillingIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 10h12"></path><path d="M4 14h9"></path><path d="M19 6a7.7 7.7 0 0 0-5.2-2A7.9 7.9 0 0 0 6 12c0 4.4 3.5 8 7.8 8 2 0 3.8-.8 5.2-2"></path></svg>
@@ -125,9 +129,13 @@ const NAV_STRUCTURE = [
   },
   { type: "item", path: "/vehicles",        label: "Véhicules",                 icon: <VehiclesIcon />,       alwaysEnabled: true },
   { type: "item", path: "/exams",           label: "Examens",                   icon: <ExamsIcon />,          alwaysEnabled: true },
+
   { type: "item", path: "/theory-questions", label: "Code de la Route Questions", icon: <ExamsIcon />,          alwaysEnabled: true },
   { type: "item", path: "/theory-series", label: "Séries Code de la Route", icon: <ExamsIcon />,          alwaysEnabled: true },
   { type: "item", path: "/theory-accesses", label: "Accès Code en espèces", icon: <ExamsIcon />,          alwaysEnabled: true },
+
+  { type: "item", path: "/rdvpermis",       label: "RdvPermis",                 icon: <RdvPermisIcon />,      alwaysEnabled: true },
+
   { type: "item", path: "/billing",         label: "Facturation",               icon: <BillingIcon />,        alwaysEnabled: true },
   { type: "item", path: "/form-cpf",        label: "Form CPF",                  icon: <FormCPFIcon />,        alwaysEnabled: true },
   { type: "item", path: "/active-students", label: "Rapport des élèves actifs", icon: <ActiveStudentsIcon />, alwaysEnabled: true },
@@ -143,6 +151,7 @@ const NAV_STRUCTURE = [
   // ── Preferences (always enabled) ───────────────────────────────────────
   { type: "heading", label: "Preferences" },
   { type: "item", path: "/skills",    label: "Compétences",   icon: <SkillsIcon />,    alwaysEnabled: true },
+  { type: "item", path: "/maneuvers", label: "Manœuvres",     icon: <SkillsIcon />,    alwaysEnabled: true },
   { type: "item", path: "/locations", label: "Localisations", icon: <LocationsIcon />, alwaysEnabled: true },
   { type: "item", path: "/admin/satisfaction", label: "Satisfaction / Avis", icon: <SatisfactionIcon />, alwaysEnabled: true },
   { type: "item", path: "/satisfaction-survey", label: "Enquêtes de satisfaction", icon: <SatisfactionIcon />, alwaysEnabled: true },

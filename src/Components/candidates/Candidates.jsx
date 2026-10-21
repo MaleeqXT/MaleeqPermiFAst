@@ -4,6 +4,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { useCandidates } from "./CandidatesContext.jsx";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchStudents, updateCandidateStatus } from "../../redux/reducers/candidateSlice.jsx";
+import { fetchCurrentUser } from "../../redux/reducers/authReducer.jsx";
+import { startStudentDashboardPreview, stopStudentDashboardPreview } from "../../helpers/studentDashboardPreview.js";
 const BASE_URL = import.meta.env.VITE_API_URL;
 
 const AVATAR_COLORS = ["#6c8ebf","#d79b00","#82b366","#ae4132","#9673a6","#23445d","#e07a5f","#3d405b","#81b29a","#f2cc8f"];
@@ -65,7 +67,7 @@ function downloadRowAsExcel(row, fileName) {
   URL.revokeObjectURL(url);
 }
 
-function RowMenu({ student, onDetails, onConnect, onExport, onContract, onArchive, onUnarchive }) {
+function RowMenu({ student, onDetails, onConnect, onExport, onContract, onArchive, onUnarchive, connecting = false }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   useEffect(() => {
@@ -80,7 +82,7 @@ function RowMenu({ student, onDetails, onConnect, onExport, onContract, onArchiv
       {open && (
         <div className="cand-row-menu-dropdown">
           <button className="cand-row-menu-item" onClick={() => { setOpen(false); onDetails && onDetails(student); }}><IconDetails /> D?tails</button>
-          <button className="cand-row-menu-item" onClick={() => { setOpen(false); onConnect && onConnect(student); }}><IconConnect /> Connecter</button>
+          <button className="cand-row-menu-item" disabled={connecting} onClick={() => { if (!connecting) { setOpen(false); onConnect && onConnect(student); } }}><IconConnect /> {connecting ? "Connexion…" : "Connecter"}</button>
           <button className="cand-row-menu-item" onClick={() => { setOpen(false); onExport && onExport(student); }}><IconChart /> Exporter Excel</button>
           <button className="cand-row-menu-item" onClick={() => { setOpen(false); onContract && onContract(student); }}><IconContract /> Contrat</button>
           <div className="cand-row-menu-divider" />
@@ -100,6 +102,8 @@ export default function Candidates({ selectedSchoolId, isSecretaryDashboard = fa
   const [search,    setSearch]    = useState("");
   const [sort,      setSort]      = useState(null);
   const [page,      setPage]      = useState(1);
+  const [connectingStudentId, setConnectingStudentId] = useState(null);
+  const [connectError, setConnectError] = useState("");
 
 
     const dispatch = useDispatch();
@@ -172,6 +176,29 @@ useEffect(() => {
   function handleSort(key) { setSort(prev => prev?.key === key ? { key, dir: prev.dir * -1 } : { key, dir: 1 }); }
   const handleArchive = (id) => dispatch(updateCandidateStatus({ id, status: 2 }));
   const handleUnarchive = (id) => dispatch(updateCandidateStatus({ id, status: 1 }));
+  const connectToStudentDashboard = async (candidate) => {
+    const studentId = candidate?.student?.id;
+    if (!studentId) {
+      setConnectError("Ce candidat n’a pas de dossier élève associé.");
+      return;
+    }
+
+    setConnectingStudentId(studentId);
+    setConnectError("");
+    try {
+      await startStudentDashboardPreview(
+        studentId,
+        isSecretaryDashboard ? "/secretary-dashboard" : "/candidates",
+      );
+      await dispatch(fetchCurrentUser()).unwrap();
+      navigate("/new-student-dashboard", { state: { studentPreview: true } });
+    } catch (error) {
+      await stopStudentDashboardPreview().catch(() => undefined);
+      setConnectError(error?.response?.data?.message || error?.message || "Impossible d’ouvrir l’espace élève.");
+    } finally {
+      setConnectingStudentId(null);
+    }
+  };
   const openCandidateDetails = (candidate) => {
     const candidateId = candidate.student?.id;
     navigate(isSecretaryDashboard ? "/info" : `/candidate-info/${candidateId}`, {
@@ -208,6 +235,7 @@ const paginated = data;
           <button className="cand-btn-dark"><IconPlus /> Ajouter un candidat</button>
         </Link>
       </div>
+      {connectError && <p role="alert" style={{ margin: "0 0 16px", color: "#b42318", fontWeight: 600 }}>{connectError}</p>}
 
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, flexWrap:"wrap", marginBottom:24 }}>
         <div className="cand-tabs-row" style={{ margin:0 }}>
@@ -352,16 +380,8 @@ const paginated = data;
                     <RowMenu
                       student={s}
                       onDetails={openCandidateDetails}
-                      onConnect={(row) => navigate("/student-dashboard", {
-                        state: {
-                          ...(isSecretaryDashboard
-                            ? { fromSecretaryDashboard: true }
-                            : { fromCandidateProfile: true }),
-                          candidate: row,
-                          openFilterOnOpen: true,
-                          returnTo: "/candidates",
-                        },
-                      })}
+                      onConnect={connectToStudentDashboard}
+                      connecting={connectingStudentId === s.student?.id}
                       onExport={(row) => downloadRowAsExcel(row, `candidat-${row.id}.xls`)}
                       onContract={(row) => window.open(`${BASE_URL}/api/admin/users/students/${row.student?.id}/contract`, "_blank", "noopener,noreferrer")}
                       onArchive={handleArchive}

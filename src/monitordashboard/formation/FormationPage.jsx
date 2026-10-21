@@ -4,7 +4,8 @@ import http from "../../helpers/http.jsx";
 import { profileImageUrl } from "../../new-student-dashboard/StudentHeader.jsx";
 import { SearchPicker, LessonHistory, LessonStatus, Toggle, EditSection, Dialog, SignaturePad } from "./FormationComponents.jsx";
 import { displayDate, FORMATION_DURATIONS, formatDuration } from "./formationUtils.js";
-import FormationManeuvers, { MANEUVER_LABELS, SavedManeuvers } from "./FormationManeuvers.jsx";
+import FormationManeuvers, { SavedManeuvers } from "./FormationManeuvers.jsx";
+import { maneuverLabel, RATING_LABELS } from "./FormationManeuverCatalog.js";
 import FormationCompetencies from "./FormationCompetencies.jsx";
 import FormationSchemaEditor from "./FormationSchemaEditor.jsx";
 import LessonDistributionCalendar from "./LessonDistributionCalendar.jsx";
@@ -17,7 +18,7 @@ const emptyForm = (student, options = {}) => ({
   monitor_id: options.instructors?.[0]?.id || "", department: options.departments?.[0] || "",
   type: options.types?.[0] || "Prestation", offer_id: "", lieu_id: options.places?.[0]?.id || "",
   boite_auto: String(student?.raw?.student?.boite_type) === "1", evaluation_initiale: false, evaluation_permis: false,
-  public_observation: "", teacher_observation: "", maneuvers: [], maneuver_counts: {}, is_absent: false,
+  public_observation: "", teacher_observation: "", maneuvers: [], maneuver_counts: {}, maneuver_ratings: {}, is_absent: false,
 });
 const errorMessage = (error) => Object.values(error.response?.data?.errors || {}).flat().join(" ") || error.response?.data?.message || "Impossible de contacter le serveur. Réessayez.";
 const same = (first, second) => JSON.stringify(first) === JSON.stringify(second);
@@ -38,6 +39,10 @@ export default function FormationPage({ monitorId, onBack, onDirtyChange, onBusy
   const [dialog, setDialog] = useState(null);
   const [competencyDirty, setCompetencyDirty] = useState(false);
   const [maneuverCounts, setManeuverCounts] = useState({});
+  const [maneuverRatings, setManeuverRatings] = useState({});
+  const [maneuverHistory, setManeuverHistory] = useState({ totals: {}, history: [] });
+  const [maneuverHistoryLoading, setManeuverHistoryLoading] = useState(false);
+  const [maneuverHistoryRevision, setManeuverHistoryRevision] = useState(0);
   const [strokes, setStrokes] = useState([]);
   const [accepted, setAccepted] = useState(false);
   const [retry, setRetry] = useState(0);
@@ -48,7 +53,7 @@ export default function FormationPage({ monitorId, onBack, onDirtyChange, onBusy
   const actionsMenuRef = useRef(null);
   const currentStudent = students.find((student) => student.id === studentId);
   const draftDirty = draft !== null && baseline !== null && !same(draft, baseline);
-  const dirty = draftDirty || (dialog === "competencies" && competencyDirty) || (dialog === "maneuvers" && !same(maneuverCounts, draft?.maneuver_counts || {}));
+  const dirty = draftDirty || (dialog === "competencies" && competencyDirty) || (dialog === "maneuvers" && (!same(maneuverCounts, draft?.maneuver_counts || {}) || !same(maneuverRatings, draft?.maneuver_ratings || {})));
   const params = monitorId ? { monitor_id: monitorId } : {};
   const signed = Boolean(draft?.signature);
   const closeDialog = useCallback(() => setDialog(null), []);
@@ -87,7 +92,7 @@ export default function FormationPage({ monitorId, onBack, onDirtyChange, onBusy
   useEffect(() => {
     const controller = new AbortController();
     const token = ++generation.current;
-    setLessons([]); setOptions({}); setDraft(null); setBaseline(null); setError(""); setNotice(""); setDialog(null);
+    setLessons([]); setOptions({}); setDraft(null); setBaseline(null); setManeuverCounts({}); setManeuverRatings({}); setError(""); setNotice(""); setDialog(null);
     if (!studentId) { setLoading(false); return () => { controller.abort(); generation.current = token + 1; }; }
     setLoading(true);
     http.get("/monitor/formation/" + studentId, { params: monitorId ? { monitor_id: monitorId } : {}, signal: controller.signal })
@@ -103,16 +108,37 @@ export default function FormationPage({ monitorId, onBack, onDirtyChange, onBusy
     return () => { controller.abort(); generation.current = token + 1; };
   }, [studentId, monitorId, retry, students]);
 
+  useEffect(() => {
+    const controller = new AbortController();
+    if (!studentId) { setManeuverHistory({ totals: {}, history: [] }); setManeuverHistoryLoading(false); return () => controller.abort(); }
+    setManeuverHistoryLoading(true);
+    http.get(`/monitor/formation/${studentId}/maneuvers`, { params: monitorId ? { monitor_id: monitorId } : {}, signal: controller.signal })
+      .then(({ data }) => { if (!controller.signal.aborted) setManeuverHistory(data?.data || { totals: {}, history: [] }); })
+      .catch(() => { if (!controller.signal.aborted) setManeuverHistory({ totals: {}, history: [] }); })
+      .finally(() => { if (!controller.signal.aborted) setManeuverHistoryLoading(false); });
+    return () => controller.abort();
+  }, [studentId, monitorId, maneuverHistoryRevision]);
+
   const mayReplace = () => !dirty || window.confirm("Abandonner les modifications non enregistrées de cette leçon ?");
   const replaceDraft = (next) => { setDraft(next); setBaseline(next); setNotice(""); setError(""); };
   const selectStudent = (nextId) => {
     if (nextId !== studentId && !busy && mayReplace()) {
       generation.current++;
-      setDraft(null); setBaseline(null); setLessons([]); setOptions({}); setError(""); setNotice("");
+      setDraft(null); setBaseline(null); setLessons([]); setOptions({}); setManeuverCounts({}); setManeuverRatings({}); setError(""); setNotice("");
       setStudentId(nextId);
     }
   };
   const change = (key, value) => setDraft((current) => ({ ...current, [key]: value }));
+  const applyManeuvers = () => {
+    const counts = Object.fromEntries(Object.entries(maneuverCounts).filter(([, count]) => Number(count) > 0));
+    const labels = Object.entries(counts).map(([id, count]) => {
+      const label = maneuverLabel(id, options.maneuvers || []);
+      return Number(count) > 1 ? `${label} × ${count}` : label;
+    });
+    change("maneuver_counts", counts);
+    change("maneuver_ratings", maneuverRatings);
+    change("maneuvers", labels);
+  };
   const changeDuration = (minutes) => setDraft((current) => ({
     ...current,
     duration_minutes: Number(minutes),
@@ -166,7 +192,7 @@ export default function FormationPage({ monitorId, onBack, onDirtyChange, onBusy
       const { data } = await http[draft.id ? "put" : "post"](url, draft, { params });
       if (token !== generation.current) return;
       applySaved(data.data); setNotice("La leçon a été enregistrée."); onLessonChanged?.();
-      try { await refresh(data.data.id); } catch { setError("La leçon est enregistrée, mais l’historique n’a pas pu être actualisé."); }
+      try { await refresh(data.data.id); setManeuverHistoryRevision((value) => value + 1); } catch { setError("La leçon est enregistrée, mais l’historique n’a pas pu être actualisé."); }
     } catch (requestError) { if (token === generation.current) setError(errorMessage(requestError)); }
     finally { if (token === generation.current) setBusy(false); }
   }
@@ -178,7 +204,7 @@ export default function FormationPage({ monitorId, onBack, onDirtyChange, onBusy
       setDialog(null); onLessonChanged?.();
       const remaining = lessons.filter((lesson) => lesson.id !== draft.id);
       setLessons(remaining); replaceDraft(emptyForm(currentStudent, options)); setNotice("La leçon a été supprimée.");
-      try { await refresh(null); } catch { setError("La suppression est confirmée, mais l’historique n’a pas pu être actualisé."); }
+      try { await refresh(null); setManeuverHistoryRevision((value) => value + 1); } catch { setError("La suppression est confirmée, mais l’historique n’a pas pu être actualisé."); }
     } catch (requestError) { setError(errorMessage(requestError)); }
     finally { setBusy(false); }
   }
@@ -235,7 +261,13 @@ export default function FormationPage({ monitorId, onBack, onDirtyChange, onBusy
             {select("Lieu", "lieu_id", options.places || [], Landmark, true, schedulingLocked)}
           </div>
           <div className="mf-toggles"><Toggle label="Boite Auto" checked={draft.boite_auto} onChange={(value) => change("boite_auto", value)} disabled={allDisabled} /><Toggle label="Evaluation Initiale" checked={initialEvaluationAllowed && draft.evaluation_initiale} onChange={(value) => change("evaluation_initiale", value)} disabled={allDisabled || !initialEvaluationAllowed} hint={initialEvaluationAllowed ? undefined : "Disponible uniquement pour une durée exacte de 1 heure."} /><Toggle label="Evaluation Permis" checked={draft.evaluation_permis} onChange={(value) => change("evaluation_permis", value)} disabled={allDisabled} /></div>
-          <EditSection title="Manœuvres effectuées lors de la leçon" disabled={allDisabled} onEdit={() => { setManeuverCounts(draft.maneuver_counts || {}); setDialog("maneuvers"); }} contentClassName="mf-saved-section"><SavedManeuvers counts={draft.maneuver_counts || {}} /></EditSection>
+          <EditSection title="Manœuvres effectuées lors de la leçon" disabled={allDisabled} onEdit={() => { setManeuverCounts(draft.maneuver_counts || {}); setManeuverRatings(draft.maneuver_ratings || {}); setDialog("maneuvers"); }} contentClassName="mf-saved-section"><SavedManeuvers counts={draft.maneuver_counts || {}} ratings={draft.maneuver_ratings || {}} maneuvers={options.maneuvers || []} /></EditSection>
+          <section className="mf-maneuver-history" aria-label="Historique des manœuvres">
+            <header><h3>Historique des manœuvres</h3><span>{maneuverHistoryLoading ? "Actualisation…" : `${(maneuverHistory.history || []).length} passage${(maneuverHistory.history || []).length > 1 ? "s" : ""}`}</span></header>
+            {Object.keys(maneuverHistory.totals || {}).length > 0 && <div className="mf-maneuver-history-totals">{Object.entries(maneuverHistory.totals).map(([id, count]) => <span key={id}><b>{count}</b>{maneuverLabel(id, options.maneuvers || [])}</span>)}</div>}
+            {!maneuverHistoryLoading && !(maneuverHistory.history || []).length && <p className="mf-muted">Aucun passage de manœuvre enregistré pour cet élève.</p>}
+            {(maneuverHistory.history || []).map((item) => <article key={item.id} className="mf-maneuver-history-row"><time>{displayDate(item.date)}</time><strong>{item.maneuver_name || maneuverLabel(item.maneuver_id, options.maneuvers || [])}</strong><span className={`mf-maneuver-rating-badge rating-${item.rating}`}>Niv. {item.rating} · {RATING_LABELS[item.rating]?.split(" — ")[0] || "Niveau renseigné"}</span></article>)}
+          </section>
           <div className="mf-observations"><label>Observations (visibles de tous)<textarea rows={3} maxLength={10000} disabled={allDisabled} value={draft.public_observation} onChange={(event) => change("public_observation", event.target.value)} /></label><label>Observations pour les enseignants<textarea rows={3} maxLength={10000} disabled={allDisabled} value={draft.teacher_observation} onChange={(event) => change("teacher_observation", event.target.value)} /></label></div>
           <label className="mf-absence"><input type="checkbox" checked={draft.is_absent} disabled={allDisabled} onChange={(event) => change("is_absent", event.target.checked)} />Élève absent</label>
           <EditSection title="Compétences évaluées" disabled={allDisabled || !draft.id} onEdit={openCompetencies} />
@@ -247,9 +279,9 @@ export default function FormationPage({ monitorId, onBack, onDirtyChange, onBusy
         </form>}
       </section>
     </div>
-    {dialog === "maneuvers" && <Dialog title="Manœuvres effectuées lors de la leçon" onClose={closeDialog} wide><FormationManeuvers counts={maneuverCounts} onChange={setManeuverCounts} disabled={allDisabled} /><div className="mf-modal-actions"><button type="button" onClick={closeDialog}>Annuler</button><button type="button" disabled={!draft?.id} onClick={() => { const counts = Object.fromEntries(Object.entries(maneuverCounts).filter(([, count]) => Number(count) > 0)); change("maneuver_counts", counts); change("maneuvers", Object.entries(counts).map(([id, count]) => Number(count) > 1 ? `${MANEUVER_LABELS[id]} × ${count}` : MANEUVER_LABELS[id]).filter(Boolean)); setDialog("schema"); }}>Schéma</button><button type="button" className="mf-primary" onClick={() => { const counts = Object.fromEntries(Object.entries(maneuverCounts).filter(([, count]) => Number(count) > 0)); change("maneuver_counts", counts); change("maneuvers", Object.entries(counts).map(([id, count]) => Number(count) > 1 ? `${MANEUVER_LABELS[id]} × ${count}` : MANEUVER_LABELS[id]).filter(Boolean)); closeDialog(); }}>Appliquer à la leçon</button></div></Dialog>}
+    {dialog === "maneuvers" && <Dialog title="Manœuvres effectuées lors de la leçon" onClose={closeDialog} wide><FormationManeuvers counts={maneuverCounts} ratings={maneuverRatings} maneuvers={options.maneuvers || []} onChange={setManeuverCounts} onRatingsChange={setManeuverRatings} disabled={allDisabled} /><div className="mf-modal-actions"><button type="button" onClick={closeDialog}>Annuler</button><button type="button" className="mf-primary" onClick={() => { applyManeuvers(); closeDialog(); }}>Appliquer à la leçon</button></div></Dialog>}
     {dialog === "distribution" && <LessonDistributionCalendar lessons={lessons} onLessonSelect={(lesson) => { if (lesson.id !== draft?.id && !mayReplace()) return false; replaceDraft(lesson); return true; }} onClose={closeDialog} />}
-    {dialog === "schema" && <FormationSchemaEditor studentId={studentId} lesson={draft} monitorId={monitorId} onClose={closeDialog} onSaved={() => { refresh(draft.id).catch((requestError) => setError(errorMessage(requestError))); }} />}
+    {dialog === "schema" && <FormationSchemaEditor studentId={studentId} lesson={draft} monitorId={monitorId} readOnly={signed} onClose={closeDialog} onSaved={() => { refresh(draft.id).catch((requestError) => setError(errorMessage(requestError))); }} />}
     {dialog === "initial-evaluation" && <FormationInitialEvaluationFiche studentId={studentId} monitorId={monitorId} onClose={closeDialog} />}
     {dialog === "initial-questions" && <FormationInitialEvaluationQuestions studentId={studentId} monitorId={monitorId} onClose={closeDialog} />}
     {dialog === "delete" && <Dialog title="Supprimer cette leçon ?" onClose={closeDialog} busy={busy}><p>La leçon du {displayDate(draft.date)} sera supprimée. Les heures réservées seront rendues au forfait de l’élève.</p>{error && <p role="alert" className="mf-error">{error}</p>}<div className="mf-modal-actions"><button type="button" disabled={busy} onClick={closeDialog}>Annuler</button><button type="button" className="mf-danger" disabled={busy} onClick={remove}>{busy ? "Suppression…" : "Confirmer la suppression"}</button></div></Dialog>}

@@ -94,7 +94,17 @@ function normalizeReservation(item = {}, dateKey = "") {
     monitorUser?.monitor?.id ??
     monitorUser?.monitor_id ??
     null;
-  const status = getReservationStatus(reservationDate, startAt);
+  // A reservation with a cancellation record must remain visible in the
+  // monitor week view, but it has its own status and styling.
+  const cancellation = item.training?.cancellation ?? item.cancellation ?? null;
+  const isCancelled = Boolean(cancellation);
+  const cancellationReason =
+    cancellation?.reason ??
+    cancellation?.motif ??
+    cancellation?.message ??
+    item.cancellation_reason ??
+    "";
+  const status = isCancelled ? "cancelled" : getReservationStatus(reservationDate, startAt);
 
   const studentAvatarRaw = studentUser?.media ?? null;
   let studentAvatarUrl = null;
@@ -135,12 +145,15 @@ function normalizeReservation(item = {}, dateKey = "") {
     // inside the offer banner in BookingDrawer.
     accentColor: item.color ?? null,
     offerColor: offer?.color ?? null,
-    isCancelled: Boolean(item.training?.cancellation),
+    isCancelled,
+    cancellationReason,
     source: item,
     drawer: {
       id: item.id,
       type: "reservation",
       status,
+      isCancelled,
+      cancellationReason,
       date: formatDateLabel(reservationDate),
       timeLabel: endAt ? `${startAt} à ${endAt}` : startAt,
       reminder: getReminderText(reservationDate),

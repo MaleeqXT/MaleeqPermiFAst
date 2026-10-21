@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { apiAssetUrl } from "../../../config/api.js";
 
 // Returns true when viewport is ≤1020px
 function useIsMobile() {
@@ -12,7 +13,7 @@ function useIsMobile() {
   return isMobile;
 }
 import "./Sidebar.css";
-const logo = "http://127.0.0.1:8000/assets/logo-permis-facile.webp";
+const logo = apiAssetUrl("assets/logo-permis-facile.webp");
 const logo1 = "https://passpermisfacile.fr/assets/logo.svg";
 
 // ─── Icons ────────────────────────────────────────────────────────────────

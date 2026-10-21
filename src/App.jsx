@@ -5,10 +5,16 @@ import loginpage from './Components/loginpage/LoginPage.jsx'
 import { useDispatch, useSelector } from "react-redux";
 import { fetchCurrentUser,logoutUser } from "./redux/reducers/authReducer.jsx";
 import { fetchSchools, setSelectedSchool,selectSchool } from "./redux/reducers/schoolReducer.jsx";
+import {
+  isStudentDashboardPreview,
+  startStudentDashboardPreview,
+  stopStudentDashboardPreview,
+} from "./helpers/studentDashboardPreview.js";
 import CancellationRequests from './Components/request-cancellations/CancellationRequests.jsx'
 import MessageClients from './Components/message-clients/MessageClients.jsx'
 import ZonePlaces from "./Preferences/ZonePlaces.jsx";
 import AdminChatPage from "./Components/chat/AdminChatPage.jsx";
+import ManeuverCatalogPage from "./Components/maneuvers/ManeuverCatalogPage.jsx";
 
 // ── Shared / layout
 import Sidebar        from "./Components/shared/Sidebar.jsx";
@@ -95,6 +101,9 @@ import AdminTheoryQuestionsPage from "./theory/AdminTheoryQuestionsPage.jsx";
 import AdminTheorySeriesPage from "./theory/AdminTheorySeriesPage.jsx";
 import AdminTheoryAccessPage from "./theory/AdminTheoryAccessPage.jsx";
 
+import RdvPermisPage from "./rdvpermis/RdvPermisPage.jsx";
+
+
 import "./App.css";
 import LoginPage from "./Components/loginpage/LoginPage.jsx";
 
@@ -151,6 +160,7 @@ const PAGE_TITLES = {
   "/orders/baskets":           "Paniers",
   "/orders/offers":            "Offres",
   "/vehicles":                 "Gestion des véhicules",
+  "/rdvpermis":                "RdvPermis",
   "/exams":                    "Examens",
   "/billing":                  "Facturation",
   "/form-cpf":                 "Form CPF",
@@ -163,6 +173,7 @@ const PAGE_TITLES = {
   "/admin/documents":          "Documents des élèves",
   "/admin/messages":           "Messages",
   "/skills":                   "Compétences",
+  "/maneuvers":                "Répertoire des manœuvres",
   "/locations":                "Localisations",
   "/site-en-ligne":            "Site en ligne",
   "/admin/satisfaction":       "Satisfaction / Avis",
@@ -181,7 +192,7 @@ const ALWAYS_ENABLED_PATHS = new Set([
   "/active-agency",
   "/admin/satisfaction",
   "/satisfaction-survey",
-  "/skills", "/locations", "/site-en-ligne",
+  "/skills", "/locations", "/maneuvers", "/site-en-ligne",
 ]);
 
 // Public routes served by the permis-web landing site.
@@ -621,7 +632,7 @@ const handleLogout=async()=>{
             schoolSelected={schoolSelected}
             isOpen={sidebarOpen}
             onClose={() => setSidebarOpen(false)}
-            hiddenPaths={role === "secretary" ? ["/administrations", "/secretaries"] : []}
+            hiddenPaths={role === "secretary" ? ["/administrations", "/secretaries", "/maneuvers"] : []}
           />
 
           <div className="right-panel">
@@ -829,6 +840,7 @@ const handleLogout=async()=>{
 
                 {/* ── Preferences ── */}
                 <Route path="/skills"    element={<Skills title="Compétences" />} />
+                <Route path="/maneuvers" element={role === "admin" ? <ManeuverCatalogPage /> : <Navigate to="/dashboard/general" replace />} />
                 {/* <Route path="/locations" element={<Zones title="Localisations" />} /> */}
                 <Route path="/locations" element={<ZonePlaces title="Localisations" />} />
 
@@ -852,6 +864,7 @@ const handleLogout=async()=>{
 
                 {/* ── Exams ── */}
                 <Route path="/exams" element={<Exam title="Examens" />} />
+                <Route path="/rdvpermis" element={<RdvPermisPage />} />
 
                 {/* ── Online site ── */}
                 <Route path="/site-en-ligne" element={<Online title="Site en ligne" />} />
@@ -883,5 +896,95 @@ function PlaceholderPage({ title }) {
 }
 
 function StudentPageLoader({ children }) {
-  return <Suspense fallback={<div className="app-root"><div className="main-content">Chargement...</div></div>}>{children}</Suspense>;
+  return (
+    <StudentDashboardPreviewBootstrap>
+      <Suspense fallback={<div className="app-root"><div className="main-content">Chargement...</div></div>}>
+        {children}
+      </Suspense>
+    </StudentDashboardPreviewBootstrap>
+  );
+}
+
+/**
+ * Older staff previews reached the student portal by navigation state only.
+ * A staff bearer token then makes student-only APIs correctly reject the
+ * request because an administrator has no student record.  Upgrade those
+ * existing tabs before a student page is mounted, while new previews already
+ * arrive here with a student preview token.
+ */
+function StudentDashboardPreviewBootstrap({ children }) {
+  const dispatch = useDispatch();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const user = useSelector((state) => state.auth?.user);
+  const role = normalizeRole(user?.role);
+  const selectedStudentId =
+    location.state?.candidate?.student?.id ??
+    location.state?.candidate?.id ??
+    location.state?.student?.id;
+  const returnTo = location.state?.returnTo ||
+    (location.state?.fromSecretaryDashboard ? "/secretary-dashboard" : "/candidates");
+  const requiresUpgrade = (role === "admin" || role === "secretary") && Boolean(selectedStudentId);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(requiresUpgrade);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!requiresUpgrade) {
+      setLoading(false);
+      return () => { cancelled = true; };
+    }
+
+    const upgradePreview = async () => {
+      setLoading(true);
+      setError("");
+
+      try {
+        if (!isStudentDashboardPreview()) {
+          await startStudentDashboardPreview(selectedStudentId, returnTo);
+        }
+        await dispatch(fetchCurrentUser()).unwrap();
+
+        if (!cancelled) {
+          navigate(location.pathname, { replace: true, state: { studentPreview: true } });
+        }
+      } catch (requestError) {
+        // Restore the staff token when the temporary student session cannot
+        // be opened, so the administrator is never stranded in this view.
+        try {
+          await stopStudentDashboardPreview();
+          await dispatch(fetchCurrentUser()).unwrap();
+        } catch {
+          // The original request error below remains the useful one.
+        }
+
+        if (!cancelled) {
+          setError(requestError?.response?.data?.message || requestError?.message || "Impossible d’ouvrir le dossier élève.");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    upgradePreview();
+    return () => { cancelled = true; };
+  }, [dispatch, location.pathname, navigate, requiresUpgrade, returnTo, selectedStudentId]);
+
+  if (loading) {
+    return <div className="app-root"><div className="main-content">Ouverture de l’espace élève...</div></div>;
+  }
+
+  if (error) {
+    return (
+      <div className="app-root">
+        <div className="main-content">
+          <p>{error}</p>
+          <button type="button" onClick={() => navigate(returnTo, { replace: true })}>Retour</button>
+        </div>
+      </div>
+    );
+  }
+
+  return children;
 }

@@ -34,9 +34,9 @@ export const fetchMonitorStudents = createAsyncThunk(
     'candidates/fetchMonitorStudents',
     async (params = {}, { rejectWithValue }) => {
         try {
-            const { page = 1, search = '', status = 1 } = params;
+            const { page = 1, search = '', status = 1, monitor_id } = params;
             const response = await http.get('/monitor/students', {
-                params: { page, search, status },
+                params: { page, search, status, ...(monitor_id ? { monitor_id } : {}) },
             });
             return response.data;
         } catch (error) {

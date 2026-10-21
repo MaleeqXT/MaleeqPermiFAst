@@ -5,6 +5,8 @@ import RapportDrawer from "./RapportDrawer";
 import { fetchCandidateById, selectSelectedCandidate, selectSelectedCandidateLoading, clearSelectedCandidate } from "../../redux/reducers/candidateSlice";
 import { fetchOffers } from "../../redux/reducers/offerSlice";
 import http from "../../helpers/http.jsx";
+import { fetchCurrentUser } from "../../redux/reducers/authReducer.jsx";
+import { startStudentDashboardPreview, stopStudentDashboardPreview } from "../../helpers/studentDashboardPreview.js";
 
 import { useDispatch, useSelector } from "react-redux";
 
@@ -324,6 +326,7 @@ export default function TabInfo({
   const selectedOffers = useSelector(state => state.offers.selectedOffers);
   const currentUser = useSelector(state => state.auth.user);
   const currentRole = String(currentUser?.role ?? "").trim().toLowerCase();
+  const [connecting, setConnecting] = useState(false);
   const canModifyBalance = ["admin", "super-admin", "super_admin", "superadmin"].includes(currentRole)
     && currentUser?.is_secretary !== true;
 
@@ -640,19 +643,25 @@ useEffect(() => {
   // }
 
 
-  function handleConnect() {
+  async function handleConnect() {
     if (onConnect) {
       onConnect();
-    } else {
-      navigate("/new-student-dashboard", {
-        state: {
-          fromCandidateProfile: true,
-          candidate: user,
-          fromSecretaryDashboard: Boolean(location.state?.fromSecretaryDashboard),
-          openFilterOnOpen: true,
-          returnTo: location.pathname,
-        },
-      });
+      return;
+    }
+
+    const studentId = user?.student?.id;
+    if (!studentId || connecting) return;
+
+    setConnecting(true);
+    try {
+      await startStudentDashboardPreview(studentId, location.pathname || "/candidates");
+      await dispatch(fetchCurrentUser()).unwrap();
+      navigate("/new-student-dashboard", { state: { studentPreview: true } });
+    } catch (error) {
+      await stopStudentDashboardPreview().catch(() => undefined);
+      setToastMessage(error?.response?.data?.message || error?.message || "Impossible d’ouvrir l’espace élève.");
+    } finally {
+      setConnecting(false);
     }
   }
 
@@ -1196,12 +1205,12 @@ useEffect(() => {
           </button>
         )}
 
-        <button className="ti-action-btn ti-action-btn--connect" onClick={handleConnect}>
+        <button className="ti-action-btn ti-action-btn--connect" onClick={handleConnect} disabled={connecting}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
             <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
           </svg>
-          Connecter
+          {connecting ? "Connexion…" : "Connecter"}
         </button>
       </div>
 

@@ -56,7 +56,9 @@ function getProgress(candidate) {
 
 function normalizeCandidate(candidate) {
   return {
-    id: candidate?.id ?? candidate?.student_id ?? candidate?.user_id ?? getFullName(candidate),
+    // The monitor API returns a User with its Student relation. Formation and
+    // profile APIs bind the Student UUID, never the User primary key.
+    id: candidate?.student?.id ?? candidate?.student_id ?? candidate?.id ?? candidate?.user_id ?? getFullName(candidate),
     name: getFullName(candidate) || "Candidate",
     progress: getProgress(candidate),
     email: candidate?.email || candidate?.user?.email || "",
@@ -77,7 +79,6 @@ function SegmentBar({ progress }) {
 
 function CandidateRow({ candidate, onSelect }) {
   const details = [candidate.email, candidate.phone].filter(Boolean).join(" | ");
-  console.log(candidate);
 
   return (
     <button type="button" className="cndp__row" onClick={() => onSelect?.(candidate)}>
@@ -97,7 +98,7 @@ function CandidateRow({ candidate, onSelect }) {
   );
 }
 
-export default function CandidatesPage({ onBack, onSelect }) {
+export default function CandidatesPage({ onBack, onSelect, monitorId }) {
   const dispatch = useDispatch();
   const selectedSchool = useSelector((state) => state.schools.selected);
   const monitorItems = useSelector((state) => state.candidates.monitorList);
@@ -112,12 +113,13 @@ export default function CandidatesPage({ onBack, onSelect }) {
         fetchMonitorStudents({
           search: query.trim(),
           status: 1,
+          monitor_id: monitorId || undefined,
         }),
       );
     }, 250);
 
     return () => clearTimeout(timer);
-  }, [dispatch, query, selectedSchool?.id]);
+  }, [dispatch, query, selectedSchool?.id, monitorId]);
 
   const candidates = useMemo(
     () => (monitorItems || []).map(normalizeCandidate),

@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useLocation, useNavigate } from "react-router-dom";
-import { logoutUser } from "../redux/reducers/authReducer.jsx";
+import { fetchCurrentUser, logoutUser } from "../redux/reducers/authReducer.jsx";
 import http from "../helpers/http.jsx";
+import { isStudentDashboardPreview, stopStudentDashboardPreview } from "../helpers/studentDashboardPreview.js";
 
 const HamburgerIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -72,6 +73,7 @@ export function StudentUserMenu({ user: previewUser }) {
   const name = fullName(user);
   const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
   const photo = profileImageUrl(user);
+  const previewSession = isStudentDashboardPreview();
 
   useEffect(() => {
     setImgFailed(false);
@@ -85,6 +87,15 @@ export function StudentUserMenu({ user: previewUser }) {
 
   const logout = async () => {
     setOpen(false);
+    if (previewSession) {
+      const preview = await stopStudentDashboardPreview().catch(() => null);
+      try {
+        await dispatch(fetchCurrentUser()).unwrap();
+      } finally {
+        navigate(preview?.returnTo || "/candidates", { replace: true });
+      }
+      return;
+    }
     await dispatch(logoutUser());
     navigate("/login-page", { replace: true });
   };
@@ -110,7 +121,7 @@ export function StudentUserMenu({ user: previewUser }) {
       </button>
       {open && (
         <div className="nsd-user-dropdown" role="menu">
-          <button type="button" role="menuitem" onClick={logout}><LogoutIcon />Se déconnecter</button>
+          <button type="button" role="menuitem" onClick={logout}><LogoutIcon />{previewSession ? "Retour à l’administration" : "Se déconnecter"}</button>
         </div>
       )}
     </div>

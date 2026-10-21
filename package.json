@@ -8,6 +8,8 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
+    "test:rdvpermis": "node --test tests/rdvpermis-slotSelection.test.js tests/rdvpermis-validation.test.js tests/rdvpermis-workflows.test.js",
+    "test:satisfaction": "node --test tests/satisfaction-state.test.js",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -33,6 +35,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.5.0",
+    "playwright": "^1.62.1",
     "vite": "^8.0.10"
   }
 }

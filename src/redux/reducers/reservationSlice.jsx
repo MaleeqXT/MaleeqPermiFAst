@@ -306,6 +306,7 @@ export const requestReservationCancellation = createAsyncThunk(
             const response = await http.post('/monitor/cancellations', {
                 training_id,
                 comment,
+                requested_by: "monitor",
             });
 
             return {

@@ -38,6 +38,7 @@ import { fetchMonitorProfile, selectMonitorProfile } from "../redux/reducers/mon
 
 import { profileImageUrl } from "../new-student-dashboard/StudentHeader.jsx";
 import http from "../helpers/http.jsx";
+import { apiAssetUrl } from "../config/api.js";
 
 const resolveDisplayName = (user) => {
   if (!user) return "Moniteur";
@@ -588,7 +589,7 @@ function TabAccueil({ groups, onSelectBooking, loading = false, error = null }) 
           <div className="md-day-header">
             <div className="md-day-dot" />
             <p className="md-day-label">
-              Le <strong>{group.dateLabel},</strong> vous avez <strong>{group.sessions.length}</strong> séances disponibles ce jour :
+              Le <strong>{group.dateLabel},</strong> vous avez <strong>{group.sessions.length}</strong> séances prévues ce jour :
             </p>
           </div>
 
@@ -632,7 +633,7 @@ function TabAccueil({ groups, onSelectBooking, loading = false, error = null }) 
                         </span>
                       ) : isCancelled ? (
                         <span className="md-session-status md-session-status--cancelled">
-                          Annulation en cours de traitement.
+                          Séance annulée.
                         </span>
                       ) : (
                         <>
@@ -687,6 +688,7 @@ function TabSettings({
       <CandidatesPage
         onBack={() => onViewChange("settings")}
         onSelect={onSelectCandidate}
+        monitorId={monitorId}
       />
     );
   }
@@ -1058,7 +1060,7 @@ export default function MonitorDashboard({ onClose }) {
             {collapsed ? (
               <img src="https://passpermisfacile.fr/assets/logo.svg" alt="PassPermis" className="md-sidebar-logo" />
             ) : (
-              <img src="http://127.0.0.1:8000/assets/logo-permis-facile.webp" alt="PassPermis" className="md-sidebar-logo-full" />
+              <img src={apiAssetUrl("assets/logo-permis-facile.webp")} alt="PassPermis" className="md-sidebar-logo-full" />
             )}
           </div>
 
@@ -1348,6 +1350,7 @@ export default function MonitorDashboard({ onClose }) {
       {selectedCandidate && (
         <CandidateProfileDrawer
           candidate={selectedCandidate}
+          monitorId={viewedMonitorId}
           onClose={() => setSelectedCandidate(null)}
           onPropose={(candidate) => {
             setSelectedCandidate(null);

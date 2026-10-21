@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import http from "../../helpers/http.jsx";
 import MonitorsInfo from "../monitors/MonitorsInfo.jsx";
+import { apiAssetUrl } from "../../config/api.js";
 import "./Billing.css";
 
 const IconSearch   = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>;
@@ -141,7 +142,7 @@ function RowMenu({ invoice }) {
         <div className="cand-row-menu-dropdown">
           <button className="cand-row-menu-item" onClick={() => {
             setOpen(false);
-            window.open(`http://localhost:8000/download/monitor/invoices/${invoice.id}`, "_blank", "noopener,noreferrer");
+            window.open(apiAssetUrl(`download/monitor/invoices/${invoice.id}`), "_blank", "noopener,noreferrer");
           }}>
             <IconInvoice /> Télécharger la facture
           </button>

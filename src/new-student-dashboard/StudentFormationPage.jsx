@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, CalendarDays, ChevronDown, Mail, MapPin, MoreVertical, UserRound } from "lucide-react";
+import { ArrowLeft, CalendarDays, Mail, MapPin, MoreVertical, UserRound } from "lucide-react";
 import StudentHeader from "./StudentHeader.jsx";
 import StudentSidebar from "./StudentSidebar.jsx";
 import http from "../helpers/http.jsx";
@@ -111,7 +111,7 @@ export default function StudentFormationPage() {
         </div>
       </section>
     </main>
-    {schemaOpen && selected && <FormationSchemaEditor studentId={student?.id} lesson={selected} apiBase="/student/formation/lessons" onClose={() => setSchemaOpen(false)} />}
+    {schemaOpen && selected && <FormationSchemaEditor studentId={student?.id} lesson={selected} apiBase="/student/formation/lessons" readOnly={Boolean(selected.signature)} onClose={() => setSchemaOpen(false)} />}
     {distributionOpen && <LessonDistributionCalendar lessons={lessons} onLessonSelect={setSelected} onClose={() => setDistributionOpen(false)} />}
   </div>;
 }

@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import "./MonitorCompetence.css";
 import QuestionDetail from "./QuestionDetail.jsx";
 import http from "../helpers/http";
-import { MANEUVER_GROUPS, ManeuverGlyph } from "./formation/FormationManeuvers.jsx";
+import { ManeuverGlyph } from "./formation/FormationManeuvers.jsx";
+import { MANEUVER_GROUPS } from "./formation/FormationManeuverCatalog.js";
 
 // ── Icons ───────────────────────────────────────────────────────────────────
 const IconBack = () => (
