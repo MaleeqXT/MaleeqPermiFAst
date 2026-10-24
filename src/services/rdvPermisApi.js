@@ -42,7 +42,7 @@ const rdvPermisApi = {
     let page = 1;
     let lastPage;
     do {
-      const response = await rdvPermisApi.listLocalStudents({ page, per_page: 100, status: 1 });
+      const response = await rdvPermisApi.listLocalStudents({ page, per_page: 500, status: 1 });
       const pagination = response.data?.data ?? response.data;
       students.push(...(Array.isArray(pagination) ? pagination : pagination?.data ?? []));
       lastPage = Number(pagination?.last_page) || 1;

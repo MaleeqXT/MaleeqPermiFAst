@@ -1,5 +1,6 @@
   import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
   import http from '../../helpers/http';
+  import { apiBaseUrl } from '../../config/api.js';
 
   const preloadProfileImage = (user) => {
     if (typeof window === "undefined" || !user) return;
@@ -8,7 +9,7 @@
       : user.media?.path || user.media?.url || user.profile_photo_url || user.avatar || null;
     if (!raw) return;
 
-    const baseUrl = (import.meta.env.VITE_API_URL || window.location.origin).replace(/\/$/, "");
+    const baseUrl = apiBaseUrl;
     const value = String(raw).trim();
     const storagePosition = value.indexOf("/storage/");
     const source = storagePosition >= 0 ? `${baseUrl}${value.slice(storagePosition)}`

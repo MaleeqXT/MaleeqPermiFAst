@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import "./TabInfo.css";
 import RapportDrawer from "./RapportDrawer";
 import { fetchCandidateById, selectSelectedCandidate, selectSelectedCandidateLoading, clearSelectedCandidate } from "../../redux/reducers/candidateSlice";
@@ -358,7 +358,6 @@ export default function TabInfo({
   }
 
 
-  const location = useLocation();
   const navigate = useNavigate();
     const [neph,       setNeph]       = useState("");
   const [codeDate,   setCodeDate]   = useState("");
@@ -559,7 +558,6 @@ export default function TabInfo({
 
 useEffect(() => {
     if (user) {
-      console.log('user is:',user);
       // ✅ Sirf tab local state set karo jab props nahi aaye:
       if (!formProp) {
         setLocalForm({
@@ -654,7 +652,10 @@ useEffect(() => {
 
     setConnecting(true);
     try {
-      await startStudentDashboardPreview(studentId, location.pathname || "/candidates");
+      // This is an admin preview, not a student login.  Keep the admin's
+      // session return point so "Retour à l’administration" does not behave
+      // like a student logout.
+      await startStudentDashboardPreview(studentId, "/dashboard/general");
       await dispatch(fetchCurrentUser()).unwrap();
       navigate("/new-student-dashboard", { state: { studentPreview: true } });
     } catch (error) {
@@ -1077,7 +1078,7 @@ useEffect(() => {
                 <input
                   className="ti-input"
                   autoFocus
-                  value={form.neph ?? neph}
+                  value={String(form.neph ?? neph ?? "")}
                   onChange={e => {
                     setNeph(e.target.value);
                     set("neph", e.target.value);

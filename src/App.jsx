@@ -1,7 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import blacklogo from './assets/logo.webp'
 import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
-import loginpage from './Components/loginpage/LoginPage.jsx'
 import { useDispatch, useSelector } from "react-redux";
 import { fetchCurrentUser,logoutUser } from "./redux/reducers/authReducer.jsx";
 import { fetchSchools, setSelectedSchool,selectSchool } from "./redux/reducers/schoolReducer.jsx";
@@ -102,10 +101,10 @@ import AdminTheorySeriesPage from "./theory/AdminTheorySeriesPage.jsx";
 import AdminTheoryAccessPage from "./theory/AdminTheoryAccessPage.jsx";
 
 import RdvPermisPage from "./rdvpermis/RdvPermisPage.jsx";
+import { RDVPERMIS_OAUTH_MESSAGE } from "./rdvpermis/oauthPopup.js";
 
 
 import "./App.css";
-import LoginPage from "./Components/loginpage/LoginPage.jsx";
 
 // ── permis-web public landing site ──────────────────────────────────────────
 import { CartProvider }            from "./permis-web/context/CartContext.jsx";
@@ -279,14 +278,14 @@ function normalizeRole(role) {
 }
 
 function getRoleHomePath(role) {
-  return ROLE_HOME_PATH[normalizeRole(role)] ?? "/loginpage";
+  return ROLE_HOME_PATH[normalizeRole(role)] ?? "/login-page";
 }
 
 function canAccessPath(role, pathname, state) {
   const currentRole = normalizeRole(role);
 
   if (!currentRole) {
-    return pathname === "/loginpage";
+    return pathname === "/login-page";
   }
 
   if (currentRole === "student") {
@@ -317,7 +316,7 @@ function canAccessPath(role, pathname, state) {
         ? Boolean(state?.fromSecretaryDashboard)
         : Boolean(state?.fromMonitorProfile);
     }
-    return !PRIVATE_ROLE_DASHBOARD_PATHS.has(pathname) && pathname !== "/loginpage";
+    return !PRIVATE_ROLE_DASHBOARD_PATHS.has(pathname) && pathname !== "/login-page";
   }
 
   return false;
@@ -344,13 +343,7 @@ export default function App() {
       try {
         // Schools is protected. Fetch it only after the current session has
         // been verified so an expired session does not create a second 401.
-        const currentUser = await dispatch(fetchCurrentUser()).unwrap();
-        const currentRole = normalizeRole(currentUser?.role);
-        // Schools belong to the staff area. A monitor/student must not call
-        // the restricted admin endpoint during login.
-        if (currentRole === "admin" || currentRole === "secretary") {
-          await dispatch(fetchSchools()).unwrap();
-        }
+        await dispatch(fetchCurrentUser()).unwrap();
       } catch {
         // The route guard below sends unauthenticated visitors to login.
       } finally {
@@ -358,6 +351,16 @@ export default function App() {
       }
     })();
   }, [dispatch]);
+
+  // App initialization happens before an interactive login completes. Fetch
+  // the list again when a staff user becomes available so the header menu is
+  // populated without requiring a visit to the agency dashboard.
+  useEffect(() => {
+    const currentRole = normalizeRole(user?.role);
+    if (currentRole === "admin" || currentRole === "secretary") {
+      dispatch(fetchSchools());
+    }
+  }, [dispatch, user?.id, user?.role]);
 
 const handleLogout=async()=>{
         await dispatch(logoutUser());
@@ -414,6 +417,14 @@ const handleLogout=async()=>{
   const role = normalizeRole(user?.role);
   const homePath = getRoleHomePath(role);
 
+  useEffect(() => {
+    const result = new URLSearchParams(location.search).get("rdvpermis");
+    if (!window.opener || !["connected", "error"].includes(result ?? "")) return;
+
+    window.opener.postMessage({ type: RDVPERMIS_OAUTH_MESSAGE, result }, "*");
+    window.close();
+  }, [location.search]);
+
   const handleDashboardExit = async ({ returnTo, isSecretaryReturn }) => {
     // A student or monitor leaving their own space must end their session and
     // return to the public website. Staff previews instead return to the page
@@ -425,7 +436,7 @@ const handleLogout=async()=>{
         // Clear the local session even when the API session is already expired.
         console.warn("Impossible de fermer la session côté serveur.", error);
       }
-      navigate("/", { replace: true });
+      navigate("/login-page", { replace: true });
       return;
     }
 
@@ -490,6 +501,10 @@ const handleLogout=async()=>{
     }
   }, [isSecretaryDashboardRoute, location.state]);
 
+  if (location.pathname === "/loginpage") {
+    return <Navigate to="/login-page" replace />;
+  }
+
   // ── Full-page overrides (no shell) ──────────────────────────────────────
 
   // ── permis-web public routes (no auth required, no dashboard shell) ────────
@@ -535,8 +550,8 @@ const handleLogout=async()=>{
     return <Navigate to="/login-page" replace state={{ postLoginPath: "/student-checkout" }} />;
   }
 
-  if (!user && location.pathname !== "/loginpage") {
-    return <Navigate to="/loginpage" replace />;
+  if (!user && location.pathname !== "/login-page") {
+    return <Navigate to="/login-page" replace />;
   }
 
   if (user && !canAccessPath(role, location.pathname, location.state)) {
@@ -601,11 +616,6 @@ const handleLogout=async()=>{
       />
     );
   }
-
-  if (location.pathname === "/loginpage") {
-  return <LoginPage />;
-}
-
 
   // ── Secretary dashboard shell ───────────────────────────────────────────
   if (isSecretaryDashboardRoute || isSecretaryDashboardContextRoute) {
@@ -783,9 +793,6 @@ const handleLogout=async()=>{
 
 
 
-                {/* Login Page */}
-
-                <Route path="/loginpage"    element={<LoginPage />} />
                 {/* ── Active Agency — passes onSchoolSelect upward ── */}
                 <Route
                   path="/active-agency" element={<ActiveAgency onSchoolSelect={handleSchoolSelect} />}

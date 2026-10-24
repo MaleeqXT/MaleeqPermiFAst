@@ -57,7 +57,7 @@ function getHomePath(role) {
     case "student":
       return "/student-dashboard";
     default:
-      return "/loginpage";
+      return "/login-page";
   }
 }
 

@@ -161,7 +161,6 @@ function TabAccueil({ studentName, balance, usedBalance, canViewContract, showSa
 
       {showSatisfaction && satisfactionLoading && <p className="sd-satisfaction-status" aria-live="polite">Chargement de vos enquêtes de satisfaction…</p>}
       {showSatisfaction && !satisfactionLoading && satisfactionError && <div className="sd-satisfaction-status sd-satisfaction-status--error" role="alert"><span>{satisfactionError}</span><button type="button" onClick={onRetrySatisfaction}>Réessayer</button></div>}
-      {showSatisfaction && !satisfactionLoading && !satisfactionError && satisfactionSurveys.length === 0 && <p className="sd-satisfaction-status" aria-live="polite">Aucune enquête de satisfaction à compléter pour le moment.</p>}
       {showSatisfaction && !satisfactionLoading && satisfactionSurveys.map((survey) => (
         <button type="button" className="sd-satisfaction-link" onClick={() => onOpenSatisfaction(survey.id)} key={survey.id}>
           <span aria-hidden="true">🚗</span>
@@ -189,7 +188,7 @@ function SatisfactionPopup({ notification, onOpenSatisfaction, onLater }) {
       <p>{notification.message}</p>
       <div className="sd-satisfaction-popup-actions">
         <button type="button" className="sd-satisfaction-popup-later" onClick={onLater}>Plus tard</button>
-        <button type="button" className="sd-satisfaction-popup-cta" onClick={onOpenSatisfaction}>Donner mon avis</button>
+        <button type="button" className="sd-satisfaction-popup-cta" onClick={() => onOpenSatisfaction(notification.survey_id)}>Donner mon avis</button>
       </div>
     </section>
   </div>;

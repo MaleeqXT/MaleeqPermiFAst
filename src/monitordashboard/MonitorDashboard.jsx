@@ -982,7 +982,7 @@ export default function MonitorDashboard({ onClose }) {
 
   const handleLogout = async () => {
     await dispatch(logoutUser());
-    navigate("/loginpage", { replace: true });
+    navigate("/login-page", { replace: true });
   };
 
   const welcomeGroups = useMemo(

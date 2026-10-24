@@ -293,6 +293,25 @@ test("mandate refusal is shown without a successful mandate notice", async () =>
   assert.equal(await page.locator(".rdv-notice").count(), 0);
 });
 
+test("changing the selected local student clears a stale mandate error", async () => {
+  overrides.set("GET /api/admin/users/students", () => response({ data: { data: [
+    { id: 9, first_name: "Élève", last_name: "Premier", student: { id: "student-1", neph: "001234567890" } },
+    { id: 10, first_name: "Élève", last_name: "Second", student: { id: "student-2", neph: "001234567891" } },
+  ], last_page: 1 } }));
+  overrides.set("POST /api/admin/students/student-1/rdvpermis/mandate", () => response({ message: "Candidat inconnu (fixture)" }, 400));
+  await page.getByRole("button", { name: "Charger les élèves", exact: true }).click();
+  const selector = page.getByRole("combobox", { name: /^Élève local/ });
+  await selector.selectOption("student-1");
+  await page.getByRole("button", { name: "Créer le mandat", exact: true }).click();
+  await confirm();
+  await page.getByRole("alert").getByText("Candidat inconnu (fixture)", { exact: true }).waitFor();
+  await selector.selectOption("student-2");
+  assert.equal(await page.getByRole("alert").count(), 0);
+  await page.getByRole("button", { name: "Créer le mandat", exact: true }).click();
+  await confirm();
+  assert.equal(writes("/students/student-2/rdvpermis/mandate").length, 1);
+});
+
 test("assignment refusal never unlocks basket validation", async () => {
   overrides.set(`PUT /api/rdvpermis/paniers/${basketId}/creneaux/${slotId}/candidat`, () => response({ message: "Affectation refusée (fixture)" }, 422));
   await assignedPanier();

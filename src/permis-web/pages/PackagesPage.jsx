@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import Navbar from '../components/shared/Navbar'
@@ -9,12 +9,30 @@ import packagesBg from '../assets/Packages-bg.jpeg'
 import Footer from '../components/shared/Footer'
 import './PackagesPage.css'
 
+const AGENCY_BY_ZONE_ID = {
+  '9eeb1c0b-3a2a-41f6-8887-e17879995335': 'creil',
+  '9ef0999c-3842-4de1-ade2-d88412135519': 'toulouse',
+}
+
 const agencyKey = (value) => String(value || '')
   .toLocaleLowerCase('fr-FR')
   .normalize('NFD')
   .replace(/[\u0300-\u036f]/g, '')
   .trim()
   .replace('criel', 'creil')
+
+const offerRows = (response) => {
+  const data = response?.data?.data
+  if (Array.isArray(data)) return data
+  if (Array.isArray(data?.data)) return data.data
+  return []
+}
+
+const paginationLastPage = (response) => Number(response?.data?.data?.last_page || 1)
+
+const uniqueOffers = (items) => Array.from(
+  new Map(items.filter((offer) => offer?.id).map((offer) => [offer.id, offer])).values()
+)
 
 const parseAgencyPricing = (value) => {
   if (Array.isArray(value)) return value
@@ -25,6 +43,13 @@ const parseAgencyPricing = (value) => {
   } catch {
     return []
   }
+}
+
+const isAvailableForAgency = (offer, agency) => {
+  const pricing = parseAgencyPricing(offer.agency_pricing)
+  // An offer without per-agency pricing is a global offer. An offer with
+  // pricing entries belongs only to the agencies explicitly listed there.
+  return pricing.length === 0 || pricing.some((entry) => agencyKey(entry?.agency) === agency)
 }
 
 const applyAgencyPricing = (offer, agency) => {
@@ -56,7 +81,16 @@ const PackagesPage = () => {
   const [error, setError] = useState("")
   const [searchParams, setSearchParams] = useSearchParams()
   const currentUser = useSelector((state) => state.auth.user)
-  const selectedAgency = agencyKey(searchParams.get('agency')) === 'toulouse' ? 'toulouse' : 'creil'
+  const studentZoneId = currentUser?.student?.zone_id ?? currentUser?.zone_id
+  const studentAgency = agencyKey(
+    currentUser?.student?.agency?.name
+      ?? currentUser?.agency?.name
+      ?? currentUser?.student?.zone?.name
+      ?? currentUser?.zone?.name
+      ?? AGENCY_BY_ZONE_ID[studentZoneId]
+  )
+  const requestedAgency = agencyKey(searchParams.get('agency'))
+  const selectedAgency = studentAgency || (requestedAgency === 'toulouse' ? 'toulouse' : 'creil')
   const rawBoiteType = currentUser?.student?.boite_type ?? currentUser?.boite_type
   const studentBoiteType = [0, 1, '0', '1'].includes(rawBoiteType) ? Number(rawBoiteType) : null
 
@@ -67,23 +101,36 @@ const PackagesPage = () => {
 
   useEffect(() => {
     let active = true
+
+    const fetchAllOffers = async (params) => {
+      const firstResponse = await http.get('/public/offers', { params: { ...params, per_page: 100 } })
+      const pages = paginationLastPage(firstResponse)
+      const remainingResponses = await Promise.all(
+        Array.from({ length: Math.max(0, pages - 1) }, (_, index) => http.get('/public/offers', {
+          params: { ...params, per_page: 100, page: index + 2 },
+        }))
+      )
+      return uniqueOffers([firstResponse, ...remainingResponses].flatMap(offerRows))
+    }
+
     async function loadOffers() {
+      setLoading(true)
+      setError("")
       try {
-        const rows = (response) => response?.data?.data?.data ?? []
         if (studentBoiteType !== null) {
           // A logged-in student sees only offers for their registered gearbox:
           // 0 = boîte manuelle (BM), 1 = boîte automatique (BA).
-          const response = await http.get('/public/offers', { params: { is_auto: studentBoiteType, status: 1 } })
-          if (active) setOffers(rows(response).filter((offer) => Number(offer.is_auto) === studentBoiteType))
+          const studentOffers = await fetchAllOffers({ is_auto: studentBoiteType, status: 1 })
+          if (active) setOffers(studentOffers.filter((offer) => Number(offer.is_auto) === studentBoiteType))
           return
         }
 
         // Visitors without a student profile may browse both catalogues.
         const [manual, automatic] = await Promise.all([
-          http.get('/public/offers', { params: { is_auto: 0, status: 1 } }),
-          http.get('/public/offers', { params: { is_auto: 1, status: 1 } }),
+          fetchAllOffers({ is_auto: 0, status: 1 }),
+          fetchAllOffers({ is_auto: 1, status: 1 }),
         ])
-        if (active) setOffers([...rows(manual), ...rows(automatic)])
+        if (active) setOffers(uniqueOffers([...manual, ...automatic]))
       } catch (requestError) {
         if (active) setError(requestError?.response?.data?.message || "Impossible de charger les formules.")
       } finally {
@@ -105,17 +152,19 @@ const PackagesPage = () => {
       />
       <div className="packages-agency-picker">
         <label htmlFor="packages-agency">Agence</label>
-        <select id="packages-agency" value={selectedAgency} onChange={handleAgencyChange}>
+        <select id="packages-agency" value={selectedAgency} onChange={handleAgencyChange} disabled={Boolean(studentAgency)}>
           <option value="creil">Agence Creil</option>
           <option value="toulouse">Agence Toulouse</option>
         </select>
       </div>
       <Packages
-        packages={offers.map((offer) => applyAgencyPricing(offer, selectedAgency))}
+        packages={offers
+          .filter((offer) => isAvailableForAgency(offer, selectedAgency))
+          .map((offer) => applyAgencyPricing(offer, selectedAgency))}
         title="NOS FORMULES DE PERMIS"
         subtitle="Découvrez toutes nos formules de conduite conçues pour répondre à chaque besoin. Que vous recherchiez une formation classique, accélérée, moto ou spécialisée, choisissez la formule qui vous accompagnera jusqu'à la réussite de votre permis."
         showSubtitle={true}
-         showTabs={studentBoiteType === null}
+        showTabs={true}
         loading={loading}
         error={error}
       />

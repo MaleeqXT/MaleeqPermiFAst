@@ -9,10 +9,12 @@ import {
   normalizePlanningSlots,
   slotDateTime,
 } from "./slotSelection.js";
+import { localCalendarDate } from "./localCalendarDate.js";
+import { isTrustedRdvPermisOAuthOrigin, RDVPERMIS_OAUTH_MESSAGE } from "./oauthPopup.js";
 import "./RdvPermisPage.css";
 
 const STEPS = ["Centre", "Créneau", "Créer le panier", "Ajouter le créneau", "Éligibilité", "Affecter", "Valider", "Confirmation"];
-const today = new Date().toISOString().slice(0, 10);
+const today = localCalendarDate();
 
 function unwrap(response) {
   return response?.data?.data ?? response?.data ?? null;
@@ -36,6 +38,23 @@ function itemTitle(item, fallback) {
   if (!item || typeof item !== "object") return fallback;
   const label = item.nom ?? item.libelle ?? item.name ?? item.intitule ?? item.code ?? item.numeroDossier;
   return String(label ?? (itemId(item) || fallback));
+}
+
+const DEFAULT_CANDIDATE_SEARCH = Object.freeze({ nom: "", numeroDossier: "", match: "PARTIAL" });
+
+function normalizedSearchValue(value) {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLocaleLowerCase("fr");
+}
+
+function isSelectedCentreName(value, centre) {
+  const query = normalizedSearchValue(value);
+  const centreName = normalizedSearchValue(itemTitle(centre, ""));
+
+  return query !== "" && centreName !== "" && query === centreName;
 }
 
 function nestedItem(item, keys) {
@@ -161,7 +180,7 @@ export default function RdvPermisPage() {
   const [planningDate, setPlanningDate] = useState(today);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [eligibility, setEligibility] = useState(null);
-  const [candidateSearch, setCandidateSearch] = useState({ nom: "", numeroDossier: "", match: "PARTIAL" });
+  const [candidateSearch, setCandidateSearch] = useState({ ...DEFAULT_CANDIDATE_SEARCH });
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [exams, setExams] = useState(null);
   const [examFilter, setExamFilter] = useState({ groupePermis: "B", date: today });
@@ -193,6 +212,7 @@ export default function RdvPermisPage() {
   const [mutating, setMutating] = useState(false);
   const connectionStarting = useRef(false);
   const mutationInFlight = useRef(false);
+  const oauthWindow = useRef(null);
 
   const centreItems = useMemo(() => asList(centres, ["centres", "items", "content", "data"]), [centres]);
   const slotItems = useMemo(() => normalizePlanningSlots(planning), [planning]);
@@ -275,17 +295,49 @@ export default function RdvPermisPage() {
     };
   }, [callbackResult]);
 
+  useEffect(() => {
+    const receiveOAuthResult = (event) => {
+      if (!isTrustedRdvPermisOAuthOrigin(event.origin, window.location.origin) || event.data?.type !== RDVPERMIS_OAUTH_MESSAGE) return;
+
+      oauthWindow.current?.close();
+      oauthWindow.current = null;
+      connectionStarting.current = false;
+      setLoading((current) => ({ ...current, connect: false }));
+
+      if (event.data.result === "connected") {
+        setError("");
+        setNotice("La connexion RdvPermis a été finalisée. Vérifiez maintenant le statut et l’auto-école.");
+        refreshStatus();
+        return;
+      }
+
+      setError("La connexion RdvPermis n’a pas pu être finalisée. Réessayez depuis ce tableau de bord.");
+    };
+
+    window.addEventListener("message", receiveOAuthResult);
+    return () => window.removeEventListener("message", receiveOAuthResult);
+  }, [refreshStatus]);
+
   const startConnection = async () => {
     if (connectionStarting.current) return;
     connectionStarting.current = true;
+    const popup = window.open("", "rdvpermis-oauth", "popup,width=520,height=720");
+    if (!popup) {
+      connectionStarting.current = false;
+      setError("Autorisez la fenêtre de connexion RdvPermis, puis réessayez.");
+      return;
+    }
+    oauthWindow.current = popup;
     setLoading((current) => ({ ...current, connect: true }));
     setError("");
     try {
       const response = await rdvPermisApi.connect();
       const authorizationUrl = unwrap(response)?.authorization_url;
       if (!/^https:\/\//i.test(String(authorizationUrl ?? ""))) throw new Error("invalid_authorization_url");
-      window.location.assign(authorizationUrl);
+      popup.location.assign(authorizationUrl);
     } catch (requestError) {
+      popup.close();
+      oauthWindow.current = null;
       setError(errorMessage(requestError));
       setLoading((current) => ({ ...current, connect: false }));
       connectionStarting.current = false;
@@ -305,6 +357,7 @@ export default function RdvPermisPage() {
       setSelectedSlot(null);
       setEligibility(null);
       setSelectedCandidate(null);
+      setCandidateSearch({ ...DEFAULT_CANDIDATE_SEARCH });
       setWorkflowStep(0);
       setError("");
     });
@@ -317,6 +370,7 @@ export default function RdvPermisPage() {
     setSelectedSlot(null);
     setEligibility(null);
     setSelectedCandidate(null);
+    setCandidateSearch({ ...DEFAULT_CANDIDATE_SEARCH });
     setWorkflowStep(1);
     setError("");
   };
@@ -337,6 +391,7 @@ export default function RdvPermisPage() {
     setSelectedSlot(null);
     setEligibility(null);
     setSelectedCandidate(null);
+    setCandidateSearch({ ...DEFAULT_CANDIDATE_SEARCH });
     setWorkflowStep(1);
     setError("");
     runRead("planning", () => rdvPermisApi.searchPlanning({
@@ -352,6 +407,9 @@ export default function RdvPermisPage() {
     setSelectedSlot(slot);
     setEligibility(null);
     setSelectedCandidate(null);
+    // A candidate search belongs to a single slot. Do not carry a previous
+    // optional name/NEPH filter into the newly selected provider slot.
+    setCandidateSearch({ ...DEFAULT_CANDIDATE_SEARCH });
     setWorkflowStep(2);
   };
 
@@ -360,6 +418,10 @@ export default function RdvPermisPage() {
     const payload = eligibilityPayload(selectedSlot);
     if (!payload || !selectedSlotId) {
       setError("Veuillez sélectionner un créneau valide.");
+      return;
+    }
+    if (isSelectedCentreName(candidateSearch.nom, selectedCentre)) {
+      setError("Le champ Nom recherche un candidat. Effacez le nom du centre avant de vérifier l’éligibilité.");
       return;
     }
     const filtre = { ...payload.filtre };
@@ -377,7 +439,25 @@ export default function RdvPermisPage() {
     runRead("exams", () => rdvPermisApi.listExams(examFilter), setExams);
   };
 
+  const clearCandidateFilters = () => {
+    setCandidateSearch({ ...DEFAULT_CANDIDATE_SEARCH });
+    setEligibility(null);
+    setSelectedCandidate(null);
+  };
+
   const loadStudents = () => runRead("students", rdvPermisApi.listAllLocalStudents, setLocalStudents);
+
+  // This deliberately contains only read-only Laravel endpoints. Eligibility
+  // and mandate history remain user-scoped because they require a chosen slot
+  // and a chosen local student respectively.
+  const loadAvailableData = () => {
+    Promise.all([
+      runRead("school", rdvPermisApi.currentSchool, setSchool),
+      runRead("students", rdvPermisApi.listAllLocalStudents, setLocalStudents),
+      runRead("paniers", rdvPermisApi.listPaniers, setPaniers),
+      runRead("exams", () => rdvPermisApi.listExams(examFilter), setExams),
+    ]);
+  };
 
   const searchMandatesForSelectedStudent = () => {
     if (!selectedStudent?.neph) {
@@ -642,6 +722,9 @@ export default function RdvPermisPage() {
         <button type="button" className="rdv-button rdv-button--primary" onClick={startConnection} disabled={loading.connect}>
           {loading.connect ? "Redirection…" : isConnected ? "Reconnecter RdvPermis" : "Connecter RdvPermis"}
         </button>
+        <button type="button" className="rdv-button rdv-button--secondary" onClick={loadAvailableData} disabled={!isConnected || loading.school || loading.students || loading.paniers || loading.exams}>
+          {loading.school || loading.students || loading.paniers || loading.exams ? "Chargement…" : "Charger les données disponibles"}
+        </button>
       </div>
 
       {notice && <div className="rdv-notice" role="status">{notice}<button type="button" onClick={() => setNotice("")} aria-label="Fermer">×</button></div>}
@@ -701,11 +784,13 @@ export default function RdvPermisPage() {
         <div className="rdv-card-heading"><div><h2>Éligibilité des candidats</h2><p>La vérification porte toujours sur le créneau sélectionné.</p></div></div>
         <form className="rdv-form-grid rdv-form-grid--candidates" onSubmit={searchEligibility}>
           <Field label="Créneau"><input readOnly value={selectedSlotId ? `${slotDateTime(selectedSlot) || "Créneau"} — ${selectedSlotId}` : ""} placeholder="Sélectionnez un créneau" /></Field>
-          <Field label="Nom (facultatif)"><input value={candidateSearch.nom} onChange={(event) => setCandidateSearch((current) => ({ ...current, nom: event.target.value }))} /></Field>
-          <Field label="NEPH / numéro de dossier (facultatif)"><input value={candidateSearch.numeroDossier} onChange={(event) => setCandidateSearch((current) => ({ ...current, numeroDossier: event.target.value }))} /></Field>
+          <Field label="Nom du candidat (facultatif)"><input value={candidateSearch.nom} placeholder="Nom du candidat, pas le centre" onChange={(event) => setCandidateSearch((current) => ({ ...current, nom: event.target.value }))} /></Field>
+          <Field label="NEPH / numéro de dossier (facultatif)"><input value={candidateSearch.numeroDossier} placeholder="NEPH du candidat" onChange={(event) => setCandidateSearch((current) => ({ ...current, numeroDossier: event.target.value }))} /></Field>
           <Field label="Correspondance"><select value={candidateSearch.match} onChange={(event) => setCandidateSearch((current) => ({ ...current, match: event.target.value }))}><option value="PARTIAL">Partielle</option><option value="EXACT">Exacte</option></select></Field>
+          <button type="button" className="rdv-button rdv-button--secondary" onClick={clearCandidateFilters} disabled={!candidateSearch.nom && !candidateSearch.numeroDossier}>Effacer les filtres</button>
           <button className="rdv-button rdv-button--primary" disabled={!selectedSlotId || loading.eligibility}>{loading.eligibility ? "Vérification…" : "Vérifier l’éligibilité"}</button>
         </form>
+        {(candidateSearch.nom || candidateSearch.numeroDossier) && <p className="rdv-empty">Filtres actifs : effacez-les pour rechercher tous les candidats éligibles du créneau.</p>}
         {eligibility !== null && (eligibleCandidates.length ? <div className="rdv-result-list">{eligibleCandidates.map((candidate, index) => {
           const id = candidateId(candidate);
           const selected = Boolean(id) && id === candidateId(selectedCandidate);
@@ -714,7 +799,7 @@ export default function RdvPermisPage() {
             <div><strong>{itemTitle(candidate?.candidat ?? candidate, "Candidat")}</strong><span>{eligible === true ? "Éligible" : eligible === false ? "Non éligible" : "Éligibilité à consulter"}</span></div>
             <button type="button" className="rdv-button rdv-button--secondary" disabled={!id || eligible !== true} onClick={() => { setSelectedCandidate(candidate); setWorkflowStep(5); }}>{selected ? "Sélectionné" : "Choisir"}</button>
           </article>;
-        })}</div> : <EmptyState>Aucun candidat éligible pour ce créneau.</EmptyState>)}
+        })}</div> : <EmptyState>{candidateSearch.nom || candidateSearch.numeroDossier ? "Aucun candidat éligible pour les filtres indiqués." : "Aucun candidat éligible renvoyé par RdvPermis pour ce créneau."}</EmptyState>)}
       </section>
 
       <section className="rdv-card">
@@ -741,7 +826,7 @@ export default function RdvPermisPage() {
 
       <section className="rdv-card">
         <div className="rdv-card-heading"><div><h2>Mandat candidat</h2><p>Créez un mandat uniquement après avoir vérifié les informations de l’élève.</p></div><button type="button" className="rdv-button rdv-button--secondary" onClick={loadStudents} disabled={loading.students}>{loading.students ? "Chargement…" : "Charger les élèves"}</button></div>
-        {localStudents !== null && <div className="rdv-mutation-panel"><Field label="Rechercher un élève"><input type="search" value={studentSearch} onChange={(event) => setStudentSearch(event.target.value)} placeholder="Nom, prénom, email ou NEPH" /></Field><Field label="Élève local"><select value={localStudentId} onChange={(event) => { setLocalStudentId(event.target.value); setMandates(null); }}><option value="">Sélectionnez un élève</option>{visibleStudents.map((student, index) => <option key={student.id || index} value={student.id}>{student.firstName || "Élève"} {student.lastName}</option>)}</select></Field>{studentItems.length > 0 && <p className="rdv-empty">{matchingStudents.length} élève{matchingStudents.length === 1 ? "" : "s"} trouvé{matchingStudents.length === 1 ? "" : "s"}</p>}{studentItems.length > 0 && !matchingStudents.length && <EmptyState>Aucun élève trouvé</EmptyState>}<button type="button" className="rdv-button rdv-button--danger" onClick={createMandate} disabled={!selectedStudent?.id}>Créer le mandat</button></div>}
+        {localStudents !== null && <div className="rdv-mutation-panel"><Field label="Rechercher un élève"><input type="search" value={studentSearch} onChange={(event) => setStudentSearch(event.target.value)} placeholder="Nom, prénom, email ou NEPH" /></Field><Field label="Élève local"><select value={localStudentId} onChange={(event) => { setLocalStudentId(event.target.value); setMandates(null); setError(""); }}><option value="">Sélectionnez un élève</option>{visibleStudents.map((student, index) => <option key={student.id || index} value={student.id}>{student.firstName || "Élève"} {student.lastName}</option>)}</select></Field>{studentItems.length > 0 && <p className="rdv-empty">{matchingStudents.length} élève{matchingStudents.length === 1 ? "" : "s"} trouvé{matchingStudents.length === 1 ? "" : "s"}</p>}{studentItems.length > 0 && !matchingStudents.length && <EmptyState>Aucun élève trouvé</EmptyState>}<button type="button" className="rdv-button rdv-button--danger" onClick={createMandate} disabled={!selectedStudent?.id}>Créer le mandat</button></div>}
         {selectedStudent && <div className="rdv-student-preview" aria-live="polite"><strong>Informations qui seront envoyées après confirmation</strong><span>{selectedStudent.firstName} {selectedStudent.lastName || "—"}</span><span>NEPH : {selectedStudent.neph || "À compléter"}</span><span>Email : {selectedStudent.email || "Non renseigné"}</span><span>Groupe permis : B</span><button type="button" className="rdv-text-button" onClick={searchMandatesForSelectedStudent} disabled={!selectedStudent.neph || loading.mandates}>{loading.mandates ? "Vérification…" : "Vérifier les mandats existants"}</button></div>}
         {mandates !== null && (asList(mandates, ["candidats", "items", "content", "data"]).length ? <div className="rdv-result-list">{asList(mandates, ["candidats", "items", "content", "data"]).map((candidate, index) => <article className="rdv-result-row" key={itemId(candidate?.candidat ?? candidate) || index}><div><strong>{itemTitle(candidate?.candidat ?? candidate, "Candidat mandaté")}</strong><span>{candidate?.mandat?.groupePermis ?? candidate?.groupePermis ?? "Mandat trouvé"}</span></div></article>)}</div> : <EmptyState>Aucun mandat correspondant n’a été trouvé.</EmptyState>)}
         {localStudents !== null && !studentItems.length && <EmptyState>Aucun élève local actif n’est disponible.</EmptyState>}

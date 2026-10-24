@@ -3,7 +3,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import StudentSidebar from "./StudentSidebar.jsx";
 import StudentHeader from "./StudentHeader.jsx";
-import { logoutUser } from "../redux/reducers/authReducer.jsx";
+import { fetchCurrentUser, logoutUser } from "../redux/reducers/authReducer.jsx";
+import { isStudentDashboardPreview, stopStudentDashboardPreview } from "../helpers/studentDashboardPreview.js";
 import http from "../helpers/http.jsx";
 import { satisfactionStageLabel, uniquePendingSurveys } from "../satisfaction/satisfactionState.js";
 import "./CandidateDashboard.css";
@@ -258,6 +259,16 @@ export default function CandidateDashboard() {
   };
 
   async function handleLogout() {
+    if (isStudentDashboardPreview()) {
+      const preview = await stopStudentDashboardPreview().catch(() => null);
+      try {
+        await dispatch(fetchCurrentUser()).unwrap();
+      } finally {
+        navigate(preview?.returnTo || "/dashboard/general", { replace: true });
+      }
+      return;
+    }
+
     await dispatch(logoutUser());
     navigate("/login-page", { replace: true });
   }
@@ -274,7 +285,7 @@ export default function CandidateDashboard() {
 
       <main className="nsd-main">
         {/* ── Header ── */}
-        <StudentHeader className="nsd-dashboard-header" title={`Bonjour ${firstName || ""} 👋`} subtitle="Bienvenue dans votre espace élève." onMenuOpen={() => setSidebarOpen(true)} user={displayUser} />
+        <StudentHeader className="nsd-dashboard-header" title={`Bonjour ${firstName || ""} 👋`} subtitle="Bienvenue dans votre espace élève." onMenuOpen={() => setSidebarOpen(true)} onLogout={handleLogout} user={displayUser} />
 
         <div className="nsd-grid">
           {satisfactionLoading && (
@@ -295,16 +306,6 @@ export default function CandidateDashboard() {
                 <p>{satisfactionError}</p>
               </div>
               <button type="button" className="nsd-btn-dark" onClick={() => setSatisfactionRetry((value) => value + 1)}>Réessayer</button>
-            </section>
-          )}
-
-          {!satisfactionLoading && !satisfactionError && satisfactionSurveys.length === 0 && (
-            <section className="nsd-satisfaction-card nsd-satisfaction-card--state" aria-live="polite">
-              <span className="nsd-satisfaction-icon" aria-hidden="true">✓</span>
-              <div className="nsd-satisfaction-copy">
-                <h2>Enquêtes de satisfaction</h2>
-                <p>Aucune enquête de satisfaction à compléter pour le moment.</p>
-              </div>
             </section>
           )}
 

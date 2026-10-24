@@ -60,7 +60,7 @@ export function profileImageUrl(user) {
   return `${baseUrl}/storage/${value.replace(/^\/?storage\//, "")}`;
 }
 
-export function StudentUserMenu({ user: previewUser }) {
+export function StudentUserMenu({ user: previewUser, onLogout }) {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
@@ -87,12 +87,17 @@ export function StudentUserMenu({ user: previewUser }) {
 
   const logout = async () => {
     setOpen(false);
+    if (onLogout) {
+      await onLogout();
+      return;
+    }
+
     if (previewSession) {
       const preview = await stopStudentDashboardPreview().catch(() => null);
       try {
         await dispatch(fetchCurrentUser()).unwrap();
       } finally {
-        navigate(preview?.returnTo || "/candidates", { replace: true });
+        navigate(preview?.returnTo || "/dashboard/general", { replace: true });
       }
       return;
     }
@@ -188,6 +193,7 @@ export default function StudentHeader({
   titleNode,
   subtitle,
   onMenuOpen,
+  onLogout,
   user,
 }) {
   return (
@@ -203,7 +209,7 @@ export default function StudentHeader({
 
       <div className="nsd-header-right">
         <StudentNotifications />
-        <StudentUserMenu user={user} />
+        <StudentUserMenu user={user} onLogout={onLogout} />
       </div>
     </header>
   );

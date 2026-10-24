@@ -8,7 +8,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "test:rdvpermis": "node --test tests/rdvpermis-slotSelection.test.js tests/rdvpermis-validation.test.js tests/rdvpermis-workflows.test.js",
+    "test:rdvpermis": "node --test tests/apiBaseUrl.test.js tests/rdvpermis-localCalendarDate.test.js tests/rdvpermis-oauthPopup.test.js tests/rdvpermis-slotSelection.test.js tests/rdvpermis-validation.test.js tests/rdvpermis-workflows.test.js",
     "test:satisfaction": "node --test tests/satisfaction-state.test.js",
     "preview": "vite preview"
   },

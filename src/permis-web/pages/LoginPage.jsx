@@ -22,7 +22,7 @@ function getHomePath(role) {
       return "/secretary-dashboard";
     case "monitor":   return "/monitor-dashboard";
     case "student":   return "/student-dashboard";
-    default:          return "/loginpage";
+    default:          return "/login-page";
   }
 }
 
