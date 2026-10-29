@@ -7,7 +7,7 @@ import logo from "../assets/logo.webp";
 import { useDispatch, useSelector } from "react-redux";
 import { loginUser } from "../../redux/reducers/authReducer";
 import {
-  FiMail, FiLock, FiArrowRight, FiShield, FiStar, FiCheckCircle,
+  FiMail, FiLock, FiArrowLeft, FiArrowRight, FiShield, FiStar, FiCheckCircle,
 } from "react-icons/fi";
 
 /* ── Same role→path mapping as the main LoginPage ── */
@@ -58,6 +58,11 @@ const LoginPage = () => {
         state: continueToCheckout ? { cartCheckout: true } : undefined,
       });
     }
+  };
+
+  const handleBack = () => {
+    if (window.history.length > 1) navigate(-1);
+    else navigate("/");
   };
 
   return (
@@ -150,6 +155,9 @@ const LoginPage = () => {
 
           {/* Floating login form card */}
           <div className="loginpage-form-card">
+            <button type="button" className="loginpage-back" onClick={handleBack} aria-label="Retour">
+              <FiArrowLeft />
+            </button>
             <h3 className="loginpage-form-title">Bienvenue !</h3>
             <p className="loginpage-form-sub">Connectez-vous à votre espace.</p>
 

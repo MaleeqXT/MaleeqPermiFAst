@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import http from "../../helpers/http.jsx";
+import { openProtectedDocument } from "../../helpers/openProtectedDocument.js";
 import "./CpfForm.css";
 import CpfDrawer from "./CpfDrawer";
 
@@ -62,7 +63,9 @@ function DocumentIconButton({ available, url, label }) {
     <button
       type="button"
       className="cpf-document-link"
-      onClick={() => window.open(url, "_blank", "noopener,noreferrer")}
+      onClick={() => openProtectedDocument(url).catch(() => {
+        window.alert("Impossible d'ouvrir ce document pour le moment.");
+      })}
       aria-label={label}
       title={label}
     >
@@ -80,14 +83,13 @@ function fmtDate(iso) {
 
 function cpfDocumentUrl(type, cpfId) {
   if (!cpfId) return "";
-  const baseUrl = (import.meta.env.VITE_API_URL || window.location.origin).replace(/\/$/, "");
   const paths = {
     posTest: `/admin/forms-cpf/test-positionnement/${cpfId}`,
     contactForm: `/admin/forms-cpf/contact-formation/${cpfId}/pdf`,
     attestation: `/admin/forms-cpf/attestation-honneur/${cpfId}/pdf`,
     reservations: `/admin/forms-cpf/reservations/${cpfId}/pdf`,
   };
-  return paths[type] ? `${baseUrl}${paths[type]}` : "";
+  return paths[type] || "";
 }
 
 function mapCpfRecord(cpf) {

@@ -207,6 +207,14 @@
   box-shadow: -2px 0 18px rgba(88, 181, 38, 0.38);
 }
 
+.agencyfinder-search__feedback {
+  min-height: 18px;
+  margin: 8px 0 0;
+  color: #4a5568;
+  font-size: 12px;
+  font-weight: 500;
+}
+
 /* =========================================================
    RIGHT COLUMN — MAP
 ========================================================= */

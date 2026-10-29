@@ -132,6 +132,7 @@ export default function ProposeSession({
   onOpenProposeSession,
   onProposalCreated,
   initialSelectedAvailabilityIds = [],
+  monitorId = null,
 }) {
   const dispatch   = useDispatch();
   const studentId  = candidate?.studentId ?? null;
@@ -177,6 +178,7 @@ export default function ProposeSession({
           onOpenProposeSession={onOpenProposeSession}
           onProposalCreated={onProposalCreated}
           initialSelectedAvailabilityIds={initialSelectedAvailabilityIds}
+          monitorId={monitorId}
         />
       </div>
     </div>

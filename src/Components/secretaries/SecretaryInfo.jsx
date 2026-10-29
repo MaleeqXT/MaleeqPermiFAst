@@ -9,7 +9,14 @@ import { useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchSecretaryById } from "../../redux/reducers/adminSecretarySlice.jsx";
 import { updateSecretary } from "../../redux/reducers/adminSecretarySlice.jsx";
-const BASE_URL = import.meta.env.VITE_API_URL;
+import { apiAssetUrl } from "../../config/api.js";
+
+function secretaryMediaUrl(media) {
+  if (!media) return null;
+  if (/^https?:\/\//i.test(media)) return media;
+
+  return apiAssetUrl(`storage/${String(media).replace(/^\/?(?:storage\/)?/, "")}`);
+}
 const BLANK = {
   first_name: "", lastName: "", email: "", phone: "", sexe: "Women",
   date_naissance: "", postal: "", adresse: "", neph: "",
@@ -75,10 +82,7 @@ export default function CandidateProfile({ candidateId, initialData, onSaveProfi
 
     setForm(populated);
     setCommitted(populated);
-    setPhoto(secretaryData.user?.media 
-        ? `${BASE_URL}/storage/${secretaryData.user.media}` 
-        : null
-    );
+    setPhoto(secretaryMediaUrl(secretaryData.user?.media));
 }, [secretaryData]);
 
   
@@ -240,19 +244,13 @@ export default function CandidateProfile({ candidateId, initialData, onSaveProfi
               selectedSrc={photo}
               onSelect={(src, file) => {
                   setPhoto(src);
-                  setMediaFile(file);  // ✅ actual File object
+                  setMediaFile(file?.file ?? null);
               }}
             />
 
             {/* CPF + Type de boîte */}
             <div className="cp-right-card">
-              <div className="cp-right-row">
-                <span className="cp-right-label">CPF</span>
-                <label className="cp-toggle">
-                  <input type="checkbox" checked={form.cpf} onChange={e => set("cpf", e.target.checked)} />
-                  <span className="cp-toggle-track" />
-                </label>
-              </div>
+             
               <div className="cp-right-row" style={{ marginTop: 16 }}>
                 <span className="cp-right-label">Type de boîte</span>
                 <div className="cp-box-toggle">

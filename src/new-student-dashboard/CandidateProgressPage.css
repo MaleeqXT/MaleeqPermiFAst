@@ -119,6 +119,22 @@
   border-color: var(--nsp-green-dark);
 }
 
+.nsp-action-button:disabled {
+  cursor: wait;
+  opacity: .7;
+}
+
+.nsp-booklet-feedback {
+  margin: -2px 0 14px;
+  color: #18774f;
+  font-size: 12px;
+  text-align: right;
+}
+
+.nsp-booklet-feedback--error {
+  color: #b42318;
+}
+
 .nsp-panel {
   min-width: 0;
   background: #ffffff;

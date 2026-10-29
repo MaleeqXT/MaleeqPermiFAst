@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
 import "./Exam.css";
 import ExamDetail from "./ExamDetail";
-import Info from "../candidates/Info.jsx";
 import http from "../../helpers/http.jsx";
 
 // ── Icônes ────────────────────────────────────────────────────────────────────
@@ -19,7 +20,7 @@ const IconInfo    = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="
 function SortArrows({ sortKey, colKey, onSort }) {
   const isActive = sortKey?.key === colKey, dir = sortKey?.dir;
   return (
-    <button className="cand-sort-btn" onClick={() => onSort(colKey)}>
+    <button type="button" className="cand-sort-btn" onClick={() => onSort(colKey)} aria-label={`Trier par ${colKey}`} aria-pressed={isActive}>
       <svg width="10" height="7" viewBox="0 0 10 7" fill="none" stroke={isActive && dir === 1  ? "#111827" : "#d1d5db"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M1 6 L5 1 L9 6"/></svg>
       <svg width="10" height="7" viewBox="0 0 10 7" fill="none" stroke={isActive && dir === -1 ? "#111827" : "#d1d5db"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M1 1 L5 6 L9 1"/></svg>
     </button>
@@ -84,6 +85,8 @@ function Toast({ toast, onClose }) {
 function FilterDropdown({ label, options, value, onChange }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
+  const selectedOption = options.find((option) => String(typeof option === "string" ? option : option.value) === String(value));
+  const selectedLabel = typeof selectedOption === "string" ? selectedOption : selectedOption?.label;
   useEffect(() => {
     const h = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
     document.addEventListener("mousedown", h);
@@ -92,7 +95,7 @@ function FilterDropdown({ label, options, value, onChange }) {
   return (
     <div className="ex-filter-anchor" ref={ref}>
       <button className="ex-filter-btn" onClick={() => setOpen(o => !o)}>
-        <span style={{ color: value ? "#111827" : "#9ca3af" }}>{value || label}</span>
+        <span style={{ color: value ? "#111827" : "#9ca3af" }}>{selectedLabel || label}</span>
         <div style={{ display:"flex", alignItems:"center", gap:4 }}>
           {value && (
             <button className="ex-filter-clear" onClick={e => { e.stopPropagation(); onChange(""); }}>
@@ -105,11 +108,19 @@ function FilterDropdown({ label, options, value, onChange }) {
       {open && (
         <div className="ex-filter-dropdown">
           <button className={`ex-filter-option ${!value ? "ex-filter-option--active" : ""}`} onClick={() => { onChange(""); setOpen(false); }}>Tous</button>
-          {options.map(opt => (
-            <button key={opt} className={`ex-filter-option ${value === opt ? "ex-filter-option--active" : ""}`} onClick={() => { onChange(opt); setOpen(false); }}>
-              {opt}
-            </button>
-          ))}
+          {options.map((option) => {
+            const optionValue = typeof option === "string" ? option : option.value;
+            const optionLabel = typeof option === "string" ? option : option.label;
+            return (
+              <button
+                key={optionValue}
+                className={"ex-filter-option " + (value === optionValue ? "ex-filter-option--active" : "")}
+                onClick={() => { onChange(optionValue); setOpen(false); }}
+              >
+                {optionLabel}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
@@ -178,49 +189,51 @@ const TABS = [
 
 // ── Composant principal ───────────────────────────────────────────────────────
 export default function ExaminationList() {
+  const navigate = useNavigate();
+  const selectedZoneId = useSelector((state) => state.schools.selected?.id ?? null);
   const [exams,          setExams]          = useState([]);
   const [activeTab,      setActiveTab]      = useState("all");
   const [monitorFilter,  setMonitorFilter]  = useState("");
   const [locationFilter, setLocationFilter] = useState("");
+  const [studentFilter,  setStudentFilter]  = useState("");
   const [sort,           setSort]           = useState(null);
   const [page,           setPage]           = useState(1);
   const [commentTarget,  setCommentTarget]  = useState(null);
   const [editTarget,     setEditTarget]     = useState(null);
   const [toast,          setToast]          = useState(null);
   const [search,         setSearch]         = useState("");
-  const [selectedCandidate, setSelectedCandidate] = useState(null);
+  const [filterOptions,  setFilterOptions]  = useState({ monitors: [], locations: [], students: [] });
 
   useEffect(() => {
     let active = true;
 
-    http.get("/admin/exams")
+    http.get("/admin/exams", { params: selectedZoneId ? { zone_id: selectedZoneId } : undefined })
       .then(({ data }) => {
-        if (active) setExams(Array.isArray(data?.data) ? data.data : []);
+        if (!active) return;
+        const loadedExams = Array.isArray(data?.data) ? data.data : [];
+        setExams(loadedExams);
+        setFilterOptions({
+          monitors: Array.isArray(data?.filters?.monitors) ? data.filters.monitors : loadedExams
+            .filter((exam) => exam.monitorId && exam.monitor)
+            .map((exam) => ({ value: exam.monitorId, label: exam.monitor })),
+          locations: Array.isArray(data?.filters?.locations) ? data.filters.locations : [...new Set(loadedExams.map((exam) => exam.location).filter(Boolean))],
+          students: Array.isArray(data?.filters?.students) ? data.filters.students : loadedExams
+            .map((exam) => ({ value: exam.id, label: exam.candidate }))
+            .filter((student) => student.label),
+        });
       })
       .catch(() => {
         if (active) setToast({ type: "error", message: "Impossible de charger les examens." });
       });
 
     return () => { active = false; };
-  }, []);
+  }, [selectedZoneId]);
 
   const openCandidateDetail = (exam) => {
-    const [prenom = "", ...nomParts] = exam.candidate.split(" ");
-    setSelectedCandidate({
-      id: exam.id,
-      prenom,
-      nom: nomParts.join(" ") || exam.candidate,
-      tel: exam.phone,
-      permis: exam.box === "Auto" ? "Voiture automatique" : "Voiture manuelle",
-      status: "active",
-      balance: "0h",
-      date: exam.examDate || "",
-    });
+    // The exam API uses the Student id as `id`; route to the real candidate
+    // profile so its own request loads the complete, current data.
+    navigate(`/candidate-info/${exam.id}`);
   };
-
-  if (selectedCandidate) {
-    return <Info candidate={selectedCandidate} onBack={() => setSelectedCandidate(null)} />;
-  }
 
   // ── Navigation vers ExamDetail ────────────────────────────────────────────
   if (editTarget) {
@@ -232,7 +245,11 @@ export default function ExaminationList() {
           onBack={() => setEditTarget(null)}
           onSave={async (updated) => {
             try {
-              const { data } = await http.put(`/admin/exams/${updated.id}`, toApiExamPayload(updated));
+              const { data } = await http.put(
+                `/admin/exams/${updated.id}`,
+                toApiExamPayload(updated),
+                selectedZoneId ? { params: { zone_id: selectedZoneId } } : undefined,
+              );
               const savedExam = data?.data;
               if (!savedExam) throw new Error("Réponse invalide du serveur");
 
@@ -255,12 +272,16 @@ export default function ExaminationList() {
 
   let filtered = exams
     .filter(e => activeTab === "all" || e.status === activeTab)
-    .filter(e => !monitorFilter  || e.monitor === monitorFilter)
+    .filter(e => !monitorFilter  || String(e.monitorId) === String(monitorFilter))
     .filter(e => !locationFilter || e.location === locationFilter)
+    .filter(e => !studentFilter  || String(e.id) === String(studentFilter))
     .filter(e => !search || e.candidate.toLowerCase().includes(search.toLowerCase()) || e.phone.includes(search));
 
   if (sort) {
     filtered = [...filtered].sort((a, b) => {
+      if (sort.key === "examDate") {
+        return ((Date.parse(a.examDate) || 0) - (Date.parse(b.examDate) || 0)) * sort.dir;
+      }
       const av = String(a[sort.key] ?? "").toLowerCase();
       const bv = String(b[sort.key] ?? "").toLowerCase();
       return (av < bv ? -1 : av > bv ? 1 : 0) * sort.dir;
@@ -280,11 +301,16 @@ export default function ExaminationList() {
     failed:     exams.filter(e => e.status === "failed").length,
     on_hold:    exams.filter(e => e.status === "on_hold").length,
   };
-  const monitorOptions = [...new Set(exams.map(exam => exam.monitor).filter(Boolean))];
-  const locationOptions = [...new Set(exams.map(exam => exam.location).filter(Boolean))];
+  const monitorOptions = filterOptions.monitors;
+  const locationOptions = filterOptions.locations;
+  const studentOptions = filterOptions.students;
 
   function saveComment(id, text) {
-    http.put(`/admin/exams/${id}`, { comment: text })
+    http.put(
+      `/admin/exams/${id}`,
+      { comment: text },
+      selectedZoneId ? { params: { zone_id: selectedZoneId } } : undefined,
+    )
       .then(({ data }) => {
         const savedExam = data?.data;
         if (!savedExam) throw new Error("Réponse invalide du serveur");
@@ -341,6 +367,7 @@ export default function ExaminationList() {
       <div className="ex-filters-row">
         <FilterDropdown label="Moniteur" options={monitorOptions} value={monitorFilter} onChange={v => { setMonitorFilter(v); setPage(1); }} />
         <FilterDropdown label="Lieu"     options={locationOptions} value={locationFilter} onChange={v => { setLocationFilter(v); setPage(1); }} />
+        <FilterDropdown label="Élève"    options={studentOptions} value={studentFilter} onChange={v => { setStudentFilter(v); setPage(1); }} />
       </div>
 
       {/* ── Tableau ── */}
@@ -354,10 +381,10 @@ export default function ExaminationList() {
                 <th>Téléphone <SortArrows sortKey={sort} colKey="phone" onSort={handleSort} /></th>
                 <th>Boîte <SortArrows sortKey={sort} colKey="box" onSort={handleSort} /></th>
                 <th>Date d'examen <SortArrows sortKey={sort} colKey="examDate" onSort={handleSort} /></th>
-                <th>Dernière info</th>
+                <th>Dernière info <SortArrows sortKey={sort} colKey="latestNews" onSort={handleSort} /></th>
                 <th>Statut <SortArrows sortKey={sort} colKey="status" onSort={handleSort} /></th>
-                <th>Résultat</th>
-                <th>Commentaire</th>
+                <th>Résultat <SortArrows sortKey={sort} colKey="attemptCount" onSort={handleSort} /></th>
+                <th>Commentaire <SortArrows sortKey={sort} colKey="comment" onSort={handleSort} /></th>
                 <th></th>
               </tr>
             </thead>

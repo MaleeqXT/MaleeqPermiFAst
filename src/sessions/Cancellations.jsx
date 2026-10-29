@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
 import http from "../helpers/http.jsx";
 import { useCandidates } from "../Components/candidates/CandidatesContext.jsx";
 import "./Cancellations.css";
@@ -25,7 +26,13 @@ const IconInfo    = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="
 function SortArrows({ sortKey, colKey, onSort }) {
   const isActive = sortKey?.key === colKey, dir = sortKey?.dir;
   return (
-    <button className="cand-sort-btn" onClick={() => onSort(colKey)}>
+    <button
+      type="button"
+      className="cand-sort-btn"
+      onClick={() => onSort(colKey)}
+      aria-label={`Trier par ${colKey}`}
+      aria-pressed={isActive}
+    >
       <svg width="10" height="7" viewBox="0 0 10 7" fill="none"
         stroke={isActive && dir === 1  ? "#111827" : "#d1d5db"}
         strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -63,6 +70,9 @@ const INITIAL_DATA = [
   { id:19, monitorName:"Soumaya EL AMMARI",      candidateName:"Marc Dupont",                 dateApplied:"2026-01-20", dateReserved:"2026-01-22", hourly:"9:00 à 10:00",   message:"Absent",                             status:"refused",   tab:"noproof"   },
   { id:20, monitorName:"FELINE SEAPHNAH",        candidateName:"Amina Diallo",                dateApplied:"2026-01-15", dateReserved:"2026-01-17", hourly:"16:00 à 17:00",  message:"Panne de voiture",                   status:"onhold",    tab:"noproof"   },
 ];
+// Kept only as a local visual fallback reference; live rows always come from
+// the cancellation API above.
+void INITIAL_DATA;
 
 const PAGE_SIZE = 15;
 
@@ -255,6 +265,7 @@ function MobileCard({ row, onStatusClick, onCandidateClick, onMonitorClick }) {
 export default function ReservationCancellations() {
   const navigate = useNavigate();
   const { setSelectedCandidateId } = useCandidates();
+  const selectedZoneId = useSelector((state) => state.schools.selected?.id ?? null);
 
   const [data,       setData]       = useState([]);
   const [activeTab,  setActiveTab]  = useState("all");
@@ -313,6 +324,7 @@ export default function ReservationCancellations() {
       setLoadError("");
       try {
         const params = { page };
+        if (selectedZoneId) params.zone_id = selectedZoneId;
         if (activeTab === "noproof") params.is_justified = 0;
         if (activeTab === "justified") params.is_justified = 1;
         const response = await http.get("/admin/cancellations", { params });
@@ -333,7 +345,7 @@ export default function ReservationCancellations() {
     };
     loadCancellations();
     return () => { active = false; };
-  }, [activeTab, page]);
+  }, [activeTab, page, selectedZoneId]);
 
   // ── Filtrage ──
   let filtered = data;
@@ -348,6 +360,9 @@ export default function ReservationCancellations() {
 
   if (sort) {
     filtered = [...filtered].sort((a, b) => {
+      if (sort.key === "dateApplied" || sort.key === "dateReserved") {
+        return ((Date.parse(a[sort.key]) || 0) - (Date.parse(b[sort.key]) || 0)) * sort.dir;
+      }
       const av = String(a[sort.key] ?? "").toLowerCase();
       const bv = String(b[sort.key] ?? "").toLowerCase();
       return (av < bv ? -1 : av > bv ? 1 : 0) * sort.dir;
@@ -360,16 +375,45 @@ export default function ReservationCancellations() {
   }
 
   const totalPages = search.trim() ? 1 : lastPage;
-  const paginated  = search.trim() ? filtered : data;
+  // This also carries the active sort order; the original API array does not.
+  const paginated = filtered;
 
   async function handleStatusSave(id, newStatus) {
     try {
-      await http.put(`/admin/cancellations/${id}`, { status: uiStatusToApi(newStatus) });
+      await http.put(
+        `/admin/cancellations/${id}`,
+        { status: uiStatusToApi(newStatus) },
+        selectedZoneId ? { params: { zone_id: selectedZoneId } } : undefined,
+      );
       setData(prev => prev.map(r => r.id === id ? { ...r, status: newStatus } : r));
       setToast("Le statut a été mis à jour avec succès.");
     } catch (error) {
       setToast(error.response?.data?.message || "La mise à jour du statut a échoué.");
     }
+  }
+
+  function exportCancellations() {
+    const rows = filtered.map((row) => [
+      row.candidateName,
+      row.monitorName || "",
+      fmtDate(row.dateApplied),
+      row.dateReserved ? fmtDate(row.dateReserved) : "",
+      row.hourly,
+      row.message === "—" ? "" : row.message,
+      STATUS_MAP[row.status]?.label || row.status,
+    ]);
+    const csv = [
+      ["Candidat", "Moniteur", "Date de demande", "Date réservée", "Horaire", "Message", "Statut"],
+      ...rows,
+    ].map((row) => row.map((value) => `"${String(value ?? "").replaceAll('"', '""')}"`).join(";")).join("\r\n");
+    const url = URL.createObjectURL(new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "annulations.csv";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
   }
 
   function openCandidateFile(row) {
@@ -398,9 +442,10 @@ export default function ReservationCancellations() {
   return (
     <div className="cand-page rc-page">
 
-      <h1 style={{ fontFamily:"Inter,sans-serif", fontWeight:700, fontSize:22, color:"#111827", margin:"0 0 20px" }}>
+      <header className="rc-page-heading">
         Annulations de réservations
-      </h1>
+        <p>Suivez et gérez les demandes d’annulation de votre agence.</p>
+      </header>
 
       {loadError && <div className="cand-empty" style={{ marginBottom: 16 }}>{loadError}</div>}
 
@@ -416,7 +461,7 @@ export default function ReservationCancellations() {
             placeholder="Rechercher un candidat ou un moniteur..."
           />
         </div>
-        <button className="cand-btn-outline">
+        <button type="button" className="cand-btn-outline" onClick={exportCancellations} disabled={loading || filtered.length === 0}>
           <IconDownload /> Exporter
         </button>
       </div>

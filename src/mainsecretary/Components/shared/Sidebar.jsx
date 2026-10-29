@@ -14,7 +14,7 @@ function useIsMobile() {
 }
 import "./Sidebar.css";
 const logo = apiAssetUrl("assets/logo-permis-facile.webp");
-const logo1 = "https://passpermisfacile.fr/assets/logo.svg";
+const logo1 = apiAssetUrl("assets/logo.svg");
 
 // ─── Icons ────────────────────────────────────────────────────────────────
 const DashboardIcon = () => (
@@ -181,8 +181,8 @@ export default function Sidebar({ activePath, onNavigate, schoolSelected, isOpen
         {/* Logo */}
         <div className="sidebar-logo">
           {effectiveCollapsed
-            ? <img src={logo1} alt="" className="logo-img" />
-            : <img src={logo}  alt="" className="logo-img" />
+            ? <img src={logo1} alt="PermiFast" className="logo-img" />
+            : <img src={logo} alt="PermiFast" className="logo-img" />
           }
         </div>
 

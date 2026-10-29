@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   FiArrowRight,
   FiAward,
@@ -308,6 +308,7 @@ const SignaturePad = ({ value, error, onChange }) => {
 };
 
 const CPFPositioningPage = () => {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [form, setForm] = useState(() => createInitialForm(searchParams));
   const [errors, setErrors] = useState({});
@@ -383,12 +384,14 @@ const CPFPositioningPage = () => {
       return;
     }
     const completedForm = { ...form, nb_heur: recommendedHours };
+    const { cpf_document_info_id: cpfDocumentInfoId, ...requestData } = cpfRequest;
     setSubmitting(true);
     setSubmitError("");
     try {
       await http.post("/public/cpf/positioning", {
+        cpf_document_info_id: cpfDocumentInfoId || undefined,
         test_pro: {
-          ...cpfRequest,
+          ...requestData,
           name: completedForm.name,
           email: completedForm.email,
           phone: completedForm.phone,
@@ -400,9 +403,7 @@ const CPFPositioningPage = () => {
       window.sessionStorage.removeItem("ppf-cpf-request");
       setForm(completedForm);
       setSubmitted(true);
-      requestAnimationFrame(() => {
-        document.getElementById("cpf-test-result")?.scrollIntoView({ behavior: "smooth", block: "center" });
-      });
+      navigate("/", { replace: true });
     } catch (error) {
       setSubmitError(error.response?.data?.message || "Impossible d’enregistrer votre demande CPF. Veuillez réessayer.");
     } finally {
@@ -422,7 +423,7 @@ const CPFPositioningPage = () => {
                 Test de <span>positionnement</span>
               </h1>
               <p>
-                Estimez le volume d’heures de conduite adapté à votre niveau avant
+                  conduite adapté à votre niveau avant
                 l’acceptation de votre dossier CPF.
               </p>
               <div className="cpf-test-hero__meta">

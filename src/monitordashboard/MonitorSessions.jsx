@@ -637,7 +637,7 @@ export default function MonitorSessions({
   const [monthCursor, setMonthCursor] = useState(new Date(initialWeekStart.getFullYear(), initialWeekStart.getMonth(), 1));
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [internalEvents, setInternalEvents] = useState([]);
-  const [selectedSlot, setSelectedSlot] = useState(null);
+  const [selectedSlots, setSelectedSlots] = useState([]);
   const [showZoneModal, setShowZoneModal] = useState(false);
   const [activeBooking, setActiveBooking] = useState(null);
   const [activeAvailability, setActiveAvailability] = useState(null);
@@ -792,7 +792,7 @@ const [cancelTargetBooking, setCancelTargetBooking] = useState(null);
     setWeekStart(nextWeekStart);
     setMonthCursor(new Date(date.getFullYear(), date.getMonth(), 1));
     setIsCalendarOpen(false);
-    setSelectedSlot(null);
+    setSelectedSlots([]);
   };
 
   const hasEventsAtSlot = (date, hour) => {
@@ -806,16 +806,24 @@ const [cancelTargetBooking, setCancelTargetBooking] = useState(null);
       return;
     }
 
-    setSelectedSlot({
+    const nextSlot = {
       date: formatIsoDate(date),
       startTime: `${`${hour}`.padStart(2, "0")}:00`,
       endTime: `${`${hour + 1}`.padStart(2, "0")}:00`,
       label: `${date.toLocaleDateString("en-US", { weekday: "short", day: "numeric", month: "short" })} ${`${hour}`.padStart(2, "0")}:00`,
+    };
+    // Keep every clicked empty cell selected. Clicking it again unselects it,
+    // which lets a monitor prepare multiple availabilities before choosing a lieu.
+    setSelectedSlots((current) => {
+      const exists = current.some((slot) => slot.date === nextSlot.date && slot.startTime === nextSlot.startTime);
+      return exists
+        ? current.filter((slot) => !(slot.date === nextSlot.date && slot.startTime === nextSlot.startTime))
+        : [...current, nextSlot];
     });
   };
 
   const handleCreateAvailability = async (zone, place) => {
-    if (!selectedSlot || !zone || !place) {
+    if (!selectedSlots.length || !zone || !place) {
       return;
     }
 
@@ -823,40 +831,29 @@ const [cancelTargetBooking, setCancelTargetBooking] = useState(null);
 
     try {
       const payload = {
-        data: [{
-          start_at: selectedSlot.startTime,
-          end_at: selectedSlot.endTime,
-          date: selectedSlot.date,
-          // The database stores the slot duration here, not the start clock hour.
-          hour: Math.max(1, (Number.parseInt(selectedSlot.endTime, 10) - Number.parseInt(selectedSlot.startTime, 10)) || 1),
+        data: selectedSlots.map((slot) => ({
+          start_at: slot.startTime,
+          end_at: slot.endTime,
+          date: slot.date,
+          // The database stores the duration, never the starting clock hour.
+          hour: Math.max(1, Math.ceil((
+            ((Number.parseInt(slot.endTime.slice(0, 2), 10) * 60) + Number.parseInt(slot.endTime.slice(3), 10)) -
+            ((Number.parseInt(slot.startTime.slice(0, 2), 10) * 60) + Number.parseInt(slot.startTime.slice(3), 10))
+          ) / 60)),
           is_active: true,
-        }],
+        })),
         lieu_id: place.id ?? place.value ?? null,
         monitor_id: monitorId,
       };
 
       const response = await dispatch(storeMonitorReservations(payload)).unwrap();
-      const created = response?.data?.[0] ?? response?.data?.data?.[0] ?? response?.data?.reservation?.[0] ?? null;
-
-      // Dispatch fetch action to fetch reservations/availabilities and display them properly
+      // Reload the source of truth so every selected slot appears together.
       const date_1 = formatIsoDate(weekStart);
       const date_2 = formatIsoDate(getEndOfWeek(weekStart));
-      dispatch(fetchMonitorSchedule({ date_1, date_2, all: true, monitor_id: monitorId }));
-
-      setEvents((current) => [
-        ...current,
-        buildAvailabilityFromSlot(
-          {
-            ...selectedSlot,
-            id: created?.id ?? Date.now(),
-          },
-          zone,
-          place,
-        ),
-      ]);
+      await dispatch(fetchMonitorSchedule({ date_1, date_2, all: true, monitor_id: monitorId }));
       setShowZoneModal(false);
-      setSelectedSlot(null);
-      setSuccessMessage("Disponibilité créée avec succès");
+      setSelectedSlots([]);
+      setSuccessMessage(`${response?.count ?? selectedSlots.length} disponibilité(s) créée(s) avec succès.`);
     } catch (error) {
       setAvailabilityError(error?.message || "Impossible de créer la disponibilité.");
       // Let the location modal remain open and display the API error.
@@ -1028,9 +1025,18 @@ const handleConfirmSessionCancellation = async ({ justification }) => {
     onOpenProposeSession?.(proposalCandidate, options);
   };
 
-  const handleSubmitSchedulingRequest = () => {
+  const handleSubmitSchedulingRequest = async ({ lieu_id, data }) => {
+    const response = await dispatch(storeMonitorReservations({
+      lieu_id,
+      data,
+      monitor_id: monitorId,
+    })).unwrap();
+
+    const date_1 = formatIsoDate(weekStart);
+    const date_2 = formatIsoDate(getEndOfWeek(weekStart));
+    await dispatch(fetchMonitorSchedule({ date_1, date_2, all: true, monitor_id: monitorId }));
     setShowSchedulingDrawer(false);
-    setSuccessMessage("Demande envoyée à la direction avec succès.");
+    setSuccessMessage(`${response?.count ?? data.length} disponibilité(s) créée(s) avec succès.`);
   };
 
   const handleDownloadPlanningPdf = async () => {
@@ -1392,7 +1398,7 @@ const handleConfirmSessionCancellation = async ({ justification }) => {
           onNextWeek={() => handleSelectWeek(new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + 7))}
           interactive={allowAvailabilityCreation}
           onEventClick={handleOpenEvent}
-          isSlotSelected={(date, hour) => selectedSlot?.date === formatIsoDate(date) && selectedSlot?.startTime === `${`${hour}`.padStart(2, "0")}:00`}
+          isSlotSelected={(date, hour) => selectedSlots.some((slot) => slot.date === formatIsoDate(date) && slot.startTime === `${`${hour}`.padStart(2, "0")}:00`)}
           getSlotClassName={(_date, _hour, slotEvents) => (slotEvents.length === 0 ? "ms-calendar-slot" : "")}
           renderEvent={(event, _date, _hour, slotState, meta = {}) => (
             <EventCard
@@ -1412,13 +1418,13 @@ const handleConfirmSessionCancellation = async ({ justification }) => {
           )}
         />
 
-      {selectedSlot && allowAvailabilityCreation && !activeAvailability && !activeProposal && !activeBooking && !showProposeDrawer && (
+      {selectedSlots.length > 0 && allowAvailabilityCreation && !activeAvailability && !activeProposal && !activeBooking && !showProposeDrawer && (
           <div className="ms-slot-actions">
             <div className="ms-slot-actions-copy">
-              <span>{selectedSlot.label}</span>
+              <span>{selectedSlots.length === 1 ? selectedSlots[0].label : `${selectedSlots.length} créneaux sélectionnés`}</span>
             </div>
             <div className="ms-slot-actions-buttons">
-              <button type="button" className="ms-danger-btn" onClick={() => setSelectedSlot(null)}>
+              <button type="button" className="ms-danger-btn" onClick={() => setSelectedSlots([])}>
                 Effacer
               </button>
               <button type="button" className="ms-success-btn" onClick={() => setShowZoneModal(true)}>
@@ -1485,6 +1491,9 @@ const handleConfirmSessionCancellation = async ({ justification }) => {
         <SchedulingDrawer
           onClose={() => setShowSchedulingDrawer(false)}
           onSubmit={handleSubmitSchedulingRequest}
+          places={places}
+          defaultLieuId={places[0]?.id ?? places[0]?.value ?? null}
+          initialDate={formatIsoDate(weekStart)}
         />
       )}
 

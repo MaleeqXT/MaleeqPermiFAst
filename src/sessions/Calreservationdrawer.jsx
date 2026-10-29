@@ -476,7 +476,7 @@ export default function CalReservationDrawer({
         <div className="cal-drawer-body">
           <div className="cal-drawer-field">
             <label className="cal-drawer-field-label">Zone déjà sélectionnée</label>
-            <div className="cal-drawer-select cal-drawer-select--full" style={{ cursor: "not-allowed", opacity: 0.92 }}>
+            <div className="cal-drawer-select cal-drawer-select--full cal-drawer-zone-value" aria-label="Zone sélectionnée">
               {zoneName}
             </div>
           </div>

@@ -3,8 +3,8 @@ import "./Secretaries.css";
 import { Link } from "react-router-dom";
 import ZoneModal from "../../sessions/ZoneModal.jsx";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchSecretaries } from "../../redux/reducers/adminSecretarySlice.jsx";
-const BASE_URL = import.meta.env.VITE_API_URL;
+import { fetchSecretaries, updateSecretaryStatus } from "../../redux/reducers/adminSecretarySlice.jsx";
+import { apiAssetUrl } from "../../config/api.js";
 
 const PAGE_SIZE = 15;
 
@@ -18,6 +18,37 @@ function getInitials(nom, prenom) {
 }
 function getAvatarColor(id) {
   return AVATAR_COLORS[id % AVATAR_COLORS.length];
+}
+
+function secretaryMediaUrl(media) {
+  if (!media) return null;
+  if (/^https?:\/\//i.test(media)) return media;
+
+  return apiAssetUrl(`storage/${String(media).replace(/^\/?(?:storage\/)?/, "")}`);
+}
+
+function SecretaryAvatar({ secretary }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const user = secretary.user ?? {};
+  const imageUrl = secretaryMediaUrl(user.media);
+
+  if (imageUrl && !imageFailed) {
+    return (
+      <img
+        src={imageUrl}
+        alt=""
+        className="cand-avatar"
+        style={{ objectFit: "cover", borderRadius: "50%", width: 34, height: 34 }}
+        onError={() => setImageFailed(true)}
+      />
+    );
+  }
+
+  return (
+    <div className="cand-avatar" style={{ background: getAvatarColor(user.id ?? 0) }}>
+      {getInitials(user.last_name, user.first_name)}
+    </div>
+  );
 }
 function formatDate(d) {
   if (!d) return "—";
@@ -58,7 +89,7 @@ function RowMenu({ secretary, onArchive, onUnarchive }) {
     return () => document.removeEventListener("mousedown", h);
   }, []);
 
-  const isArchived = secretary.status === "archived";
+  const isArchived = Number(secretary.status) === 2;
 
   return (
     <div className="cand-row-menu-wrapper" ref={ref}>
@@ -135,8 +166,21 @@ if (activeTab === "archive") data = data.filter(s => s.status == 2);
   function handleSort(key) {
     setSort(prev => prev?.key === key ? { key, dir: prev.dir * -1 } : { key, dir: 1 });
   }
-  function handleArchive(id)   { setSecretaries(prev => prev.map(s => s.id === id ? { ...s, status: "archived" } : s)); }
-  function handleUnarchive(id) { setSecretaries(prev => prev.map(s => s.id === id ? { ...s, status: "active"   } : s)); }
+  const refreshSecretaries = () => {
+    dispatch(fetchSecretaries({ page, search, status: activeTab === "active" ? 1 : 2 }));
+  };
+
+  function handleArchive(id) {
+    dispatch(updateSecretaryStatus({ id, status: 2 }))
+      .unwrap()
+      .then(refreshSecretaries);
+  }
+
+  function handleUnarchive(id) {
+    dispatch(updateSecretaryStatus({ id, status: 1 }))
+      .unwrap()
+      .then(refreshSecretaries);
+  }
 
   // const totalPages = Math.max(1, Math.ceil(data.length / PAGE_SIZE));
   // const paginated  = data.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -229,7 +273,7 @@ const paginated  = secretaries;
             {!loading && paginated.length === 0
               ? <tr><td colSpan={5} className="cand-empty">Aucune secrétaire trouvée</td></tr>
               : paginated.map(s => (
-                <tr key={s.id} className={s.status === "archived" ? "cand-row-archived" : ""}>
+                <tr key={s.id} className={Number(s.status) === 2 ? "cand-row-archived" : ""}>
 
                   <td>
                     <Link to={`/secretaryinfo/${s.id}`}
@@ -240,12 +284,7 @@ const paginated  = secretaries;
 
                   <td>
                     <div className="cand-candidate-cell">
-                      {s.user.media
-                        ? <img src={`${BASE_URL}/storage/${s.user?.media}`} alt="" className="cand-avatar" style={{ objectFit:"cover", borderRadius:"50%", width:34, height:34 }} />
-                        : <div className="cand-avatar" style={{ background: getAvatarColor(s.user.id) }}>
-                            {getInitials(s.nom, s.prenom)}
-                          </div>
-                      }
+                      <SecretaryAvatar secretary={s} />
                       <span className="cand-candidate-name">{s.user.first_name} {s.user.last_name}</span>
                     </div>
                   </td>

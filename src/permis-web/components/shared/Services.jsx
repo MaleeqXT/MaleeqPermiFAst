@@ -391,6 +391,7 @@ const Services = () => {
         addItem({
             id: svc.id,
             title: `PASS ${svc.passLine2}`,
+            offerName: `PASS ${svc.passLine2}`,
             image: svc.image,
             price: parseFloat(svc.price.replace('€', '').replace(',', '.')),
             quantity: 1

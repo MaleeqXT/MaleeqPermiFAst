@@ -79,7 +79,10 @@ export function normalizeReservationItem(item = {}) {
         startTime,
         endTime,
         color: item.color ?? item.hex_color ?? "#6366f1",
-        type: item.type ?? (item.is_available ? "availability" : "reservation"),
+        // The monitor bulk endpoint returns raw reservations. A record without
+        // a linked training is an open availability, even though it does not
+        // include the admin-only `is_available` convenience property.
+        type: item.type ?? (item.is_available || (!item.training_id && !item.training) ? "availability" : "reservation"),
         is_active: item.is_active ?? item.active ?? null,
         candidate: candidate
             ? {

@@ -1,8 +1,9 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./Packages.css";
 import { FaArrowRight, FaCar, FaCheck, FaClock, FaExclamationCircle, FaGift } from "react-icons/fa";
 import { useCart } from "../../context/CartContext";
 import { useSelector } from "react-redux";
+import { Link } from "react-router-dom";
 import greenCar from "../../assets/green-car.jpeg";
 import redCar from "../../assets/red-car.jpeg";
 
@@ -39,6 +40,7 @@ const Packages = ({
   showSubtitle = false,
   showTabs     = false,
   showCpfFilter = false,
+  cpfInfoLink = "",
   loading = false,
   error = "",
 }) => {
@@ -88,7 +90,7 @@ const Packages = ({
       ? requestedColor
       : automatic ? "#0E9F6E" : "#2563EB";
     const rawFeatures = featureTexts(offer.caracteristiques);
-    const price = offer.final_price ?? offer.discounted_price ?? offer.price_ht ?? offer.original_price ?? 0;
+    const price = offer.price_ht ?? offer.original_price ?? offer.discounted_price ?? offer.final_price ?? 0;
 
     return {
       ...offer,
@@ -105,6 +107,8 @@ const Packages = ({
       packSub: plainText(offer.description) || "Une formule adaptée à votre formation.",
       packIcon: FaCar,
       hours: offer.balance ? `${offer.balance}h` : "",
+      installments: Number(offer.multi_payment) || 1,
+      paymentAmount: Number(offer.second_price) || price,
       features: rawFeatures.length ? rawFeatures.map((text) => ({ text: String(text), highlight: false })) : [{ text: offer.description || "Formation personnalisée", highlight: false }],
       checkColor: color,
       price: `${price}€`,
@@ -128,13 +132,9 @@ const Packages = ({
   const handleAddToCart = (pkg) => {
     const role = String(currentUser?.role ?? "").trim().toLowerCase();
     const isStudent = role === "student" && currentUser?.is_secretary !== true;
-    if (!isStudent) {
+    if (currentUser && !isStudent) {
       setCartMessageType("error");
-      setCartMessage(
-        currentUser
-          ? "Seuls les élèves peuvent ajouter une formule au panier."
-          : "Veuillez vous connecter avec un compte élève pour ajouter une formule au panier."
-      );
+      setCartMessage("Seuls les élèves peuvent ajouter une formule au panier.");
       return;
     }
 
@@ -145,6 +145,7 @@ const Packages = ({
       price: parseFloat(String(pkg.price).replace('€', '').replace(',', '.')),
       type: pkg.type,
       balance: Number(pkg.balance || 0),
+      isCpf: Boolean(pkg.is_cpf),
       installments: Number(pkg.installments || 1),
       paymentAmount: Number(pkg.paymentAmount || pkg.price || 0),
       quantity: 1,
@@ -189,6 +190,15 @@ const Packages = ({
               {tab.label}
             </button>
           ))}
+        </div>
+      )}
+
+      {showCpfFilter && cpfInfoLink && (
+        <div className={`pkg-cpf-information ${visible ? " pkg-cpf-information--visible" : ""}`}>
+          <Link to={cpfInfoLink} className="pkg-cpf-information__button">
+            Informations Formation Permis B (CPF)
+          </Link>
+          <span>Détails de la formation Permis B (infos légales et pédagogiques).</span>
         </div>
       )}
 

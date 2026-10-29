@@ -21,6 +21,26 @@
   transform: translateY(0);
 }
 
+.cpfhero__formation-info {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 4px 0 6px;
+  padding: 13px 18px;
+  border: 0;
+  border-radius: 10px;
+  color: #fff;
+  background: #6d28d9;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(109, 40, 217, .26);
+}
+
+.cpfhero__formation-info:hover { background: #5b21b6; }
+.cpfhero__formation-info-sub { margin: 0 0 18px; color: rgba(255,255,255,.88); font-size: .9rem; }
+
 /* ── Background ── */
 .cpfhero__bg {
   position: absolute;
@@ -368,6 +388,12 @@
 
 .cpfhero__btn:active {
   transform: translateY(0);
+}
+
+.cpfhero__btn:disabled {
+  cursor: wait;
+  opacity: .72;
+  transform: none;
 }
 
 .cpfhero__btn--sent {

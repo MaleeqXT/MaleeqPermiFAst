@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import http from "../helpers/http.jsx";
+import { apiAssetUrl } from "../config/api.js";
 import StudentSidebar from "../new-student-dashboard/StudentSidebar.jsx";
 import StudentHeader from "../new-student-dashboard/StudentHeader.jsx";
 import "../new-student-dashboard/CandidateDashboard.css";
@@ -9,8 +10,8 @@ import "./CodeRouteTestPage.css";
 function mediaUrl(path) {
   if (!path) return null;
   if (/^https?:\/\//i.test(path)) return path;
-  const root = String(import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
-  return `${root}/${path.startsWith("theory/questions/") ? "storage/" : ""}${path.replace(/^\//, "")}`;
+  const normalizedPath = path.replace(/^\//, "");
+  return apiAssetUrl(`${normalizedPath.startsWith("theory/questions/") ? "storage/" : ""}${normalizedPath}`);
 }
 
 function formatDate(value) {

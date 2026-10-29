@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import "./ContactForm.css";
 import http from "../../../helpers/http.jsx";
 import {
@@ -57,11 +58,23 @@ const infoRows = [
 /* ── Component ── */
 const ContactForm = () => {
   const sectionRef = useRef(null);
+  const [searchParams] = useSearchParams();
   const [visible, setVisible] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [sending, setSending] = useState(false);
   const [formError, setFormError] = useState("");
-  const [form, setForm] = useState({ prenom: "", nom: "", phone: "", subject: "", email: "", message: "" });
+  const [form, setForm] = useState(() => {
+    const agency = searchParams.get("agency");
+    const subject = searchParams.get("subject");
+    return {
+      prenom: "",
+      nom: "",
+      phone: "",
+      subject: subject || "",
+      email: "",
+      message: agency ? "Bonjour, je souhaite être recontacté(e) au sujet de " + agency + "." : "",
+    };
+  });
 
   useEffect(() => {
     const obs = new IntersectionObserver(

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import "./CPFHero.css";
 import cpfBg from "../../assets/green-people-car.jpeg";
@@ -58,6 +58,7 @@ const CPFHero = () => {
   const [visible, setVisible] = useState(false);
   const [zones, setZones] = useState([]);
   const [loadingZones, setLoadingZones] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
   const [form, setForm] = useState({
     nom: "", email: "", telephone: "", zone: "", rappel: "", availableDays: "",
@@ -84,19 +85,38 @@ const CPFHero = () => {
   const handleChange = (e) =>
     setForm(f => ({ ...f, [e.target.name]: e.target.value }));
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.nom.trim() || !form.email.trim() || !form.telephone.trim() || !form.zone) {
       setFormError("Veuillez renseigner les champs obligatoires avant de continuer.");
       return;
     }
     const zone = zones.find((item) => String(item.id) === String(form.zone));
-    window.sessionStorage.setItem("ppf-cpf-request", JSON.stringify({
+    const requestData = {
       name: form.nom.trim(), email: form.email.trim(), phone: form.telephone.trim(),
       zone_id: form.zone, zone_name: zone?.name || "", recall_preference: form.rappel.trim(),
       available_days: form.availableDays.trim(),
-    }));
-    navigate("/cpf-positioning");
+    };
+
+    setSubmitting(true);
+    setFormError("");
+    try {
+      const previous = JSON.parse(window.sessionStorage.getItem("ppf-cpf-request") || "{}");
+      const response = await http.post("/public/cpf/requests", {
+        cpf_document_info_id: previous?.cpf_document_info_id || undefined,
+        test_pro: requestData,
+      });
+      const info = response?.data?.data;
+      window.sessionStorage.setItem("ppf-cpf-request", JSON.stringify({
+        ...requestData,
+        cpf_document_info_id: info?.id,
+      }));
+      navigate("/cpf-positioning");
+    } catch (error) {
+      setFormError(error?.response?.data?.message || "Impossible d’enregistrer votre demande CPF. Veuillez réessayer.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -131,6 +151,7 @@ const CPFHero = () => {
             équipe vous accompagne à chaque étape afin de constituer votre
             dossier rapidement et simplement.
           </p>
+
 
           {/* 4 steps grid */}
           <div className="cpfhero__steps">
@@ -299,8 +320,9 @@ const CPFHero = () => {
               <button
                 type="submit"
                 className="cpfhero__btn"
+                disabled={submitting}
               >
-                Continuer vers le test de positionnement
+                {submitting ? "Enregistrement…" : "Continuer vers le test de positionnement"}
                 <FiArrowRight className="cpfhero__btn-arrow" />
               </button>
 

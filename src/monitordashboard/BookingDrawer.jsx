@@ -269,9 +269,9 @@ export default function BookingDrawer({
   const isCancelled = booking?.status === "cancelled";
   const isCancellationRequested = Boolean(booking?.cancellationRequested || booking?.pendingCancellation);
   const isAvailability = booking?.type === "availability";
-  const canCancelSession = Boolean(onCancelSession) && !isAvailability && !isCancelled && !isCancellationRequested;
-  const canMarkUnavailable = Boolean(onMarkUnavailable) && !isAvailability && !isCancelled;
-  const canEditReservation = Boolean(onEditReservation) && !isAvailability;
+  const canCancelSession = Boolean(onCancelSession) && !isCancelled && !isCancellationRequested;
+  const canMarkUnavailable = Boolean(onMarkUnavailable) && !isCancelled;
+  const canEditReservation = Boolean(onEditReservation);
   const offerColor = booking?.offerColor || booking?.offer?.color || null;
   const offerStyle = offerColor
     ? {
@@ -475,15 +475,13 @@ export default function BookingDrawer({
           <section className="bd-section">
             <div className="bd-section-heading">{booking.contextLabel}</div>
 
-            {!isAvailability && (
-              <CandidateCard
-                candidate={booking.candidate}
-                email={booking.email}
-                phone={booking.phone}
-                avatarUrl={booking.candidateAvatar}
-                onOpenProfile={() => setIsCandidateOpen(true)}
-              />
-            )}
+            <CandidateCard
+              candidate={booking.candidate}
+              email={booking.email}
+              phone={booking.phone}
+              avatarUrl={booking.candidateAvatar}
+              onOpenProfile={() => setIsCandidateOpen(true)}
+            />
 
             {isAvailability && (
               <div className="bd-card bd-comments-card">
@@ -493,18 +491,16 @@ export default function BookingDrawer({
             )}
           </section>
 
-          {!isAvailability && (
-            <section className="bd-section">
-              <div className="bd-section-heading">Offre</div>
-              <div
-                className={`bd-offer-banner ${isCancelled ? "bd-offer-banner--cancelled" : ""}`}
-                style={offerStyle}
-              >
-                <div className="bd-offer-badge">PASS<br />PERMIS</div>
-                <strong>{booking.offer}</strong>
-              </div>
-            </section>
-          )}
+          <section className="bd-section">
+            <div className="bd-section-heading">Offre</div>
+            <div
+              className={`bd-offer-banner ${isCancelled ? "bd-offer-banner--cancelled" : ""}`}
+              style={offerStyle}
+            >
+              <div className="bd-offer-badge">PASS<br />PERMIS</div>
+              <strong>{booking.offer || "Disponibilité"}</strong>
+            </div>
+          </section>
 
           <section className="bd-section">
             <div className="bd-section-heading">Commentaires</div>
@@ -555,7 +551,7 @@ export default function BookingDrawer({
                 <p className="bd-comment-empty">Aucun commentaire pour le moment.</p>
               )}
 
-              {!isAvailability && canManageComments ? (
+              {canManageComments ? (
                 <div className="bd-comment-compose">
                   <div className="bd-comment-label">Ajouter un commentaire</div>
                   <textarea
@@ -597,10 +593,8 @@ export default function BookingDrawer({
                     </button>
                   )}
                 </div>
-              ) : !isAvailability ? (
-                <p className="bd-comment-empty">Lecture seule pour le moniteur.</p>
               ) : (
-                <p className="bd-comment-empty">Commentaires non disponibles pour une disponibilité.</p>
+                <p className="bd-comment-empty">Lecture seule pour le moniteur.</p>
               )}
             </div>
           </section>

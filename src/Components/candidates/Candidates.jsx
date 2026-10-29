@@ -3,9 +3,10 @@ import "./Candidates.css";
 import { Link, useNavigate } from "react-router-dom";
 import { useCandidates } from "./CandidatesContext.jsx";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchStudents, updateCandidateStatus } from "../../redux/reducers/candidateSlice.jsx";
+import { fetchStudents, updateCandidateStatus, deleteCandidate } from "../../redux/reducers/candidateSlice.jsx";
 import { fetchCurrentUser } from "../../redux/reducers/authReducer.jsx";
 import { startStudentDashboardPreview, stopStudentDashboardPreview } from "../../helpers/studentDashboardPreview.js";
+import http from "../../helpers/http.jsx";
 const BASE_URL = import.meta.env.VITE_API_URL;
 
 const AVATAR_COLORS = ["#6c8ebf","#d79b00","#82b366","#ae4132","#9673a6","#23445d","#e07a5f","#3d405b","#81b29a","#f2cc8f"];
@@ -29,6 +30,7 @@ const IconChart     = () => <svg width="15" height="15" viewBox="0 0 24 24" fill
 const IconContract  = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>;
 const IconArchive   = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>;
 const IconUnarchive = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>;
+const IconTrash = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5M14 11v5"/></svg>;
 const IconChevL     = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>;
 const IconChevR     = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>;
 
@@ -67,7 +69,7 @@ function downloadRowAsExcel(row, fileName) {
   URL.revokeObjectURL(url);
 }
 
-function RowMenu({ student, onDetails, onConnect, onExport, onContract, onArchive, onUnarchive, connecting = false }) {
+function RowMenu({ student, onDetails, onConnect, onExport, onContract, onArchive, onUnarchive, onDelete, showUnarchive = false, connecting = false }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   useEffect(() => {
@@ -75,21 +77,27 @@ function RowMenu({ student, onDetails, onConnect, onExport, onContract, onArchiv
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
   }, []);
-  const isArchived = Number(student.status) === 2 || student.status === "archived";
+  // Older API responses put the status on the user, while a few responses
+  // expose it through the nested student relation. Support both response shapes.
+  const status = student.status ?? student.student?.status;
+  const isArchived = [2, 4, "2", "4", "archive", "archived", "inactive"].includes(status);
   return (
     <div className="cand-row-menu-wrapper" ref={ref}>
       <button className="cand-row-menu-trigger" onClick={() => setOpen(o => !o)}><IconDots /></button>
       {open && (
         <div className="cand-row-menu-dropdown">
-          <button className="cand-row-menu-item" onClick={() => { setOpen(false); onDetails && onDetails(student); }}><IconDetails /> D?tails</button>
+          <button className="cand-row-menu-item" onClick={() => { setOpen(false); onDetails && onDetails(student); }}><IconDetails /> Details</button>
           <button className="cand-row-menu-item" disabled={connecting} onClick={() => { if (!connecting) { setOpen(false); onConnect && onConnect(student); } }}><IconConnect /> {connecting ? "Connexion…" : "Connecter"}</button>
           <button className="cand-row-menu-item" onClick={() => { setOpen(false); onExport && onExport(student); }}><IconChart /> Exporter Excel</button>
           <button className="cand-row-menu-item" onClick={() => { setOpen(false); onContract && onContract(student); }}><IconContract /> Contrat</button>
           <div className="cand-row-menu-divider" />
-          {isArchived
-            ? <button className="cand-row-menu-item" onClick={() => { setOpen(false); onUnarchive(student.id); }}><IconUnarchive /> D?sarchiver</button>
-            : <button className="cand-row-menu-item cand-row-menu-item--danger" onClick={() => { setOpen(false); onArchive(student.id); }}><IconArchive /> Archiver</button>
-          }
+          {!isArchived && (
+            <button className="cand-row-menu-item cand-row-menu-item--danger" onClick={() => { setOpen(false); onArchive(student.id); }}><IconArchive /> Archiver</button>
+          )}
+          {showUnarchive && (
+            <button className="cand-row-menu-item" onClick={() => { setOpen(false); onUnarchive(student.id); }}><IconUnarchive /> Désarchiver</button>
+          )}
+          <button className="cand-row-menu-item cand-row-menu-item--danger" onClick={() => { setOpen(false); onDelete(student); }}><IconTrash /> Supprimer définitivement</button>
         </div>
       )}
     </div>
@@ -104,6 +112,9 @@ export default function Candidates({ selectedSchoolId, isSecretaryDashboard = fa
   const [page,      setPage]      = useState(1);
   const [connectingStudentId, setConnectingStudentId] = useState(null);
   const [connectError, setConnectError] = useState("");
+  const [exportingAll, setExportingAll] = useState(false);
+  const [exportError, setExportError] = useState("");
+  const [actionError, setActionError] = useState("");
 
 
     const dispatch = useDispatch();
@@ -144,6 +155,10 @@ useEffect(() => {
 
 
   let data = [...candidates];
+  // Keep the visible tab in sync immediately after an archive/restore response,
+  // instead of waiting for a second full list request.
+  if (activeTab === "active") data = data.filter((student) => Number(student.status ?? student.student?.status) === 1);
+  if (activeTab === "archive") data = data.filter((student) => Number(student.status ?? student.student?.status) === 2);
   // if (activeTab === "active")  data = data.filter(s => s.status === "active");
   // if (activeTab === "archive") data = data.filter(s => s.status === "archived");
   // if (activeTab === "new")     data = data.filter(s => s.status === "new");
@@ -174,8 +189,42 @@ useEffect(() => {
   });
 
   function handleSort(key) { setSort(prev => prev?.key === key ? { key, dir: prev.dir * -1 } : { key, dir: 1 }); }
-  const handleArchive = (id) => dispatch(updateCandidateStatus({ id, status: 2 }));
-  const handleUnarchive = (id) => dispatch(updateCandidateStatus({ id, status: 1 }));
+  const updateCandidateArchiveStatus = (id, status) => {
+    setActionError("");
+    return dispatch(updateCandidateStatus({ id, status })).unwrap().catch((requestError) => {
+      setActionError(requestError?.message || "Impossible de mettre à jour le candidat.");
+    });
+  };
+  const handleArchive = (id) => updateCandidateArchiveStatus(id, 2);
+  const handleUnarchive = (id) => updateCandidateArchiveStatus(id, 1);
+  const handleDelete = (candidate) => {
+    const studentId = candidate?.student?.id;
+    if (!studentId || !window.confirm("Supprimer définitivement cet élève ? Cette action est irréversible.")) return;
+    dispatch(deleteCandidate({ studentId, candidate })).unwrap().catch(() => undefined);
+  };
+  const downloadAllStudentSales = async () => {
+    setExportingAll(true);
+    setExportError("");
+    try {
+      const response = await http.get("/admin/users/students/export-all", {
+        responseType: "blob",
+      });
+      const url = URL.createObjectURL(new Blob([response.data], {
+        type: response.headers["content-type"] || "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "students_sales_all.xlsx";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (requestError) {
+      setExportError(requestError?.response?.data?.message || "Impossible d’exporter les ventes des élèves.");
+    } finally {
+      setExportingAll(false);
+    }
+  };
   const connectToStudentDashboard = async (candidate) => {
     const studentId = candidate?.student?.id;
     if (!studentId) {
@@ -231,11 +280,16 @@ const paginated = data;
           <IconSearch />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher..." />
         </div>
+        <button type="button" className="cand-btn-outline" onClick={downloadAllStudentSales} disabled={exportingAll}>
+          <IconChart /> {exportingAll ? "Export en cours…" : "Exporter Excel"}
+        </button>
         <Link to="/candidateform" style={{ textDecoration:"none" }}>
           <button className="cand-btn-dark"><IconPlus /> Ajouter un candidat</button>
         </Link>
       </div>
       {connectError && <p role="alert" style={{ margin: "0 0 16px", color: "#b42318", fontWeight: 600 }}>{connectError}</p>}
+      {exportError && <p role="alert" style={{ margin: "0 0 16px", color: "#b42318", fontWeight: 600 }}>{exportError}</p>}
+      {actionError && <p role="alert" style={{ margin: "0 0 16px", color: "#b42318", fontWeight: 600 }}>{actionError}</p>}
 
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, flexWrap:"wrap", marginBottom:24 }}>
         <div className="cand-tabs-row" style={{ margin:0 }}>
@@ -287,7 +341,7 @@ const paginated = data;
               {!loading && paginated.length === 0
                 ? <tr><td colSpan={6} className="cand-empty">Aucun candidat trouvé</td></tr>
               : paginated.map((s, index) => (
-                <tr key={s.id ?? s.student?.id ?? `student-${index}`} className={s.status === "archived" ? "cand-row-archived" : ""}>
+                <tr key={s.id ?? s.student?.id ?? `student-${index}`} className={Number(s.status) === 2 || s.status === "archived" ? "cand-row-archived" : ""}>
                   <td>
                    <button
                     className="cand-file-btn"
@@ -386,6 +440,8 @@ const paginated = data;
                       onContract={(row) => window.open(`${BASE_URL}/api/admin/users/students/${row.student?.id}/contract`, "_blank", "noopener,noreferrer")}
                       onArchive={handleArchive}
                       onUnarchive={handleUnarchive}
+                      onDelete={handleDelete}
+                      showUnarchive={activeTab === "archive"}
                     />
                   </td>
                 </tr>

@@ -113,7 +113,7 @@ function OrdersTab({ orders }) {
     <div className="dash-section">
       <div className="dash-orders-header">
         <h2 className="dash-section-title">Les dernières commandes</h2>
-        <a href="#" className="dash-see-all">Voir tout</a>
+        <button type="button" className="dash-see-all" onClick={() => navigate("/orders")}>Voir tout</button>
       </div>
       <div className="dash-orders-grid">
         {orders.length === 0 && <p className="cand-muted">Aucune commande payée pour cette agence.</p>}
@@ -122,7 +122,7 @@ function OrdersTab({ orders }) {
             <div className="dash-order-top">
               <Avatar name={order.name} />
               <span className="dash-order-name">{order.name}</span>
-              <RowMenu onPreview={() => navigate("/Basketsinfo")} />
+              <RowMenu onPreview={() => navigate("/orders/info/" + order.id)} />
             </div>
             <div className="dash-order-divider" />
             <div className="dash-order-row">

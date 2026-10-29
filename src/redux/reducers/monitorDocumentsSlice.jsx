@@ -4,9 +4,11 @@ import http from "../../helpers/http.jsx";
 // GET /monitor/documents/piece-identities
 export const fetchIdentityDocuments = createAsyncThunk(
   "monitorDocuments/fetchIdentity",
-  async (_, { rejectWithValue }) => {
+  async (monitorId = null, { rejectWithValue }) => {
     try {
-      const response = await http.get("/monitor/documents/piece-identities");
+      const response = await http.get("/monitor/documents/piece-identities", {
+        params: monitorId ? { monitor_id: monitorId } : undefined,
+      });
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data || { message: "Unable to load identity documents" });
@@ -17,9 +19,11 @@ export const fetchIdentityDocuments = createAsyncThunk(
 // GET /monitor/documents/permis-conduit
 export const fetchPermisDocuments = createAsyncThunk(
   "monitorDocuments/fetchPermis",
-  async (_, { rejectWithValue }) => {
+  async (monitorId = null, { rejectWithValue }) => {
     try {
-      const response = await http.get("/monitor/documents/permis-conduit");
+      const response = await http.get("/monitor/documents/permis-conduit", {
+        params: monitorId ? { monitor_id: monitorId } : undefined,
+      });
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data || { message: "Unable to load permis documents" });
@@ -30,9 +34,11 @@ export const fetchPermisDocuments = createAsyncThunk(
 // GET /monitor/documents/diplom
 export const fetchDiplomDocuments = createAsyncThunk(
   "monitorDocuments/fetchDiplom",
-  async (_, { rejectWithValue }) => {
+  async (monitorId = null, { rejectWithValue }) => {
     try {
-      const response = await http.get("/monitor/documents/diplom-enseignant");
+      const response = await http.get("/monitor/documents/diplom-enseignant", {
+        params: monitorId ? { monitor_id: monitorId } : undefined,
+      });
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data || { message: "Unable to load diplom documents" });

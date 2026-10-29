@@ -96,8 +96,23 @@ export const updateCandidateStatus = createAsyncThunk(
     'candidates/updateStatus',
     async ({ id, status }, { rejectWithValue }) => {
         try {
-            await http.put(`/admin/users/${id}`, { status });
+            const response = await http.put(`/admin/users/${id}`, { status });
+            if (response.data?.status === 'error') {
+                throw new Error(response.data?.message || 'Impossible de mettre à jour le candidat.');
+            }
             return { id, status };
+        } catch (error) {
+            return rejectWithValue(error.response?.data ?? { message: error.message });
+        }
+    }
+);
+
+export const deleteCandidate = createAsyncThunk(
+    'candidates/delete',
+    async ({ studentId }, { rejectWithValue }) => {
+        try {
+            await http.delete(`/admin/users/students/${studentId}`);
+            return studentId;
         } catch (error) {
             return rejectWithValue(error.response?.data ?? { message: error.message });
         }
@@ -238,6 +253,19 @@ const candidateSlice = createSlice({
                                 })
                                 .addCase(updateCandidateStatus.rejected, (state, action) => {
                                     state.error = action.payload;
+                                })
+                                .addCase(deleteCandidate.pending, (state, action) => {
+                                    // Remove immediately so the interface reacts as soon as the
+                                    // administrator confirms the irreversible action.
+                                    state.list = state.list.filter((student) => student.student?.id !== action.meta.arg.studentId);
+                                })
+                                .addCase(deleteCandidate.fulfilled, (state, action) => {
+                                    state.list = state.list.filter((student) => student.student?.id !== action.payload);
+                                })
+                                .addCase(deleteCandidate.rejected, (state, action) => {
+                                    state.error = action.payload;
+                                    // Restore the exact row if the server rejected the deletion.
+                                    if (action.meta.arg.candidate) state.list.unshift(action.meta.arg.candidate);
                                 })
 
 

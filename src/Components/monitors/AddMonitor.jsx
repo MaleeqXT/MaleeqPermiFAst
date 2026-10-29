@@ -182,14 +182,9 @@ useEffect(() => {
     }
   });
 
-  if (mediaFile) {
-    formData.append('media', mediaFile.file || mediaFile); // ✅ sirf local upload pe lagega
-}
-
-
-if (!mediaFile && media ) {
-    formData.append('media_url', mediaFile); // File object
-}
+  if (mediaFile instanceof File) {
+    formData.append('media', mediaFile);
+  }
 
     setSubmitting(true);
 
@@ -415,7 +410,7 @@ if (!mediaFile && media ) {
 
         <FileManager selectedSrc={media}    onSelect={(src, file) => {
               setMedia(src);       // preview ke liye
-              setMediaFile(file.file);  // upload ke liye
+              setMediaFile(file?.file ?? null);  // upload ke liye
               }} />
 
         <div className="nc-right-card nc-right-row">

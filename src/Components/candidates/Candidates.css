@@ -256,8 +256,18 @@
   background: #fafafa;
 }
 
-.cand-row-archived td {
+.cand-row-archived td:not(.cand-actions-cell) {
   opacity: 0.5;
+}
+
+/* Keep the archive-menu readable and interactive. Applying opacity to the
+   whole table cell also faded the menu and made restore look disabled. */
+.cand-row-archived .cand-actions-cell,
+.cand-row-archived .cand-row-menu-trigger,
+.cand-row-archived .cand-row-menu-dropdown,
+.cand-row-archived .cand-row-menu-item {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .cand-empty {

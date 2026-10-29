@@ -3,17 +3,50 @@
 }
 
 /* Keep the cancellation list aligned with the full dashboard content area. */
-.rc-page {
-  width: 100%;
-  min-width: 0;
-  max-width: none;
+.main-content:has(.rc-page) {
+  padding: 0 !important;
+  overflow-x: hidden;
 }
 
-.rc-table-card {
-  width: calc(100% + 32px);
-  max-width: none;
+.main-content .cand-page.rc-page {
+  box-sizing: border-box;
+  width: 100% !important;
   min-width: 0;
-  margin-inline: -16px;
+  max-width: none !important;
+  min-height: 100%;
+  padding: 32px clamp(20px, 2.4vw, 42px) 40px;
+  background: #f7f8fb;
+}
+
+.rc-page-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 0 0 24px;
+  color: #111827;
+  font-family: "Inter", sans-serif;
+  font-size: clamp(24px, 2vw, 30px);
+  font-weight: 750;
+  letter-spacing: -0.025em;
+}
+
+.rc-page-heading p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.main-content .rc-page .rc-table-card {
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0;
+  margin: 0;
+  border: 1px solid #e4e8f0;
+  border-radius: 16px;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.05);
   overflow: hidden;
 }
 
@@ -26,8 +59,32 @@
 
 .rc-table {
   width: 100%;
-  min-width: 1380px;
+  min-width: 1320px;
   table-layout: fixed;
+}
+
+.rc-table thead tr {
+  background: #f8fafc;
+}
+
+.rc-table th {
+  color: #1f2937;
+}
+
+.rc-table tbody tr:hover {
+  background: #fbfdfc;
+}
+
+.rc-page .cand-sort-btn {
+  min-width: 22px;
+  min-height: 24px;
+  padding: 4px 6px;
+  border-radius: 6px;
+}
+
+.rc-page .cand-sort-btn:hover,
+.rc-page .cand-sort-btn[aria-pressed="true"] {
+  background: #e8f3ec;
 }
 
 .rc-table th,
@@ -247,6 +304,17 @@
    MOBILE (≤ 768px): switch to card layout
 ══════════════════════════════════════════ */
 @media (max-width: 768px) {
+
+  .main-content .cand-page.rc-page {
+    padding: 20px 16px 28px;
+  }
+
+  .rc-page-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 24px;
+  }
 
   .rc-table-card {
     width: 100%;

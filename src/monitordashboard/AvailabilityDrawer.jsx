@@ -96,6 +96,12 @@ function formatDate(isoOrStr) {
   return isoOrStr;
 }
 
+function getLocationLabel(location) {
+  if (!location) return "—";
+  if (typeof location === "string") return location;
+  return location.name ?? location.label ?? location.title ?? location.address ?? "—";
+}
+
 export default function AvailabilityDrawer({
   availability,
   onClose,
@@ -119,7 +125,9 @@ export default function AvailabilityDrawer({
     date: availability.date || "",
     startTime: availability.startTime || "08:00",
     endTime: availability.endTime || "09:00",
-    location: availability.place || availability.mapLocation || "—",
+    // Calendar data provides `place` as an object. Rendering the object
+    // directly crashes React and produced the admin white screen.
+    location: getLocationLabel(availability.place || availability.mapLocation),
   };
 
   const dateLabel = formatDate(data.date);

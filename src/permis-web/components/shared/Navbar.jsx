@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import "./Navbar.css";
 import { NavLink } from "react-router-dom";
 import { useSelector } from "react-redux";
@@ -7,9 +7,7 @@ import { useCart } from "../../context/CartContext";
 import {
   FiShoppingBag,
   FiX,
-  FiMenu,
   FiArrowRight,
-  FiChevronDown,
 } from "react-icons/fi";
 
 /* ── Nav links config ───────────────────────────────── */
@@ -55,7 +53,6 @@ function getProfileImage(user) {
 
 const Navbar = () => {
   const [menuOpen,    setMenuOpen]    = useState(false);
-  const [packagesOpen, setPackagesOpen] = useState(false);
 
   const { totalQty, openDrawer } = useCart();
   const user = useSelector((state) => state.auth.user);
@@ -84,25 +81,7 @@ const Navbar = () => {
 
           {/* Desktop nav links */}
           <nav className="nav-bar__links" aria-label="Navigation principale">
-            {NAV_LINKS.map(({ label, to }) => label === "Nos forfaits" ? (
-              <div className="nav-bar__packages" key={to + label}>
-                <NavLink
-                  to={`${to}?agency=creil`}
-                  className={({ isActive }) => "nav-bar__link" + (isActive ? " nav-bar__link--active" : "")}
-                >
-                  {label}
-                </NavLink>
-                <button type="button" className="nav-bar__packages-toggle" onClick={() => setPackagesOpen((open) => !open)} aria-label="Choisir une agence" aria-expanded={packagesOpen}>
-                  <FiChevronDown />
-                </button>
-                {packagesOpen && (
-                  <div className="nav-bar__packages-menu">
-                    <NavLink to={`${to}?agency=creil`} onClick={() => setPackagesOpen(false)}>Agence Creil</NavLink>
-                    <NavLink to={`${to}?agency=toulouse`} onClick={() => setPackagesOpen(false)}>Agence Toulouse</NavLink>
-                  </div>
-                )}
-              </div>
-            ) : (
+            {NAV_LINKS.map(({ label, to }) => (
               <NavLink
                 key={to + label}
                 to={to}

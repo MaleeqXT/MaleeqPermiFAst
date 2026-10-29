@@ -114,21 +114,26 @@ function FileManagerModal({ open, onClose, onSelect, selectedSrc }) {
     return true;
   }).filter(f => !search || f.name.toLowerCase().includes(search.toLowerCase()));
 
-  const handleUpload = (e) => {         ``
+  const handleUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    const isDoc = file.type.includes("pdf") || file.type.includes("word");
-    reader.onload = ev => setLocalFiles(prev => [
-        ...prev,
-        { 
-            id: `local-${Date.now()}`, 
-            src: ev.target.result, 
-            type: isDoc ? "document" : "image", 
-            name: file.name,
-            file: file  // ← File object bhi store karo
-        }
-    ]);
+    const isDoc = file.type.includes("pdf") || file.type.includes("word") || file.type.includes("text");
+    reader.onload = ev => {
+      const selectedFile = {
+        id: `local-${Date.now()}`,
+        src: ev.target.result,
+        type: isDoc ? "document" : "image",
+        name: file.name,
+        file,
+      };
+      setLocalFiles(prev => [...prev, selectedFile]);
+
+      // A file picked from the computer must be usable immediately. Document
+      // uploads previously remained only in this modal's temporary state.
+      onSelect(selectedFile.src, selectedFile);
+      onClose();
+    };
     reader.readAsDataURL(file);
     e.target.value = "";
 };

@@ -99,13 +99,8 @@ formData.append('neph',       form.neph);
 formData.append('date_of_code', form.date_of_code || '');
 
 // Media file add karo
-if (mediaFile) {
-    formData.append('media', mediaFile.file || mediaFile); // ✅ sirf local upload pe lagega
-}
-
-
-if (!mediaFile && media ) {
-    formData.append('media_url', mediaFile); // File object
+if (mediaFile instanceof File) {
+    formData.append('media', mediaFile);
 }
     // if (validate()) alert("Secrétaire enregistrée !");
     //     if (!validate()) return;
@@ -313,18 +308,12 @@ if (!mediaFile && media ) {
           // onSelect={(src) => setMedia(src)}
             onSelect={(src, file) => {
               setMedia(src);       // preview ke liye
-              setMediaFile(file.file);  // upload ke liye
+              setMediaFile(file?.file ?? null);  // upload ke liye
               }}
         />
 
         {/* CPF */}
-        <div className="nc-right-card nc-right-row">
-          <span className="nc-right-label">CPF</span>
-          <label className="nc-toggle">
-            <input type="checkbox" checked={form.cpf} onChange={e => set("cpf", e.target.checked)} />
-            <span className="nc-toggle-track" />
-          </label>
-        </div>
+      
 
         {/* Type de boîte */}
         <div className="nc-right-card nc-right-row">

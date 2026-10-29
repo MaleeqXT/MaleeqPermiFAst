@@ -142,8 +142,8 @@ function formatReservationLabel(reservation) {
     : reservation.startTime || "";
 
   return {
-    title: candidate || "RÃ©servation",
-    subtitle: [time, monitor, place].filter(Boolean).join(" â€¢ "),
+    title: candidate || "Réservation",
+    subtitle: [time, monitor, place].filter(Boolean).join(" • "),
   };
 }
 
@@ -204,14 +204,20 @@ function buildReservationDrawerItem(reservation) {
     date: reservation.date,
     timeLabel: `${reservation.startTime}${reservation.endTime ? ` Ã  ${reservation.endTime}` : ""}`,
     contextLabel: "Candidat",
-    displayStatus: reservation.is_active === 1 ? "RÃ©servation active" : "RÃ©servation inactive",
+    displayStatus: reservation.is_active === 1 ? "Réservation active" : "Réservation inactive",
     candidate: candidateName || "Candidat",
     email: studentUser?.email || "",
     phone: studentUser?.phone || "",
     studentId,
-    offer: offer?.name || offer?.label || "",
+    offer:
+      offer?.name ||
+      offer?.label ||
+      (reservation.type === "availability" ? "Disponibilité" : ""),
+    // BookingDrawer displays this field as text for an open availability.
+    // Keep the backend place relation available in sourceReservation only.
+    place: mapLocation || place?.name || reservation.place?.name || "Lieu",
     mapLocation: mapLocation || place?.name || reservation.place?.name || "Lieu",
-    reminder: reservation.reminder || "Ã€ prÃ©sent",
+    reminder: reservation.reminder || "À présent",
     lastComment: reservation.lastComment ?? reservation.training?.note ?? null,
     commentCount: reservation.commentCount ?? 0,
     accentColor: reservation.color,
@@ -265,7 +271,7 @@ function Toast({ message, onClose }) {
   return (
     <div className="cal-toast cal-toast--floating">
       <div className="cal-toast-top">
-        <IconInfo /> SuccÃ¨s
+        <IconInfo /> Succès
         <button className="cal-toast-close" onClick={onClose}>âœ•</button>
       </div>
       <div className="cal-toast-bottom">{message}</div>
@@ -481,16 +487,16 @@ export default function Sessions() {
 
   async function handleDeleteReservation(reservation) {
     if (!reservation?.id) return;
-    const confirmed = window.confirm("Supprimer cette rÃ©servation ?");
+    const confirmed = window.confirm("Supprimer cette réservation ?");
     if (!confirmed) return;
 
     try {
       await dispatch(deleteReservation({ reservationId: reservation.id })).unwrap();
       setSelectedReservation(null);
       await dispatch(fetchReservations(queryParams));
-      setToast("RÃ©servation supprimÃ©e avec succÃ¨s.");
+      setToast("Réservation supprimée avec succès.");
     } catch (error) {
-      setToast(error?.message || "La rÃ©servation n'a pas pu Ãªtre supprimÃ©e.");
+      setToast(error?.message || "La réservation n'a pas pu être supprimée.");
     }
   }
 
@@ -522,14 +528,14 @@ export default function Sessions() {
 
   const activePlaceLabel = resolvedPlace
     ? (typeof resolvedPlace === "string" ? resolvedPlace : resolvedPlace.name ?? resolvedPlace.label ?? "â€”")
-    : "SÃ©lectionner un lieu";
+    : "Sélectionner un lieu";
 
   const reservationErrorMessage = useMemo(() => {
     if (!reservationsError) return "";
     if (typeof reservationsError === "string") return reservationsError;
     if (reservationsError.message) return reservationsError.message;
     if (reservationsError.errors) return Object.values(reservationsError.errors).flat().filter(Boolean).join(" | ");
-    return "Une erreur est survenue lors du chargement des rÃ©servations.";
+    return "Une erreur est survenue lors du chargement des réservations.";
   }, [reservationsError]);
 
   return (
@@ -551,7 +557,7 @@ export default function Sessions() {
             setShowNewRes(true);
           }}
         >
-          + Nouvelle rÃ©servation
+          + Nouvelle Réservation
         </button>
       </div>
 
@@ -688,7 +694,20 @@ export default function Sessions() {
           <div className="cal-toast-top">
             <IconInfo /> Chargement
           </div>
-          <div className="cal-toast-bottom">Les rÃ©servations sont en cours de chargement.</div>
+          <div className="cal-toast-bottom">Les réservations sont en cours de chargement.</div>
+        </div>
+      )}
+
+      {!reservationsLoading && !reservationErrorMessage && visibleReservations.length === 0 && (
+        <div className="cal-toast" style={{ marginBottom: 18 }}>
+          <div className="cal-toast-top">
+            <IconInfo /> Aucun résultat
+          </div>
+          <div className="cal-toast-bottom">
+            {mode === CALENDAR_MODE_AVAILABILITY
+              ? "Aucune disponibilité active trouvée pour cette période et les moniteurs sélectionnés."
+              : "Aucune réservation trouvée pour cette période et ces filtres."}
+          </div>
         </div>
       )}
 
@@ -741,7 +760,7 @@ export default function Sessions() {
                         {title}
                       </div>
                       <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>
-                        {reservation.date} {subtitle ? `â€¢ ${subtitle}` : ""}
+                        {reservation.date} {subtitle ? `• ${subtitle}` : ""}
                       </div>
                     </button>
                   );
@@ -750,19 +769,6 @@ export default function Sessions() {
             </div>
           )}
         </>
-      )}
-
-       {!reservationsLoading && !reservationErrorMessage && visibleReservations.length === 0 && (
-        <div className="cal-toast" style={{ marginTop: 18 }}>
-          <div className="cal-toast-top">
-            <IconInfo /> Aucun rÃ©sultat
-          </div>
-          <div className="cal-toast-bottom">
-            {mode === CALENDAR_MODE_AVAILABILITY
-              ? "Aucune disponibilité active trouvée pour cette période et les moniteurs sélectionnés."
-              : "Aucune réservation trouvée pour cette période et ces filtres."}
-          </div>
-        </div>
       )}
 
       {showZone && (

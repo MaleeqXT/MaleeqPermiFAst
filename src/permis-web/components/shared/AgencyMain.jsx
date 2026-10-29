@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import "./AgencyMain.css";
 import {
   FiMapPin,
@@ -228,6 +229,7 @@ const AgencyMain = () => {
   const [selected, setSelected] = useState(agencies[0]);
   const [fade, setFade]         = useState(true);
   const prevRef = useRef(agencies[0].id);
+  const navigate = useNavigate();
 
   const select = (agency) => {
     if (agency.id === prevRef.current) return;
@@ -237,6 +239,19 @@ const AgencyMain = () => {
       prevRef.current = agency.id;
       setFade(true);
     }, 200);
+  };
+
+  const openContactForm = (subject) => {
+    const params = new URLSearchParams({
+      agency: selected.name,
+      subject,
+    });
+    navigate("/contact-page?" + params.toString());
+  };
+
+  const openDirections = () => {
+    const destination = encodeURIComponent(selected.addressLine1 + " " + selected.addressLine2);
+    window.open("https://www.google.com/maps/dir/?api=1&destination=" + destination, "_blank", "noopener,noreferrer");
   };
 
   return (
@@ -336,19 +351,39 @@ const AgencyMain = () => {
 
               {/* ── Right column action buttons (top-right) ── */}
               <div className="agencydetails-actions">
-                <button className="agencydetails-btn agencydetails-btn--primary" aria-label="Prendre rendez-vous">
+                <button
+                  type="button"
+                  className="agencydetails-btn agencydetails-btn--primary"
+                  aria-label="Prendre rendez-vous"
+                  onClick={() => openContactForm("Prendre rendez-vous - " + selected.name)}
+                >
                   <FiCalendar size={16} />
-                  <span>Prendre rendez-vous</span>
+                  <span >Prendre rendez-vous</span>
                 </button>
-                <button className="agencydetails-btn agencydetails-btn--secondary" aria-label="Itinéraire">
+                <button
+                  type="button"
+                  className="agencydetails-btn agencydetails-btn--secondary"
+                  aria-label="Itinéraire"
+                  onClick={openDirections}
+                >
                   <FiNavigation size={16} />
                   <span>Itinéraire</span>
                 </button>
-                <button className="agencydetails-btn agencydetails-btn--secondary" aria-label="Nous appeler">
+                <button
+                  type="button"
+                  className="agencydetails-btn agencydetails-btn--secondary"
+                  aria-label="Nous appeler"
+                  onClick={() => { window.location.href = "tel:" + selected.phone.replace(/\s/g, ""); }}
+                >
                   <FiPhone size={16} />
                   <span>Nous appeler</span>
                 </button>
-                <button className="agencydetails-btn agencydetails-btn--secondary" aria-label="Envoyer un message">
+                <button
+                  type="button"
+                  className="agencydetails-btn agencydetails-btn--secondary"
+                  aria-label="Envoyer un message"
+                  onClick={() => openContactForm("Message pour " + selected.name)}
+                >
                   <FiMessageCircle size={16} />
                   <span>Envoyer un message</span>
                 </button>

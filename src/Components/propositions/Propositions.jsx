@@ -1,8 +1,10 @@
 
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSelector } from "react-redux";
 import MonitorsModal from "../../sessions/MonitorsModal.jsx";
 import { useMonitors } from "../monitors/MonitorsContext.jsx";
+import http from "../../helpers/http.jsx";
 import "./Propositions.css";
 
 const IconSearch = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>;
@@ -10,72 +12,6 @@ const IconClock = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="no
 const IconPin = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z" /><circle cx="12" cy="10" r="3" /></svg>;
 const IconMsg = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>;
 const IconQuestion = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><path d="M12 17h.01" /></svg>;
-
-const PROPOSALS = [
-  {
-    id: 1,
-    date: "Sam 23 Mai 2026",
-    timeFrom: "07:00",
-    timeTo: "08:00",
-    monitor: "Marianne Llinas",
-    monitorInitials: "ML",
-    candidate: "Keita El hadji",
-    candidateInitials: "KH",
-    location: "Toulouse, McDonald's Les Arènes, sur le trottoir à la sortie du métro",
-    ago: "Il y a 10 heures",
-    status: "on-hold",
-    validation: "Cette proposition est en attente de validation.",
-    comment: "",
-    proposalDate: "19 mai 2026",
-    dateReservation: "23 mai 2026",
-    products: [
-      { name: "Pass permis automatique F5", available: false },
-      { name: "Forfait accéléré 12 heures...", available: false },
-      { name: "Examen boîte automatique", available: false },
-      { name: "Pass permis heure d'évaluation BA...", available: false },
-      { name: "Forfait 7 heures BA", available: false },
-    ],
-  },
-  {
-    id: 2,
-    date: "Sam 23 Mai 2026",
-    timeFrom: "09:00",
-    timeTo: "10:00",
-    monitor: "Marianne Llinas",
-    monitorInitials: "ML",
-    candidate: "Aaliyah Sangare",
-    candidateInitials: "AS",
-    location: "Toulouse, McDonald's Les Arènes, sur le trottoir à la sortie du métro",
-    ago: "Il y a 8 heures",
-    status: "denied",
-    validation: "Cette proposition a été refusée.",
-    comment: "",
-    proposalDate: "19 mai 2026",
-    dateReservation: "23 mai 2026",
-    products: [],
-  },
-  {
-    id: 3,
-    date: "Ven 22 Mai 2026",
-    timeFrom: "14:00",
-    timeTo: "15:00",
-    monitor: "Marianne Llinas",
-    monitorInitials: "ML",
-    candidate: "Aabla Meidani",
-    candidateInitials: "AM",
-    location: "Agence CREIL, entrée principale",
-    ago: "Hier",
-    status: "reserve",
-    validation: "Cette proposition est réservée.",
-    comment: "",
-    proposalDate: "18 mai 2026",
-    dateReservation: "22 mai 2026",
-    products: [
-      { name: "Pass permis automatique F5", available: true },
-      { name: "Forfait accéléré 12 heures...", available: false },
-    ],
-  },
-];
 
 const STATUS_TABS = ["Tous", "En attente", "Refusé", "Réservé"];
 const STATUS_META = {
@@ -91,6 +27,56 @@ function getInitials(name) {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase() ?? "")
     .join("");
+}
+
+const formatDate = (value, options = { weekday: "short", day: "numeric", month: "short", year: "numeric" }) => {
+  if (!value) return "—";
+  const date = new Date(`${String(value).slice(0, 10)}T12:00:00`);
+  return Number.isNaN(date.getTime()) ? "—" : new Intl.DateTimeFormat("fr-FR", options).format(date);
+};
+
+const relativeTime = (value) => {
+  if (!value) return "";
+  const diffHours = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 3600000));
+  if (diffHours < 1) return "À l'instant";
+  if (diffHours < 24) return `Il y a ${diffHours} heure${diffHours > 1 ? "s" : ""}`;
+  const days = Math.floor(diffHours / 24);
+  return days === 1 ? "Hier" : `Il y a ${days} jours`;
+};
+
+function normaliseProposals(payload) {
+  const grouped = payload && !Array.isArray(payload) && typeof payload === "object" ? Object.values(payload) : [payload];
+  const rows = grouped.flatMap((group) => Array.isArray(group) ? group : []);
+
+  return rows.map((proposal) => {
+    const reservation = proposal.reservation ?? {};
+    const monitor = reservation.monitor?.user ?? {};
+    const student = proposal.student?.user ?? {};
+    const monitorName = monitor.name || "Moniteur non attribué";
+    const candidateName = student.name || "Candidat non attribué";
+    const status = Number(proposal.status) === 3 ? "reserve" : Number(proposal.status) === 2 ? "denied" : "on-hold";
+    const location = [reservation.lieu?.name, reservation.lieu?.zone?.name].filter(Boolean).join(", ") || "Lieu non défini";
+
+    return {
+      id: proposal.id,
+      monitorId: reservation.monitor_id ?? reservation.monitor?.id ?? null,
+      date: formatDate(reservation.date),
+      timeFrom: String(reservation.start_at ?? "").slice(0, 5) || "—",
+      timeTo: String(reservation.end_at ?? "").slice(0, 5) || "—",
+      monitor: monitorName,
+      monitorInitials: getInitials(monitorName),
+      candidate: candidateName,
+      candidateInitials: getInitials(candidateName),
+      location,
+      ago: relativeTime(proposal.created_at),
+      status,
+      validation: status === "reserve" ? "Cette proposition est réservée." : status === "denied" ? "Cette proposition a été refusée." : "Cette proposition est en attente de validation.",
+      comment: proposal.comment ?? "",
+      proposalDate: formatDate(proposal.created_at, { day: "numeric", month: "long", year: "numeric" }),
+      dateReservation: formatDate(reservation.date, { day: "numeric", month: "long", year: "numeric" }),
+      products: [],
+    };
+  });
 }
 
 function ProposalDrawer({ proposal, onClose, onSave }) {
@@ -203,12 +189,34 @@ function ProposalDrawer({ proposal, onClose, onSave }) {
 
 export default function ProposalsPage() {
   const { monitors, AVATAR_COLORS } = useMonitors();
-  const [proposals, setProposals]       = useState(PROPOSALS);
+  const selectedZoneId = useSelector((state) => state.schools.selected?.id ?? null);
+  const [proposals, setProposals]       = useState([]);
+  const [loading, setLoading]           = useState(true);
+  const [loadError, setLoadError]       = useState("");
   const [activeTab, setActiveTab]       = useState("Tous");
   const [searchQ,   setSearchQ]         = useState("");
   const [selected,  setSelected]        = useState(null);
   const [monitorModalOpen, setMonitorModalOpen] = useState(false);
   const [selectedMonitors, setSelectedMonitors] = useState([]);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setLoadError("");
+
+    http.get("/admin/proposals", { params: selectedZoneId ? { zone_id: selectedZoneId } : undefined })
+      .then(({ data }) => {
+        if (active) setProposals(normaliseProposals(data?.data));
+      })
+      .catch(() => {
+        if (active) setLoadError("Impossible de charger les propositions pour le moment.");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => { active = false; };
+  }, [selectedZoneId]);
 
   const counts = {
     Tous:         proposals.length,
@@ -233,8 +241,8 @@ export default function ProposalsPage() {
     filtered = filtered.filter((p) => STATUS_META[p.status]?.label === activeTab);
   }
   if (selectedMonitors.length > 0) {
-    const selectedNames = new Set(selectedMonitors.map((m) => m.name));
-    filtered = filtered.filter((p) => selectedNames.has(p.monitor));
+    const selectedIds = new Set(selectedMonitors.map((m) => String(m.id)));
+    filtered = filtered.filter((p) => selectedIds.has(String(p.monitorId)));
   }
   if (searchQ) {
     const q = searchQ.toLowerCase();
@@ -306,7 +314,9 @@ export default function ProposalsPage() {
       </div>
 
       <div className="prop-timeline">
-        {Object.keys(grouped).length === 0 && (
+        {loading && <p className="prop-empty">Chargement des propositions…</p>}
+        {loadError && <p className="prop-empty">{loadError}</p>}
+        {!loading && !loadError && Object.keys(grouped).length === 0 && (
           <p className="prop-empty">Aucune proposition dans cette catégorie.</p>
         )}
         {Object.entries(grouped).map(([date, items]) => (

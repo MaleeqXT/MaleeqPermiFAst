@@ -3,9 +3,8 @@ import "../candidates/Candidates.css";
 import { Link, useNavigate } from "react-router-dom";
 import { useMonitors } from "./MonitorsContext.jsx";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchMonitors } from "../../redux/reducers/monitorsSlice.jsx";
-
-const BASE_URL = import.meta.env.VITE_API_URL;
+import { fetchMonitors, updateMonitorStatus } from "../../redux/reducers/monitorsSlice.jsx";
+import { apiAssetUrl } from "../../config/api.js";
 
 const PAGE_SIZE = 15;
 
@@ -22,9 +21,32 @@ function getMonitorImageUrl(media) {
     : media?.path ?? media?.url ?? media?.storage_media?.path ?? media?.storageMedia?.path;
   if (!path) return null;
   if (/^https?:\/\//i.test(path) || path.startsWith("data:")) return path;
-  if (path.startsWith("/storage/")) return `${BASE_URL}${path}`;
-  if (path.startsWith("storage/")) return `${BASE_URL}/${path}`;
-  return `${BASE_URL}/storage/${path.replace(/^\/+/, "")}`;
+  return apiAssetUrl(`storage/${String(path).replace(/^\/?(?:storage\/)?/, "")}`);
+}
+
+function MonitorAvatar({ monitor, colors }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const imageUrl = getMonitorImageUrl(monitor.media ?? monitor.user?.media);
+  const firstName = monitor.first_name ?? monitor.user?.first_name ?? monitor.prenom;
+  const lastName = monitor.last_name ?? monitor.user?.last_name ?? monitor.nom;
+
+  if (imageUrl && !imageFailed) {
+    return (
+      <img
+        src={imageUrl}
+        alt={`${firstName ?? ""} ${lastName ?? ""}`.trim() || "Moniteur"}
+        className="cand-avatar"
+        style={{ objectFit: "cover", borderRadius: "50%", width: 32, height: 32 }}
+        onError={() => setImageFailed(true)}
+      />
+    );
+  }
+
+  return (
+    <div className="cand-avatar" style={{ background: getAvatarColor(Number(monitor.id) || 0, colors) }}>
+      {getInitials(lastName, firstName)}
+    </div>
+  );
 }
 
 const IconSearch    = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>;
@@ -80,13 +102,13 @@ function RowMenu({ monitor, onDetails, onConnect, onExport, onArchive, onUnarchi
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
   }, []);
-  const isArchived = monitor.status === "archived";
+  const isArchived = Number(monitor.monitor?.status ?? monitor.status) === 4;
   return (
     <div className="cand-row-menu-wrapper" ref={ref}>
       <button className="cand-row-menu-trigger" onClick={() => setOpen(o => !o)}><IconDots /></button>
       {open && (
         <div className="cand-row-menu-dropdown">
-          <button className="cand-row-menu-item" onClick={() => { setOpen(false); onDetails && onDetails(monitor); }}><IconDetails /> D?tails</button>
+          <button className="cand-row-menu-item" onClick={() => { setOpen(false); onDetails && onDetails(monitor); }}><IconDetails /> Details</button>
           <button className="cand-row-menu-item" onClick={() => { setOpen(false); onConnect && onConnect(monitor); }}><IconConnect /> Connecter</button>
           <button className="cand-row-menu-item" onClick={() => { setOpen(false); onExport && onExport(monitor); }}><IconChart /> Exporter Excel</button>
           <div className="cand-row-menu-divider" />
@@ -103,11 +125,12 @@ const STATUS_LABELS = {
   1:   { label: "Actif",     bg: "#dcfce7", color: "#166534", border: "none"             },
   2: { label: "Inactif",   bg: "#fee2e2", color: "#991b1b", border: "none"             },
   3:   { label: "En attente",bg: "#f3f4f6", color: "#374151", border: "1px solid #e5e7eb"},
+  4:   { label: "Archivé",   bg: "#fef9c3", color: "#854d0e", border: "none"             },
   archived: { label: "Archivé",   bg: "#fef9c3", color: "#854d0e", border: "none"             },
 };
 
 export default function Monitors({ selectedSchoolId, isSecretaryDashboard = false }) {
-  const { archiveMonitor, unarchiveMonitor, AVATAR_COLORS } = useMonitors();
+  const { AVATAR_COLORS } = useMonitors();
   const [activeTab, setActiveTab] = useState("all");
   const [search,    setSearch]    = useState("");
   const [sort,      setSort]      = useState(null);
@@ -122,13 +145,14 @@ export default function Monitors({ selectedSchoolId, isSecretaryDashboard = fals
   const navigate = useNavigate();
 
   const dispatch = useDispatch();
-  const { list: monitors, loading, error, lastPage, activeCount, archiveCount,inholdCount,allCount,currentPage,total } = useSelector(state => state.monitors);
+  const { list: monitors, loading, error, lastPage, activeCount, archiveCount, archivedCount, inholdCount, allCount, currentPage, total } = useSelector(state => state.monitors);
 
 
 const STATUS_MAP = {
   active: 1,
   inactive: 2,
   onhold: 3,
+  archived: 4,
 
 };
 
@@ -148,6 +172,7 @@ useEffect(() => {
     active:   activeCount ?? 0,
     onhold:   inholdCount ?? 0,
     inactive: archiveCount ?? 0,
+    archived: archivedCount ?? 0,
     // archive:  monitors.filter(s => s.status === "archived").length,
   };
 
@@ -209,7 +234,7 @@ const paginated=data;
     { key:"active",   label:"Actif"      },
     { key:"onhold",   label:"En attente" },
     { key:"inactive", label:"Inactif"    },
-    // { key:"archive",  label:"Archivé"    },
+    { key:"archived", label:"Archivé" },
   ];
 
   return (
@@ -297,10 +322,7 @@ const paginated=data;
                         <td>
                       
                           <div className="cand-candidate-cell">
-                            {getMonitorImageUrl(s.media)
-                              ? <img src={getMonitorImageUrl(s.media)} alt={s.first_name} className="cand-avatar" style={{ objectFit:"cover", borderRadius:"50%", width:32, height:32 }} />
-                              : <div className="cand-avatar" style={{ background: getAvatarColor(s.id, AVATAR_COLORS) }}>{getInitials(s.nom, s.prenom)}</div>
-                            }
+                            <MonitorAvatar monitor={s} colors={AVATAR_COLORS} />
                             <span className="cand-candidate-name" style={{ color:"#2563eb" }}>{s.first_name} {s.last_name}</span>
                           </div>
                         </td>
@@ -330,8 +352,8 @@ const paginated=data;
                               },
                             })}
                             onExport={(row) => downloadRowAsExcel(row, "moniteur-" + row.id + ".xls")}
-                            onArchive={archiveMonitor}
-                            onUnarchive={unarchiveMonitor}
+                            onArchive={(id) => dispatch(updateMonitorStatus({ id: s.monitor?.id ?? id, status: 4 })).then(() => dispatch(fetchMonitors({ page, search, status: STATUS_MAP[activeTab] ?? "all", zone_id: selectedSchoolId || undefined })))}
+                            onUnarchive={(id) => dispatch(updateMonitorStatus({ id: s.monitor?.id ?? id, status: 1 })).then(() => dispatch(fetchMonitors({ page, search, status: STATUS_MAP[activeTab] ?? "all", zone_id: selectedSchoolId || undefined })))}
                           />
                         </td>
                       </tr>

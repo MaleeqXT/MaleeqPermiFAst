@@ -118,10 +118,14 @@ import PW_PackagesPage             from "./permis-web/pages/PackagesPage.jsx";
 import PW_ContactPage              from "./permis-web/pages/ContactPage.jsx";
 import PW_VideoPage                from "./permis-web/pages/VideoPage.jsx";
 import PW_CPFPage                  from "./permis-web/pages/CPFPage.jsx";
+import PW_CpfFormationPermisBPage  from "./permis-web/pages/FormationBpage.jsx";
 import PW_CodePage                 from "./permis-web/pages/CodePage.jsx";
 import PW_LoginPage                from "./permis-web/pages/LoginPage.jsx";
+import ForgotPasswordPage from "./permis-web/pages/ForgotPasswordPage.jsx";
+import ResetPasswordPage from "./permis-web/pages/ResetPasswordPage.jsx";
 import CPFPositioningPage from "./permis-web/pages/CPFPositioningPage.jsx";
 import RegisterStudentForm from "./permis-web/pages/RegisterStudentForm.jsx";
+import PW_LegalPage from "./permis-web/pages/LegalPage.jsx";
 
 // Student pages are loaded only after the student opens them. This keeps the
 // first dashboard download small and makes the portal appear sooner after login.
@@ -204,11 +208,17 @@ const PUBLIC_ROUTES = new Set([
   "/contact-page",
   "/video-page",
   "/cpf-page",
+  "/cpf-formation-permis-b",
   "/cpf-positioning",
   "/code-page",
   "/login-page",
+  "/forgot-password",
   "/register-student",
   "/register",
+  "/mention-legales",
+  "/politique-confidentialite",
+  "/conditions-utilisation",
+  "/conditions-vente",
 ]);
 
 const SECRETARY_DASHBOARD_SESSION_KEY = "permiFastSecretaryDashboardActive";
@@ -508,7 +518,10 @@ const handleLogout=async()=>{
   // ── Full-page overrides (no shell) ──────────────────────────────────────
 
   // ── permis-web public routes (no auth required, no dashboard shell) ────────
-  if (PUBLIC_ROUTES.has(location.pathname)) {
+  const isPublicPermisWebRoute = PUBLIC_ROUTES.has(location.pathname)
+    || location.pathname.startsWith("/reset-password/");
+
+  if (isPublicPermisWebRoute) {
     // If user is already logged in and hits the public /login-page, redirect to their dashboard
     if (location.pathname === "/login-page" && authReady && user) {
       const checkoutRequested = role === "student" && location.state?.postLoginPath === "/student-checkout";
@@ -525,11 +538,18 @@ const handleLogout=async()=>{
           <Route path="/contact-page"  element={<PW_ContactPage />} />
           <Route path="/video-page"    element={<PW_VideoPage />} />
           <Route path="/cpf-page"      element={<PW_CPFPage />} />
+          <Route path="/cpf-formation-permis-b" element={<PW_CpfFormationPermisBPage />} />
           <Route path="/cpf-positioning" element={<CPFPositioningPage />} />
           <Route path="/code-page"     element={<PW_CodePage />} />
           <Route path="/login-page"    element={<PW_LoginPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
           <Route path="/register-student" element={<RegisterStudentForm />} />
           <Route path="/register"      element={<RegisterStudentForm />} />
+          <Route path="/mention-legales" element={<PW_LegalPage />} />
+          <Route path="/politique-confidentialite" element={<PW_LegalPage />} />
+          <Route path="/conditions-utilisation" element={<PW_LegalPage />} />
+          <Route path="/conditions-vente" element={<PW_LegalPage />} />
         </Routes>
         <PW_CartDrawer />
         <PW_FloatingContactButton />

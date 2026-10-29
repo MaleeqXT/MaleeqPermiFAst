@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import "./MonitorDashboard.css";
-import logoBlack from "../assets/logo-black.svg";
 import BookingDrawer from "./BookingDrawer.jsx";
 import MonitorSessions, { SuccessModal } from "./MonitorSessions.jsx";
 import ProposeSession from "./ProposeSession.jsx";
@@ -715,7 +714,7 @@ function TabSettings({
   }
 
   if (view === "vehiclesAndDocuments") {
-    return <VehiclesAndDocumentsPage onBack={() => onViewChange("settings")} />;
+    return <VehiclesAndDocumentsPage monitorId={monitorId} onBack={() => onViewChange("settings")} />;
   }
 
   return (
@@ -1058,9 +1057,9 @@ export default function MonitorDashboard({ onClose }) {
         <div className="md-sidebar-top">
           <div className="md-sidebar-brand">
             {collapsed ? (
-              <img src="https://passpermisfacile.fr/assets/logo.svg" alt="PassPermis" className="md-sidebar-logo" />
+              <img src={apiAssetUrl("assets/logo.svg")} alt="PermiFast" className="md-sidebar-logo" />
             ) : (
-              <img src={apiAssetUrl("assets/logo-permis-facile.webp")} alt="PassPermis" className="md-sidebar-logo-full" />
+              <img src={apiAssetUrl("assets/logo-permis-facile.webp")} alt="PermiFast" className="md-sidebar-logo-full" />
             )}
           </div>
 
@@ -1230,6 +1229,7 @@ export default function MonitorDashboard({ onClose }) {
               onOpenProposeSession={handleOpenProposeSession}
               onProposalCreated={() => setActiveTab("sessions")}
               initialSelectedAvailabilityIds={proposeSelection.preselectedAvailabilityIds}
+              monitorId={viewedMonitorId}
             />
           )}
           {activeTab === "accueil" && competenceCandidate && (

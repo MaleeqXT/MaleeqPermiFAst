@@ -29,7 +29,8 @@ const grouped = (survey) => {
 export default function SatisfactionPage() {
   const location = useLocation();
   const requestedStage = new URLSearchParams(location.search).get("stage");
-  const requestedSurveyId = location.state?.surveyId;
+  const requestedResponseId = new URLSearchParams(location.search).get("response");
+  const requestedSurveyId = requestedResponseId || location.state?.responseId || location.state?.surveyId;
   const [pending, setPending] = useState([]);
   const [survey, setSurvey] = useState(null);
   const [values, setValues] = useState({});
@@ -50,7 +51,8 @@ export default function SatisfactionPage() {
       setMessage(null);
       try {
         if (requestedStage) {
-          const { data } = await http.get(`/student/satisfaction/stage/${encodeURIComponent(requestedStage)}`);
+          const query = requestedResponseId ? `?response=${encodeURIComponent(requestedResponseId)}` : "";
+          const { data } = await http.get(`/student/satisfaction/stage/${encodeURIComponent(requestedStage)}${query}`);
           if (!live) return;
           const requested = grouped(data?.data || {});
           if (requested.completed) setMessage({ type: "completed" });
@@ -116,7 +118,7 @@ export default function SatisfactionPage() {
           if (question.type === "choice") return { question_id: question.id, selected_option: values[question.id] };
           return { question_id: question.id, answer_text: values[question.id] };
         });
-      const { data } = await http.post(`/student/satisfaction/${survey.id}/submit`, { answers });
+      const { data } = await http.post(`/student/satisfaction/${survey.id}/submit`, { answers, response_id: survey.response_id });
       const saved = data?.data;
       setResponseId(saved?.id || null);
       setGoogleUrl(saved?.google_review_url || null);
@@ -126,12 +128,12 @@ export default function SatisfactionPage() {
       // the server list after a successful submit and preserve any other
       // stages that became eligible in the meantime. If that refresh is
       // temporarily unavailable, the confirmed submission still stays final.
-      let remaining = removeSubmittedSurvey(pending, survey.id);
+      let remaining = removeSubmittedSurvey(pending, survey.response_id || survey.id);
       try {
         const pendingResponse = await http.get("/student/satisfaction/pending");
         remaining = removeSubmittedSurvey(
           uniquePendingSurveys(pendingResponse.data?.data).map(grouped),
-          survey.id,
+          survey.response_id || survey.id,
         );
       } catch {
         // The next dashboard focus will retry the pending list. Do not turn a
@@ -171,7 +173,7 @@ export default function SatisfactionPage() {
   return (
     <main className="sat-page">
       <div className="sat-container">
-        {pending.length > 1 && <nav className="sat-stage-tabs" aria-label="Enquêtes disponibles">{pending.map((item) => <button key={item.id} type="button" className={item.id === survey.id ? "is-active" : ""} onClick={() => chooseSurvey(item)}>{satisfactionStageLabel(item.stage)} : {item.title}</button>)}</nav>}
+        {pending.length > 1 && <nav className="sat-stage-tabs" aria-label="Enquêtes disponibles">{pending.map((item) => <button key={item.response_id || item.id} type="button" className={item.response_id === survey.response_id ? "is-active" : ""} onClick={() => chooseSurvey(item)}>{satisfactionStageLabel(item.stage)} : {item.title}</button>)}</nav>}
         {message?.type === "success" && <div className="sat-success sat-success--top" role="status">Merci, votre avis a bien été enregistré.</div>}
         <Survey survey={survey} values={values} errors={errors} onChange={update} onSubmit={submit} submitted={false} submitting={submitting} serverMessage={message?.type === "error" ? message.text : null} />
         {message?.type === "success" && googleUrl && <button type="button" className="sat-google-cta" onClick={clickGoogle} disabled={googleLoading || googleClicked}>{googleClicked ? "Avis Google ouvert" : googleLoading ? "Ouverture..." : "Laisser un avis sur Google"}</button>}

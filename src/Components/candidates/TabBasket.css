@@ -6,7 +6,7 @@
   font-family: 'DM Sans', 'Segoe UI', sans-serif;
   font-size: 14px;
   color: #111827;
-  min-height: 560px;
+  min-height: 500px;
   border-radius: 12px;
   overflow: hidden;
 }
@@ -221,9 +221,9 @@
 }
 
 .cb-choose-label {
-  font-size: 13px;
-  font-weight: 500;
-  color: #374151;
+  font-size: 15px;
+  font-weight: 700;
+  color: #17223b;
 }
 
 /* Offers scrollable list */
@@ -242,10 +242,18 @@
 /* Individual offer row */
 .cb-offer-row {
   display: flex;
+  width: 100%;
+  box-sizing: border-box;
   align-items: center;
   gap: 12px;
-  padding: 12px 14px;
+  padding: 15px 16px;
   border-bottom: 1px solid #f3f4f6;
+  border-left: 0;
+  border-right: 0;
+  border-top: 0;
+  background: #fff;
+  font-family: inherit;
+  text-align: left;
   cursor: pointer;
   transition: background 0.15s;
 }
@@ -255,15 +263,17 @@
 }
 
 .cb-offer-row:hover:not(.in-cart) {
-  background: #d9ebff;
+  background: #f4f9ff;
 }
 
 .cb-offer-row.selected {
-  background: #d9ebff;
+  background: #eaf3ff;
+  box-shadow: inset 3px 0 0 #2f80ed;
 }
 
 .cb-offer-row.in-cart {
-  background: #d9ebff;
+  background: #eefaf3;
+  box-shadow: inset 3px 0 0 #22a06b;
   cursor: default;
 }
 
@@ -302,18 +312,31 @@
   color: #6b7280;
 }
 
+.cb-offer-price strong {
+  color: #17223b;
+  font-size: 13px;
+  margin-left: 4px;
+}
+
 .cb-offer-row.selected .cb-offer-price,
 .cb-offer-row.in-cart .cb-offer-price {
-  color: black;
+  color: #5f6f86;
 }
 
 /* Green check */
 .cb-offer-check {
-  color: #43abff;
+  color: #fff;
+  background: #2f80ed;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
+  justify-content: center;
   flex-shrink: 0;
 }
+
+.cb-offer-row.in-cart .cb-offer-check { background: #22a06b; }
 
 /* Save button */
 .cb-save-btn {

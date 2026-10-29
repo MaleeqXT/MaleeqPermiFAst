@@ -1,235 +1,86 @@
-import { useState, useRef, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import http from "../../helpers/http.jsx";
 import "./Tabbalance.css";
 
-// ── Options de zones disponibles ──────────────────────────────────────────
-const ZONE_OPTIONS = ["Others", "SAINT DENIS", "TOULOUSE", "CREIL", "PARIS", "LYON"];
-
-// ── Données du tableau des offres ─────────────────────────────────────────
-const OFFERS = [
-  { id: 1, icon: "🟢", name: "Pass permis Manuel F20", tranche: 3, balance: "0 h" },
-  { id: 2, icon: "🟢", name: "Pass permis Manuel F5",  tranche: 1, balance: "0 h" },
-  { id: 3, icon: "⬛", name: "Test de boîte manuelle", tranche: 1, balance: "0 h" },
-];
-
 const PAGE_SIZE = 3;
-
-function formatHours(value) {
-  const number = Number(value ?? 0);
-  return Number.isFinite(number)
-    ? number.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    : "0,00";
-}
+const hours = (value) => `${Number(value ?? 0).toLocaleString("fr-FR", { maximumFractionDigits: 2 })} h`;
 
 export default function TabBalance({ form, student, user }) {
   const navigate = useNavigate();
-  const candidateName = form
-    ? `${form.first_name ?? form.firstName ?? ""} ${form.last_name ?? form.lastName ?? ""}`.trim()
-    : "ELIF ELMACIOGLU";
-  const currentBalance = student?.balance ?? form?.balanceAvailable ?? 0;
-  const actualBalance = student?.actual_balance ?? student?.real_balance ?? student?.total_balance ?? currentBalance;
-  // One training row corresponds to one lesson reserved for this student.
-  const completedLessons = Array.isArray(student?.trainings) ? student.trainings.length : 0;
-  const phone = user?.phone ?? form?.phone ?? form?.tel ?? "Non renseigné";
-  const permit = String(student?.boite_type ?? form?.boite_type ?? "").trim() === "1" ? "BA" : "BM";
-
-  // ── État des zones ────────────────────────────────────────────────────
-  const [selectedZones, setSelectedZones] = useState(["CREIL"]);
-  const [dropdownOpen, setDropdownOpen]   = useState(false);
-  const dropRef = useRef(null);
-
-  // Disponibles = toutes les options non encore sélectionnées
-  const available = ZONE_OPTIONS.filter(z => !selectedZones.includes(z));
-
-  // Fermer le menu déroulant au clic extérieur
-  useEffect(() => {
-    function handler(e) {
-      if (dropRef.current && !dropRef.current.contains(e.target)) setDropdownOpen(false);
-    }
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  function addZone(zone) {
-    setSelectedZones(prev => [...prev, zone]);
-    setDropdownOpen(false);
-  }
-  function removeZone(zone) {
-    setSelectedZones(prev => prev.filter(z => z !== zone));
-  }
-  function handleNewArea() {
-    setDropdownOpen(true);
-  }
-  function openOfferInfo(offer) {
-    navigate("/offersinfo", { state: { offer } });
-  }
-
-  // ── Pagination du tableau des offres ──────────────────────────────────
+  const studentId = student?.id;
+  const [balances, setBalances] = useState([]);
+  const [zones, setZones] = useState(student?.zones ?? []);
+  const [availableZones, setAvailableZones] = useState([]);
+  const [selectedZoneId, setSelectedZoneId] = useState("");
   const [page, setPage] = useState(1);
-  const totalPages = Math.ceil(OFFERS.length / PAGE_SIZE);
-  const pageOffers = OFFERS.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const candidateName = `${form?.first_name ?? user?.first_name ?? ""} ${form?.last_name ?? user?.last_name ?? ""}`.trim();
 
-  return (
-    <div className="tb-layout">
+  const load = async () => {
+    if (!studentId) return;
+    setLoading(true); setError("");
+    try {
+      const [balanceResponse, zoneResponse] = await Promise.all([
+        http.get(`/admin/users/students/${studentId}/zones`),
+        http.get("/admin/locations/area"),
+      ]);
+      const balanceData = balanceResponse.data?.balances?.data ?? balanceResponse.data?.balances ?? [];
+      const loadedUser = balanceResponse.data?.user;
+      setBalances(Array.isArray(balanceData) ? balanceData : []);
+      setZones(loadedUser?.student?.zones ?? student?.zones ?? []);
+      const zoneData = zoneResponse.data?.data ?? zoneResponse.data ?? [];
+      setAvailableZones(Array.isArray(zoneData) ? zoneData : []);
+    } catch (requestError) {
+      setError(requestError.response?.data?.message ?? "Impossible de charger le solde et les zones.");
+    } finally { setLoading(false); }
+  };
+  useEffect(() => { load(); }, [studentId]);
 
-      {/* ── GAUCHE : tableau des offres ── */}
-      <div className="tb-left">
-        <div className="tb-table-card">
-          <div className="tb-table-scroll">
-            <table className="tb-table">
-              <thead>
-                <tr>
-                  <th>Offre</th>
-                  <th>Tranche</th>
-                  <th>Solde</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pageOffers.map(offer => (
-                  <tr
-                    key={offer.id}
-                    className="tb-offer-row"
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => openOfferInfo(offer)}
-                    onKeyDown={e => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        openOfferInfo(offer);
-                      }
-                    }}
-                  >
-                    <td>
-                      <div className="tb-offer-cell">
-                        <div className="tb-offer-icon">{offer.icon}</div>
-                        <span className="tb-offer-name">{offer.name}</span>
-                      </div>
-                    </td>
-                    <td className="tb-tranche">{offer.tranche}</td>
-                    <td className="tb-balance">{offer.balance}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+  const freeZones = useMemo(() => availableZones.filter((zone) => !zones.some((assigned) => assigned.id === zone.id)), [availableZones, zones]);
+  const visibleBalances = balances.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(balances.length / PAGE_SIZE));
+  const totalBalance = balances.reduce((sum, wallet) => sum + Number(wallet.balance ?? wallet.total_balance ?? 0), 0);
 
-          {/* Pagination */}
-          <div className="tb-pagination">
-            <button
-              className="tb-page-btn"
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={page === 1}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"></path></svg>
-            </button>
-            <span className="tb-page-info">
-              {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, OFFERS.length)} sur {OFFERS.length} élément{OFFERS.length > 1 ? "s" : ""}
-            </span>
-            <button
-              className="tb-page-btn"
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
-            </button>
-          </div>
-        </div>
-      </div>
+  const attachZone = async () => {
+    if (!selectedZoneId) return;
+    setSaving(true); setError("");
+    try {
+      const response = await http.post(`/admin/locations/students/${studentId}/attach`, { zone_id: selectedZoneId });
+      setZones(response.data?.student?.zones ?? zones);
+      setSelectedZoneId("");
+    } catch (requestError) { setError(requestError.response?.data?.message ?? "Impossible d’ajouter cette zone."); }
+    finally { setSaving(false); }
+  };
+  const detachZone = async (zoneId) => {
+    setSaving(true); setError("");
+    try {
+      const response = await http.post(`/admin/locations/students/${studentId}/detach`, { zone_id: zoneId });
+      setZones(response.data?.student?.zones ?? zones.filter((zone) => zone.id !== zoneId));
+    } catch (requestError) { setError(requestError.response?.data?.message ?? "Impossible de retirer cette zone."); }
+    finally { setSaving(false); }
+  };
 
-      {/* ── DROITE : panneau des zones ── */}
-      <div className="tb-right">
-        <div className="tb-zones-card">
-
-          {/* Déclencheur du menu déroulant des zones */}
-          <div className="tb-zones-dropdown-wrapper" ref={dropRef}>
-            <button
-              className="tb-zones-trigger"
-              onClick={() => setDropdownOpen(o => !o)}
-            >
-              <span>Zones</span>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16" height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{ transform: dropdownOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}
-              >
-                <path d="m6 9 6 6 6-6"></path>
-              </svg>
-            </button>
-
-            {/* Liste déroulante */}
-            {dropdownOpen && (
-              <div className="tb-zones-dropdown">
-                {available.length === 0 ? (
-                  <div className="tb-zones-empty-opt">Toutes les zones ont été ajoutées</div>
-                ) : (
-                  available.map(zone => (
-                    <button
-                      key={zone}
-                      className="tb-zones-option"
-                      onClick={() => addZone(zone)}
-                    >
-                      {zone}
-                    </button>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="tb-student-summary" aria-label={`Informations de ${candidateName}`}>
-            <p className="tb-zones-subtitle">
-              Les zones disponibles pour <strong>{candidateName || "cet élève"}</strong>
-            </p>
-            <div className="tb-student-summary-row tb-student-summary-balance">
-              {formatHours(currentBalance)} h / {formatHours(actualBalance)} h
-            </div>
-            <div className="tb-student-summary-row">
-              {completedLessons} leçon{completedLessons > 1 ? "s" : ""}
-            </div>
-            <div className="tb-student-summary-row">{phone}</div>
-            <div className="tb-student-summary-permit">PassPermis {permit}</div>
-          </div>
-
-          {/* Liste des zones sélectionnées */}
-          <div className="tb-zones-list">
-            {selectedZones.length === 0 ? (
-              <p className="tb-zones-none">Aucune zone sélectionnée</p>
-            ) : (
-              selectedZones.map(zone => (
-                <div key={zone} className="tb-zone-row">
-                  <span className="tb-zone-name">{zone}</span>
-                  <button
-                    className="tb-zone-delete"
-                    onClick={() => removeZone(zone)}
-                    title={`Supprimer ${zone}`}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M3 6h18"></path>
-                      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-                      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-                      <line x1="10" x2="10" y1="11" y2="17"></line>
-                      <line x1="14" x2="14" y1="11" y2="17"></line>
-                    </svg>
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-
-          {/* Bouton Nouvelle zone */}
-          <button className="tb-new-area-btn" onClick={handleNewArea}>
-            Nouvelle zone
-          </button>
-
-        </div>
-      </div>
-
-    </div>
-  );
+  return <div className="tb-layout">
+    <div className="tb-left"><div className="tb-table-card"><div className="tb-table-scroll"><table className="tb-table"><thead><tr><th>Offre</th><th>Tranche</th><th>Solde</th></tr></thead><tbody>
+      {loading && <tr><td colSpan="3">Chargement…</td></tr>}
+      {!loading && error && <tr><td colSpan="3">{error}</td></tr>}
+      {!loading && !error && visibleBalances.length === 0 && <tr><td colSpan="3">Aucune offre attribuée.</td></tr>}
+      {visibleBalances.map((wallet) => <tr key={wallet.id} className="tb-offer-row" onClick={() => navigate("/offersinfo", { state: { offer: wallet.offer } })}>
+        <td><div className="tb-offer-cell"><div className="tb-offer-icon">🟢</div><span className="tb-offer-name">{wallet.offer?.name ?? "Offre"}</span></div></td>
+        <td className="tb-tranche">{wallet.installments ?? wallet.offer?.multi_payment ?? wallet.multi_payment ?? 1}</td>
+        <td className="tb-balance">{hours(wallet.balance ?? wallet.total_balance)}</td>
+      </tr>)}
+    </tbody></table></div>
+      <div className="tb-pagination"><button className="tb-page-btn" disabled={page === 1} onClick={() => setPage((value) => value - 1)}>‹</button><span className="tb-page-info">{balances.length ? `${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, balances.length)} sur ${balances.length} élément${balances.length > 1 ? "s" : ""}` : "0 élément"}</span><button className="tb-page-btn" disabled={page === totalPages} onClick={() => setPage((value) => value + 1)}>›</button></div>
+    </div></div>
+    <div className="tb-right"><div className="tb-zones-card">
+      <label className="tb-zones-trigger">Zones<select value={selectedZoneId} onChange={(event) => setSelectedZoneId(event.target.value)}><option value="">Sélectionner une zone</option>{freeZones.map((zone) => <option key={zone.id} value={zone.id}>{zone.name}</option>)}</select></label>
+      <div className="tb-student-summary"><p className="tb-zones-subtitle">Les zones disponibles pour <strong>{candidateName || "cet élève"}</strong></p><div className="tb-student-summary-row tb-student-summary-balance">{hours(student?.balance ?? totalBalance)} / {hours(totalBalance)}</div></div>
+      <div className="tb-zones-list">{zones.length ? zones.map((zone) => <div key={zone.id} className="tb-zone-row"><span className="tb-zone-name">{zone.name}</span><button className="tb-zone-delete" disabled={saving} onClick={() => detachZone(zone.id)} title="Retirer la zone">×</button></div>) : <p className="tb-zones-none">Aucune zone sélectionnée</p>}</div>
+      <button className="tb-new-area-btn" disabled={!selectedZoneId || saving} onClick={attachZone}>{saving ? "Enregistrement…" : "Nouvelle zone"}</button>
+    </div></div>
+  </div>;
 }

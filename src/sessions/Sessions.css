@@ -878,6 +878,17 @@
 }
 .cal-drawer-select--full  { width: 100%; }
 .cal-drawer-select--muted { color: #9ca3af; }
+.cal-drawer-zone-value {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  margin-top: 4px;
+  padding-inline: 18px;
+  cursor: not-allowed;
+  opacity: .92;
+  text-align: center;
+}
 
 /* Liste intégrée */
 .cal-inline-list {

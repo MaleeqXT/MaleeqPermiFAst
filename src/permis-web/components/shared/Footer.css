@@ -153,15 +153,18 @@
 }
 
 /* =========================================================
-   MAIN GRID — 5 columns
+   MAIN ROW — all footer sections stay side by side
 ========================================================= */
 .footer-grid {
-  display: grid;
-  grid-template-columns: 220px repeat(4, 1fr);
-  gap: 40px;
+  display: flex;
+  gap: 30px;
   align-items: start;
   margin-bottom: 48px;
 }
+
+.footer-col { min-width: 0; flex: 1 1 0; }
+.footer-col--brand { flex: 0 0 220px; }
+.footer-col--legal { flex: 1.15 1 0; }
 
 /* =========================================================
    COLUMN SHARED
@@ -242,6 +245,34 @@
 
 .footer-menu-link:hover {
   color: #55B126;
+}
+
+.footer-legal-menu {
+  gap: 9px;
+}
+
+.footer-legal-toggle {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.footer-contract-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin: 9px 0 0 12px;
+  padding-left: 11px;
+  border-left: 2px solid #dbe8d3;
+  list-style: none;
+}
+
+.footer-contract-menu .footer-menu-link {
+  font-size: 12px;
 }
 
 /* =========================================================
@@ -523,6 +554,7 @@
 ========================================================= */
 @media (max-width: 1024px) {
   .footer-grid {
+    display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 36px;
   }
@@ -560,6 +592,7 @@
   }
 
   .footer-grid {
+    display: grid;
     grid-template-columns: 1fr;
     gap: 28px;
   }

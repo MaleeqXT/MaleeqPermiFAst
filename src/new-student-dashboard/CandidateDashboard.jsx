@@ -109,7 +109,7 @@ const TOOLS = [
   { id: "driving",    icon: <BigCarIcon />,  title: "Suivi de conduite", text: "Retrouvez vos leçons et évaluations" },
   { id: "documents",  icon: <FileIcon />,    title: "Documents",         text: "Vos documents administratifs", path: "/student-documents" },
   { id: "statistics", icon: <ChartIcon />,   title: "Statistiques",      text: "Analysez votre progression" },
-  { id: "messages",   icon: <ChatIcon />,    title: "Messagerie",        text: "Contactez votre équipe pédagogique", badge: 2, path: "/student-messages" },
+  { id: "messages",   icon: <ChatIcon />,    title: "Messagerie",        text: "Contactez votre équipe pédagogique",  path: "/student-messages" },
 ];
 
 // ─── Donut progress ────────────────────────────────────────────────────────
@@ -149,6 +149,7 @@ export default function CandidateDashboard() {
   const [satisfactionLoading, setSatisfactionLoading] = useState(true);
   const [satisfactionError, setSatisfactionError] = useState("");
   const [satisfactionRetry, setSatisfactionRetry] = useState(0);
+  const [announcementsOpen, setAnnouncementsOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useDispatch();
@@ -333,7 +334,7 @@ export default function CandidateDashboard() {
                 <div className="nsd-progress-copy">
                   <p className="nsd-progress-headline">Vous êtes sur la bonne voie !</p>
                   <p className="nsd-progress-text">Continuez comme ça pour atteindre vos objectifs.</p>
-                  <button type="button" className="nsd-btn-dark">Voir le détail</button>
+                  <button type="button" className="nsd-btn-dark" onClick={() => navigate("/student-progress")}>Voir le détail</button>
                 </div>
               </div>
 
@@ -433,7 +434,7 @@ export default function CandidateDashboard() {
           <section className="nsd-card nsd-news-card">
             <div className="nsd-card-head">
               <h2 className="nsd-card-title">Dernières annonces</h2>
-              <button type="button" className="nsd-link">Voir toutes</button>
+              <button type="button" className="nsd-link" onClick={() => setAnnouncementsOpen(true)}>Voir toutes</button>
             </div>
 
             <div className="nsd-news-list">
@@ -478,6 +479,24 @@ export default function CandidateDashboard() {
           </section>
         </div>
       </main>
+      {announcementsOpen && (
+        <div className="nsd-announcements-backdrop" role="presentation" onMouseDown={() => setAnnouncementsOpen(false)}>
+          <section className="nsd-announcements-modal" role="dialog" aria-modal="true" aria-labelledby="nsd-announcements-title" onMouseDown={(event) => event.stopPropagation()}>
+            <header>
+              <div><p>Informations de votre agence</p><h2 id="nsd-announcements-title">Toutes les annonces</h2></div>
+              <button type="button" onClick={() => setAnnouncementsOpen(false)} aria-label="Fermer les annonces">×</button>
+            </header>
+            <div className="nsd-announcements-modal-list">
+              {ANNOUNCEMENTS.map((item) => (
+                <article key={item.id} className="nsd-announcements-modal-item">
+                  <span className="nsd-news-icon">{item.icon}</span>
+                  <div><h3>{item.title}</h3><p>{item.text}</p><time>{item.time}</time></div>
+                </article>
+              ))}
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

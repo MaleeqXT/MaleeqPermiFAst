@@ -1,298 +1,59 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import "./SchedulingDrawer.css";
 
-const MAY_2026 = {
-  year: 2026,
-  month: 4,
-  label: "Mai",
-  firstDay: 4,
-  days: 31,
-};
-
-const PERIOD = { start: 22, end: 28 };
-
-const buildHours = () =>
-  Array.from({ length: 16 }, (_, i) => {
-    const h = i + 7;
-    return {
-      id: i,
-      label: `${String(h).padStart(2, "0")}:00 - ${String(h + 1).padStart(2, "0")}:00`,
-      startHour: h,
-    };
-  });
-
-const buildQuarters = (hour) =>
-  [0, 15, 30, 45].map((m) => {
-    const from = `${String(hour).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-    const toH = m === 45 ? hour + 1 : hour;
-    const toM = m === 45 ? 0 : m + 15;
-    const to = `${String(toH).padStart(2, "0")}:${String(toM).padStart(2, "0")}`;
-    return { from, to, label: `${from} à ${to}` };
-  });
-
 const DAY_NAMES = ["L", "M", "M", "J", "V", "S", "D"];
-const DAY_FULL = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
-const FIRST_DOW = 4;
+const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const parse = (v) => { const [y, m, d] = String(v).split("-").map(Number); return new Date(y, m - 1, d); };
+const plusDays = (d, n) => { const next = new Date(d); next.setDate(next.getDate() + n); return next; };
+const range = (from, to) => { const values = []; for (let d = new Date(from); d <= to; d = plusDays(d, 1)) values.push(iso(d)); return values; };
+const hours = (start, end) => Math.max(1, Math.ceil(((Number(end.slice(0, 2)) * 60 + Number(end.slice(3))) - (Number(start.slice(0, 2)) * 60 + Number(start.slice(3)))) / 60));
+const label = (place) => place?.name ?? place?.label ?? place?.title ?? place?.address ?? "Lieu sans nom";
 
-export default function SchedulingDrawer({ open = true, onClose, onSubmit }) {
-  const [monthChecked, setMonthChecked] = useState(false);
-  const [selectedDays, setSelectedDays] = useState(() => new Set([22, 23, 24, 25, 26, 27, 28]));
+export default function SchedulingDrawer({ open = true, onClose, onSubmit, places = [], defaultLieuId = null, initialDate }) {
+  const initial = useMemo(() => initialDate ? parse(initialDate) : new Date(), [initialDate]);
+  const [lieuId, setLieuId] = useState(defaultLieuId ?? "");
+  const [startDate, setStartDate] = useState(iso(initial));
+  const [endDate, setEndDate] = useState(iso(plusDays(initial, 6)));
+  const [selectedDates, setSelectedDates] = useState(() => new Set(range(initial, plusDays(initial, 6))));
+  const [slots, setSlots] = useState([{ id: crypto.randomUUID(), start_at: "07:00", end_at: "12:00" }, { id: crypto.randomUUID(), start_at: "14:00", end_at: "18:00" }]);
   const [comment, setComment] = useState("");
-  const [hoursModal, setHoursModal] = useState(null);
-  const [dayHours, setDayHours] = useState(() => {
-    const base = {};
-    for (let d = 22; d <= 28; d++) {
-      base[d] = new Set([7, 8, 9, 10, 11, 14, 15, 16, 17]);
-    }
-    return base;
-  });
-  const [quarterModal, setQuarterModal] = useState(null);
-  const [quarterSel, setQuarterSel] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
-  const isPeriod = (d) => d >= PERIOD.start && d <= PERIOD.end;
+  useEffect(() => { if (!lieuId && defaultLieuId) setLieuId(String(defaultLieuId)); }, [defaultLieuId, lieuId]);
+  useEffect(() => setSelectedDates(new Set(range(parse(startDate), parse(endDate)))), [startDate, endDate]);
 
-  const toggleDay = (d) => {
-    if (monthChecked) return;
-    setSelectedDays((prev) => {
-      const next = new Set(prev);
-      next.has(d) ? next.delete(d) : next.add(d);
-      return next;
-    });
+  const dates = useMemo(() => range(parse(startDate), parse(endDate)), [startDate, endDate]);
+  const weeks = useMemo(() => Array.from({ length: Math.ceil(dates.length / 7) }, (_, i) => dates.slice(i * 7, i * 7 + 7)), [dates]);
+  const toggleDate = (date) => setSelectedDates((current) => { const next = new Set(current); next.has(date) ? next.delete(date) : next.add(date); return next; });
+  const updateSlot = (id, key, value) => setSlots((current) => current.map((slot) => slot.id === id ? { ...slot, [key]: value } : slot));
+  const addSlot = () => setSlots((current) => [...current, { id: crypto.randomUUID(), start_at: "09:00", end_at: "10:00" }]);
+  const removeSlot = (id) => setSlots((current) => current.length > 1 ? current.filter((slot) => slot.id !== id) : current);
+
+  const submit = async () => {
+    setError("");
+    if (!lieuId) return setError("Veuillez sélectionner un lieu.");
+    if (!selectedDates.size) return setError("Sélectionnez au moins une date.");
+    if (slots.some((slot) => !slot.start_at || !slot.end_at || slot.start_at >= slot.end_at)) return setError("Chaque créneau doit avoir une heure de début antérieure à l’heure de fin.");
+    const payload = Array.from(selectedDates).flatMap((date) => slots.map((slot) => ({ date, start_at: slot.start_at, end_at: slot.end_at, hour: hours(slot.start_at, slot.end_at), is_active: true })));
+    try { setSaving(true); await onSubmit?.({ lieu_id: lieuId, data: payload }); } catch (e) { setError(e?.message || "Impossible d’enregistrer les disponibilités."); } finally { setSaving(false); }
   };
 
-  const isSelected = (d) => monthChecked || selectedDays.has(d);
-  const canInteract = (d) => isSelected(d) && isPeriod(d);
-
-  const openHours = (d) => {
-    if (!canInteract(d)) return;
-    setHoursModal({ day: d });
-  };
-
-  const toggleHour = (day, h) => {
-    setDayHours((prev) => {
-      const next = { ...prev };
-      const set = new Set(next[day] || []);
-      set.has(h) ? set.delete(h) : set.add(h);
-      next[day] = set;
-      return next;
-    });
-  };
-
-  const openQuarter = (day, startHour) => {
-    const key = `${day}-${startHour}`;
-    setQuarterModal({ day, startHour, selected: quarterSel[key] || "00" });
-  };
-
-  const handleSubmit = () => {
-    onSubmit?.({
-      monthChecked,
-      selectedDays: Array.from(selectedDays),
-      comment,
-      dayHours,
-      quarterSel,
-    });
-    onClose?.();
-  };
-
-  const selectQuarter = (day, startHour, minute) => {
-    const key = `${day}-${startHour}`;
-    setQuarterSel((prev) => ({ ...prev, [key]: minute }));
-    setQuarterModal(null);
-  };
-
-  const cells = [];
-  for (let i = 0; i < FIRST_DOW; i++) cells.push(null);
-  for (let d = 1; d <= 31; d++) cells.push(d);
-
-  const weeks = [];
-  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
-
-  return (
-    <>
-      <div className={`sd-backdrop ${open ? "sd-backdrop--open" : ""}`} onClick={onClose} />
-
-      <aside className={`sd-drawer ${open ? "sd-drawer--open" : ""}`}>
-        <div className="sd-header">
-          <span className="sd-header__title">Choisissez le lieu et la période concernée.</span>
-          <button className="sd-header__close" onClick={onClose}>×</button>
-        </div>
-
-        <div className="sd-body">
-          <div className="sd-field">
-            <label className="sd-label">Lieu :</label>
-            <span className="sd-value">Non défini</span>
-          </div>
-
-          <div className="sd-field">
-            <label className="sd-label">Période :</label>
-            <div className="sd-period-badge">
-              22 mai 2026 → 28 mai 2026
-            </div>
-          </div>
-
-          <div className="sd-field">
-            <label className="sd-label">Heures :</label>
-            <div className="sd-hours-chips">
-              <span className="sd-chip">07:00 → 12:00</span>
-              <span className="sd-chip">14:00 → 18:00</span>
-            </div>
-          </div>
-
-          <div className="sd-month-row">
-            <label className="sd-checkbox-wrap">
-              <input
-                type="checkbox"
-                checked={monthChecked}
-                onChange={(e) => setMonthChecked(e.target.checked)}
-              />
-              <span className="sd-checkbox-box" />
-              <span className="sd-month-label">Mai</span>
-            </label>
-            <span className="sd-chevron">▲</span>
-          </div>
-
-          <div className="sd-calendar">
-            <div className="sd-cal-head">
-              {DAY_NAMES.map((n, i) => (
-                <div key={i} className="sd-cal-cell sd-cal-cell--head">{n}</div>
-              ))}
-            </div>
-
-            <div className="sd-cal-row sd-cal-row--pens">
-              {DAY_NAMES.map((_, ci) => {
-                const colDays = weeks.map((w) => w[ci]).filter((d) => d && isPeriod(d) && isSelected(d));
-                const active = colDays.length > 0 && (monthChecked || colDays.some((d) => selectedDays.has(d)));
-                return (
-                  <div key={ci} className="sd-cal-cell">
-                    <button
-                      className={`sd-pen-btn ${active ? "sd-pen-btn--active" : ""}`}
-                      disabled={!active}
-                      onClick={() => active && openHours(colDays[0])}
-                      title={active ? "Modifier les horaires" : ""}
-                    >
-                      ✎
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-
-            {weeks.map((week, wi) => (
-              <div key={wi} className="sd-cal-row">
-                {week.map((d, di) => {
-                  if (!d) return <div key={di} className="sd-cal-cell" />;
-                  const sel = isSelected(d);
-                  const inPeriod = isPeriod(d);
-                  return (
-                    <div
-                      key={di}
-                      className={`sd-cal-cell sd-day
-                        ${inPeriod ? "sd-day--period" : ""}
-                        ${sel && inPeriod ? "sd-day--selected" : ""}
-                        ${!inPeriod ? "sd-day--outside" : ""}
-                      `}
-                      onClick={() => inPeriod && toggleDay(d)}
-                    >
-                      {d}
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-
-          <div className="sd-field sd-field--col">
-            <label className="sd-label">Commentaire pour l’administrateur :</label>
-            <textarea
-              className="sd-textarea"
-              placeholder="Ajoutez un commentaire pour l’administrateur (facultatif)"
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-            />
-          </div>
-
-          <button type="button" className="sd-submit" onClick={handleSubmit}>
-            Envoyer la demande à l’administrateur
-          </button>
-        </div>
-      </aside>
-
-      {hoursModal && (
-        <div className="sd-overlay" onClick={() => setHoursModal(null)}>
-          <div className="sd-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="sd-modal__header">
-              <span>Options de planification des horaires</span>
-              <button onClick={() => setHoursModal(null)}>×</button>
-            </div>
-            <div className="sd-modal__sub">Mai 2026</div>
-            <div className="sd-modal__day-label">
-              {DAY_FULL[(new Date(2026, 4, hoursModal.day).getDay() + 6) % 7]} {hoursModal.day}
-            </div>
-            <div className="sd-hours-list">
-              {buildHours().map((slot) => {
-                const enabled = (dayHours[hoursModal.day] || new Set()).has(slot.startHour);
-                const key = `${hoursModal.day}-${slot.startHour}`;
-                const qSel = quarterSel[key];
-                return (
-                  <div key={slot.id} className="sd-hour-row">
-                    <label className="sd-checkbox-wrap">
-                      <input
-                        type="checkbox"
-                        checked={enabled}
-                        onChange={() => toggleHour(hoursModal.day, slot.startHour)}
-                      />
-                      <span className="sd-checkbox-box" />
-                    </label>
-                    <span className="sd-hour-label">
-                      {slot.label}
-                      {qSel !== undefined && qSel !== "00" && (
-                        <span className="sd-quarter-badge"> (:{qSel})</span>
-                      )}
-                    </span>
-                    <button
-                      className="sd-pen-btn sd-pen-btn--active sd-pen-btn--sm"
-                      onClick={() => openQuarter(hoursModal.day, slot.startHour)}
-                    >
-                      ✎
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {quarterModal && (
-        <div className="sd-overlay" onClick={() => setQuarterModal(null)}>
-          <div className="sd-modal sd-modal--sm" onClick={(e) => e.stopPropagation()}>
-            <div className="sd-modal__header">
-              <span>Option de créneau</span>
-              <button onClick={() => setQuarterModal(null)}>×</button>
-            </div>
-            <div className="sd-modal__sub">Début du créneau</div>
-            <div className="sd-quarters-list">
-              {buildQuarters(quarterModal.startHour).map((q) => {
-                const key = `${quarterModal.day}-${quarterModal.startHour}`;
-                const isSel =
-                  (quarterSel[key] === undefined && q.from.endsWith(":00")) ||
-                  quarterSel[key] === q.from.split(":")[1];
-                return (
-                  <div
-                    key={q.from}
-                    className={`sd-quarter-row ${isSel ? "sd-quarter-row--sel" : ""}`}
-                    onClick={() => selectQuarter(quarterModal.day, quarterModal.startHour, q.from.split(":")[1])}
-                  >
-                    <span className={`sd-quarter-accent ${isSel ? "sd-quarter-accent--sel" : ""}`} />
-                    {q.label}
-                    {isSel && <span className="sd-quarter-check">✓</span>}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
+  return <>
+    <div className={`sd-backdrop ${open ? "sd-backdrop--open" : ""}`} onClick={saving ? undefined : onClose} />
+    <aside className={`sd-drawer ${open ? "sd-drawer--open" : ""}`} aria-label="Créer des disponibilités">
+      <div className="sd-header"><button type="button" className="sd-top-action" onClick={onClose} disabled={saving}>Fermer</button><div className="sd-header__heading"><strong>Planification des<br />disponibilités</strong><span className="sd-header__title">Choisir le lieu et la période concernée</span></div><button type="button" className="sd-top-action sd-top-action--save" onClick={submit} disabled={saving}>✓&nbsp; Enregistrer</button></div>
+      <div className="sd-body">
+        <div className="sd-config-card"><label className="sd-field sd-field--col"><span className="sd-label">Lieu:</span><select className="sd-control" value={lieuId} onChange={(e) => setLieuId(e.target.value)} disabled={saving}><option value="">Non défini</option>{places.map((place) => <option key={place.id ?? place.value} value={place.id ?? place.value}>{label(place)}</option>)}</select></label></div>
+        <div className="sd-config-card"><span className="sd-label">Période:</span><div className="sd-date-range"><label className="sd-field sd-field--col"><span>Du</span><input className="sd-control" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} disabled={saving} /></label><label className="sd-field sd-field--col"><span>Au</span><input className="sd-control" type="date" min={startDate} value={endDate} onChange={(e) => setEndDate(e.target.value)} disabled={saving} /></label></div></div>
+        <div className="sd-section-heading"><span>Dates de récurrence</span><button type="button" className="sd-link-button" onClick={() => setSelectedDates(new Set(dates))} disabled={saving}>Tout sélectionner</button></div>
+        <div className="sd-calendar"><div className="sd-cal-head">{DAY_NAMES.map((day, index) => <div key={`${day}-${index}`} className="sd-cal-cell sd-cal-cell--head">{day}</div>)}</div>{weeks.map((week, weekIndex) => <div key={weekIndex} className="sd-cal-row">{Array.from({ length: 7 }, (_, index) => { const date = week[index]; return date ? <button type="button" key={date} className={`sd-cal-cell sd-day ${selectedDates.has(date) ? "sd-day--selected" : ""}`} onClick={() => toggleDate(date)} disabled={saving}>{parse(date).getDate()}</button> : <span key={index} className="sd-cal-cell" />; })}</div>)}</div>
+        <p className="sd-hint">{selectedDates.size} date(s) sélectionnée(s). Les créneaux seront créés pour chaque date.</p>
+        <div className="sd-config-card"><div className="sd-section-heading"><span>Heures:</span><button type="button" className="sd-link-button" onClick={addSlot} disabled={saving}>+ Ajouter</button></div><div className="sd-slots">{slots.map((slot, index) => <div className="sd-slot-row" key={slot.id}><span className="sd-slot-number">{index + 1}</span><input className="sd-control" type="time" value={slot.start_at} onChange={(e) => updateSlot(slot.id, "start_at", e.target.value)} disabled={saving} /><span>→</span><input className="sd-control" type="time" value={slot.end_at} onChange={(e) => updateSlot(slot.id, "end_at", e.target.value)} disabled={saving} /><button type="button" className="sd-remove-slot" onClick={() => removeSlot(slot.id)} disabled={saving || slots.length === 1} aria-label="Supprimer ce créneau">×</button></div>)}</div></div>
+        <label className="sd-field sd-field--col"><span className="sd-label">Commentaire pour l’admin:</span><textarea className="sd-textarea" value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Ajouter un commentaire pour l’admin (optionnel)" disabled={saving} /></label>
+        {error && <p className="sd-error" role="alert">{error}</p>}
+        <button type="button" className="sd-submit" onClick={submit} disabled={saving}>{saving ? "Enregistrement…" : `Créer ${selectedDates.size * slots.length} disponibilité(s)`}</button>
+      </div>
+    </aside>
+  </>;
 }

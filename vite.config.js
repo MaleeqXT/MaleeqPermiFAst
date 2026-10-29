@@ -16,6 +16,28 @@ export default defineConfig(({ mode }) => {
       changeOrigin: true,
       secure: true,
     },
+    "/assets": {
+      target: localProxyTarget,
+      changeOrigin: true,
+      secure: true,
+    },
+    "/theory-diagrams": {
+      target: localProxyTarget,
+      changeOrigin: true,
+      secure: true,
+    },
+    // Protected Laravel documents are opened from React pages as blobs so the
+    // bearer token is retained. These routes intentionally sit outside /api.
+    "/admin": {
+      target: localProxyTarget,
+      changeOrigin: true,
+      secure: true,
+    },
+    "/download": {
+      target: localProxyTarget,
+      changeOrigin: true,
+      secure: true,
+    },
   } : undefined;
 
   if (mode === "production" && !env.VITE_API_URL) {

@@ -35,6 +35,23 @@
   text-align: center;
 }
 
+.rf-back-button {
+  width: 40px;
+  height: 40px;
+  display: inline-grid;
+  place-items: center;
+  margin: 0 auto 14px;
+  border: 1px solid var(--rf-border);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--rf-navy);
+  cursor: pointer;
+  transition: background .18s, border-color .18s, transform .18s;
+}
+
+.rf-back-button:hover { background: #eff8e9; border-color: #acd688; transform: translateX(-2px); }
+.rf-back-button svg { width: 19px; height: 19px; stroke-width: 2.25; }
+
 .rf-title {
   margin: 0;
   color: var(--rf-navy);

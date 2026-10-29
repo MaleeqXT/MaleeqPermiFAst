@@ -665,6 +665,31 @@
 ========================================================= */
 
 /* ── CPF filter container ── */
+.pkg-cpf-information {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin: 26px auto 16px;
+  text-align: center;
+}
+
+.pkg-cpf-information__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: min(100%, 720px);
+  padding: 15px 28px;
+  border-radius: 11px;
+  background: #6d28d9;
+  color: #fff;
+  font: 800 16px "Poppins", sans-serif;
+  text-decoration: none;
+  box-shadow: 0 10px 22px rgba(109,40,217,.22);
+}
+.pkg-cpf-information__button:hover { background: #5b21b6; color: #fff; }
+.pkg-cpf-information span { color: #64748b; font-size: 13px; }
+
 .pkg-cpf-filter {
   display: flex;
   align-items: center;

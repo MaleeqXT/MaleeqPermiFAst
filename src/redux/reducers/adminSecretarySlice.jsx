@@ -61,6 +61,18 @@ export const updateSecretary = createAsyncThunk(
     }
 );
 
+export const updateSecretaryStatus = createAsyncThunk(
+    'secretaries/updateStatus',
+    async ({ id, status }, { rejectWithValue }) => {
+        try {
+            const response = await http.put(`/admin/users/secretaries/${id}/status`, { status });
+            return response.data.data;
+        } catch (error) {
+            return rejectWithValue(error.response?.data ?? error.message);
+        }
+    }
+);
+
 
 const adminSecretarySlice = createSlice({
     name: 'secretaries',
@@ -139,6 +151,12 @@ const adminSecretarySlice = createSlice({
                 })
                 .addCase(updateSecretary.rejected, (state) => {
                     state.selectedLoading = false;
+                })
+                .addCase(updateSecretaryStatus.fulfilled, (state, action) => {
+                    const updated = action.payload;
+                    const index = state.list.findIndex((secretary) => secretary.id === updated.id);
+                    if (index !== -1) state.list[index] = updated;
+                    if (state.selected?.id === updated.id) state.selected = updated;
                 })
 
             }

@@ -37,3 +37,14 @@ test("removes only the submitted survey so other eligible stages remain", () => 
     ["before", "after"],
   );
 });
+
+test("keeps separate pending responses for repeat purchases of one offer", () => {
+  const repeatPurchases = [
+    { id: "during", response_id: "enrolment-a", stage: "during_training" },
+    { id: "during", response_id: "enrolment-b", stage: "during_training" },
+  ];
+
+  assert.deepEqual(uniquePendingSurveys(repeatPurchases).map((survey) => survey.response_id), ["enrolment-a", "enrolment-b"]);
+  assert.equal(selectPendingSurvey(repeatPurchases, "enrolment-b")?.response_id, "enrolment-b");
+  assert.deepEqual(removeSubmittedSurvey(repeatPurchases, "enrolment-a").map((survey) => survey.response_id), ["enrolment-b"]);
+});

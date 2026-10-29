@@ -1,10 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import http from "../helpers/http.jsx";
 import "./SatisfactionSurveyPage.css";
 
-function Icon({ children, strokeWidth = 2 }) {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{children}</svg>;
-}
-
+function Icon({ children, strokeWidth = 2 }) { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{children}</svg>; }
 const DownloadIcon = () => <Icon><path d="M12 3v12m0 0 4-4m-4 4-4-4" /><path d="M5 19v2h14v-2" /></Icon>;
 const FilterIcon = () => <Icon><path d="M4 5h16M7 12h10M10 19h4" /></Icon>;
 const ResetIcon = () => <Icon><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5" /></Icon>;
@@ -19,156 +17,70 @@ const SearchIcon = () => <Icon><circle cx="11" cy="11" r="7" /><path d="m20 20-4
 const ChevronRightIcon = () => <Icon><path d="m9 18 6-6-6-6" /></Icon>;
 const SmileIcon = ({ mood }) => <Icon><circle cx="12" cy="12" r="9" /><path d="M8 9h.01M16 9h.01" />{mood === "negative" ? <path d="M8 17c1-3 7-3 8 0" /> : mood === "watch" ? <path d="M8 16h8" /> : <path d="M8 14c1 3 7 3 8 0" />}</Icon>;
 
-const KPI_CARDS = [
-  { id: "score", tone: "green", icon: <StarIcon />, label: "Note moyenne", value: "4,7 / 5", change: "↑ +0,2", caption: "vs période précédente" },
-  { id: "answers", tone: "blue", icon: <UsersIcon />, label: "Nombre de réponses", value: "482", change: "↑ +18%", caption: "vs période précédente" },
-  { id: "recommendation", tone: "green", icon: <ThumbIcon />, label: "Taux de recommandation", value: "92 %", change: "↑ +4%", caption: "vs période précédente" },
+const stages = [
+  { id: "before_training", title: "Avant la formation", tone: "blue", icon: <CarIcon /> },
+  { id: "during_training", title: "Pendant la formation", tone: "green", icon: <WheelIcon /> },
+  { id: "after_training", title: "Après la formation", tone: "amber", icon: <TrophyIcon /> },
 ];
+const average = (values) => values.length ? values.reduce((total, value) => total + Number(value), 0) / values.length : null;
+const score = (value) => value === null || Number.isNaN(value) ? "—" : Number(value).toFixed(1).replace(".", ",");
+const cityOf = (response) => {
+  const city = String(response?.candidate?.user?.ville || "").trim();
+  if (/creil/i.test(city)) return "Creil";
+  if (/toulouse/i.test(city)) return "Toulouse";
+  return city || "Autre";
+};
+const monitorOf = (response) => response?.enrollment?.trainings?.map((training) => training?.reservation?.monitor?.user).find(Boolean) || null;
+const responseName = (response) => response?.candidate?.user?.name || [response?.candidate?.user?.first_name, response?.candidate?.user?.last_name].filter(Boolean).join(" ") || "Élève";
+const formatDate = (date) => date ? new Date(date).toLocaleDateString("fr-FR") : "—";
 
-const STAGES = [
-  { id: "before", title: "Avant la formation", score: "4,5 / 5", tone: "blue", icon: <CarIcon />, rows: [["Accueil", "4,6", "good"], ["Informations", "4,4", "warn"], ["Réactivité", "4,5", "good"], ["Inscription", "4,5", "good"]], footer: "Origine des élèves" },
-  { id: "during", title: "Pendant la formation", score: "4,7 / 5", tone: "green", icon: <WheelIcon />, rows: [["Secrétariat", "4,6", "good"], ["Planning", "4,3", "warn"], ["Communication", "4,6", "good"], ["Enseignement", "4,8", "good"], ["Pédagogie", "4,7", "good"], ["Progression", "4,6", "good"], ["Véhicules", "4,5", "good"], ["Horaires", "4,4", "warn"]] },
-  { id: "after", title: "Après la formation", score: "4,6 / 5", tone: "amber", icon: <TrophyIcon />, rows: [["Expérience globale", "4,7", "good"], ["Accueil", "4,6", "good"], ["Secrétariat", "4,5", "good"], ["Enseignants", "4,7", "good"], ["Accompagnement examen", "4,6", "good"], ["Recommandation", "4,7", "good"], ["Note globale", "4,6", "good"], ["Avis Google", "4,8", "good"]] },
-];
-
-const ALERTS = [
-  { id: 1, title: "Planning (Toulouse)", detail: "30 derniers jours · 12 réponses", score: "3,7", severity: "danger" },
-  { id: 2, title: "Horaires (Toulouse)", detail: "30 derniers jours · 8 réponses", score: "3,9", severity: "warning" },
-  { id: 3, title: "Véhicules (Creil)", detail: "30 derniers jours · 10 réponses", score: "4,0", severity: "warning" },
-  { id: 4, title: "Inscription (Toulouse)", detail: "30 derniers jours · 9 réponses", score: "4,1", severity: "warning" },
-];
-
-const COMPARISON_CATEGORIES = ["Accueil", "Informations", "Réactivité", "Inscription", "Secrétariat", "Planning", "Communication", "Enseignement", "Pédagogie", "Progression", "Véhicules", "Horaires", "Exp. globale", "Recommandation", "Note globale"];
-const COMPARISON_VALUES = [[4.3,4.4,4.2],[4,3.9,4],[4.1,4,4.1],[4,4.1,4],[4.3,4.4,4.2],[3.8,3.9,4],[4.3,4.2,4.1],[4.6,4.7,4.5],[4.3,4.5,4.4],[4.2,4.4,4.3],[4,4.1,4],[4,4.2,4.1],[4.5,4.6,4.5],[4.4,4.5,4.4],[4.5,4.6,4.5]];
-
-const COMMENTS = [
-  { id: 1, name: "Lucas M.", details: "Permis B · Creil · 12/07/2025", text: "Super équipe, moniteur très pédagogue ! Je recommande vivement Pass Permis Facile.", category: "Enseignement", score: "5/5", sentiment: "positive" },
-  { id: 2, name: "Sarah K.", details: "Permis B · Toulouse · 11/07/2025", text: "Le planning est parfois compliqué à suivre, mais sinon très bonne expérience.", category: "Planning", score: "3/5", sentiment: "watch" },
-  { id: 3, name: "Thomas R.", details: "Permis B · Creil · 10/07/2025", text: "Trop d'attente pour les réponses du secrétariat...", category: "Secrétariat", score: "2/5", sentiment: "negative" },
-  { id: 4, name: "Emma L.", details: "Permis B · Creil · 09/07/2025", text: "Une formation au top, moniteur à l'écoute et très professionnel !", category: "Expérience globale", score: "5/5", sentiment: "positive" },
-];
-
-const INSTRUCTORS = [
-  { name: "Jordy", initials: "JO", score: "4,8/5", answers: "37 réponses", tone: "blue" },
-  { name: "Ahmed", initials: "AH", score: "4,6/5", answers: "28 réponses", tone: "amber" },
-  { name: "Sophie", initials: "SO", score: "4,7/5", answers: "31 réponses", tone: "purple" },
-  { name: "Thomas", initials: "TH", score: "4,5/5", answers: "24 réponses", tone: "green" },
-];
-
-function KpiCard({ card }) {
-  return <article className="sat-card sat-kpi"><span className={`sat-kpi-icon sat-tone-${card.tone}`}>{card.icon}</span><div><span>{card.label}</span><strong>{card.value}</strong><em>{card.change}</em><small>{card.caption}</small></div></article>;
-}
-
-function StageChart() {
-  const chart = [{ label: "Avant la formation", score: 4.5, satisfaction: 88 }, { label: "Pendant la formation", score: 4.7, satisfaction: 94 }, { label: "Après la formation", score: 4.6, satisfaction: 92 }];
-  return <section className="sat-card sat-stage-chart"><div className="sat-card-head"><h2>Satisfaction par grande étape</h2><div className="sat-chart-legend"><span><i className="blue" />Note moyenne</span><span><i className="green" />Taux de satisfaction</span></div></div><div className="sat-bars-plot"><div className="sat-y-axis"><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span><span>0</span></div><div className="sat-bars-groups">{chart.map((item) => <div key={item.label} className="sat-bar-group"><div className="sat-bar-pair"><div className="sat-bar sat-bar-blue" style={{ height: `${item.score * 20}%` }}><span>{String(item.score).replace(".", ",")}</span></div><div className="sat-bar sat-bar-green" style={{ height: `${item.satisfaction}%` }}><span>{item.satisfaction}%</span></div></div><strong>{item.label}</strong></div>)}</div><div className="sat-right-axis"><span>100%</span><span>75%</span><span>50%</span><span>25%</span><span>0%</span></div></div></section>;
-}
-
-function EvolutionChart() {
-  const points = "22,133 87,88 152,83 217,78 282,55 347,43 412,54 477,39";
-  return <section className="sat-card sat-evolution"><div className="sat-card-head"><h2>Évolution de la note moyenne</h2><select defaultValue="6"><option value="6">6 mois</option><option value="12">12 mois</option></select></div><svg viewBox="0 0 510 184" role="img" aria-label="Évolution de la note moyenne de 3,7 à 4,7"><defs><linearGradient id="satArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#1688e8" stopOpacity=".2" /><stop offset="1" stopColor="#1688e8" stopOpacity="0" /></linearGradient></defs>{[32,72,112,152].map((y) => <line key={y} x1="22" y1={y} x2="477" y2={y} className="sat-gridline" />)}<path d={`M${points} L477,152 L22,152 Z`} fill="url(#satArea)" /><polyline points={points} className="sat-line" />{points.split(" ").map((point) => { const [x,y] = point.split(","); return <circle key={point} cx={x} cy={y} r="4" className="sat-line-point" />; })}<g className="sat-axis-labels"><text x="4" y="36">5</text><text x="4" y="76">4</text><text x="4" y="116">3</text>{["Jan","Fév","Mar","Avr","Mai","Juin","Juil"].map((month, index) => <text key={month} x={22 + index * 65} y="174" textAnchor="middle">{month}</text>)}</g><g className="sat-final-label"><rect x="447" y="12" width="38" height="24" rx="6" /><text x="466" y="29" textAnchor="middle">4,7</text></g></svg></section>;
-}
-
-function StageCard({ stage }) {
-  return <article className="sat-card sat-stage-card"><header><span className={`sat-stage-icon sat-tone-${stage.tone}`}>{stage.icon}</span><div><h3>{stage.title}</h3><strong>{stage.score}</strong></div></header><div className="sat-stage-rows">{stage.rows.map(([label, score, tone]) => <div key={label}><span>{label}</span><strong className={`sat-score-${tone}`}>{score}</strong></div>)}</div>{stage.footer && <button type="button">{stage.footer}<ChevronRightIcon /></button>}</article>;
-}
-
-function OriginCard() {
-  return <section className="sat-card sat-origin"><h2>Origine des élèves</h2><div className="sat-origin-content"><div className="sat-donut"><div><strong>482</strong><span>réponses</span></div></div><div className="sat-origin-legend"><span><i className="blue" />Creil <strong>58%</strong></span><span><i className="green" />Toulouse <strong>37%</strong></span><span><i className="gray" />Autre <strong>5%</strong></span></div></div></section>;
-}
-
-function AlertsCard() {
-  return <section className="sat-card sat-alerts"><div className="sat-card-head"><div className="sat-alert-heading"><AlertIcon /><h2>Alertes satisfaction faible</h2></div><button type="button">Voir toutes</button></div><div>{ALERTS.map((alert) => <article key={alert.id} className={`sat-alert-row sat-alert-${alert.severity}`}><AlertIcon /><div><strong>{alert.title}</strong><small>{alert.detail}</small></div><em>{alert.score}</em></article>)}</div></section>;
-}
-
-function ComparisonChart() {
-  return <section className="sat-card sat-comparison"><div className="sat-card-head"><h2>Comparatif de toutes les catégories</h2><div className="sat-chart-legend"><span><i className="blue" />Creil</span><span><i className="green" />Toulouse</span><span><i className="gray" />Global</span></div></div><div className="sat-comparison-scroll"><div className="sat-comparison-plot"><div className="sat-comparison-y"><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span><span>0</span></div><div className="sat-comparison-groups">{COMPARISON_CATEGORIES.map((category, index) => <div key={category} className="sat-comparison-group"><div>{COMPARISON_VALUES[index].map((value, valueIndex) => <i key={valueIndex} className={["blue","green","gray"][valueIndex]} style={{ height: `${value * 20}%` }} />)}</div><span>{category}</span></div>)}</div></div></div></section>;
-}
-
-function CommentsCard() {
-  const [activeTab, setActiveTab] = useState("all");
-  const [query, setQuery] = useState("");
-  const [treated, setTreated] = useState([]);
-  const filteredComments = useMemo(() => COMMENTS.filter((comment) => (activeTab === "all" || comment.sentiment === activeTab) && `${comment.name} ${comment.details} ${comment.text} ${comment.category}`.toLowerCase().includes(query.toLowerCase())), [activeTab, query]);
-  const tabs = [["all","Tous (482)"],["positive","Positifs (362)"],["watch","À surveiller (78)"],["negative","Négatifs (42)"]];
-  return <section className="sat-card sat-comments"><h2>Derniers commentaires des élèves</h2><div className="sat-comments-toolbar"><div className="sat-tabs" role="tablist" aria-label="Filtrer les commentaires">{tabs.map(([id,label]) => <button key={id} type="button" role="tab" aria-selected={activeTab === id} className={activeTab === id ? "active" : ""} onClick={() => setActiveTab(id)}>{label}</button>)}</div><label className="sat-search"><SearchIcon /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Rechercher un commentaire..." aria-label="Rechercher un commentaire" /></label></div><div className="sat-comment-list">{filteredComments.map((comment) => <article key={comment.id} className={`sat-comment sat-comment-${comment.sentiment}`}><span className="sat-face"><SmileIcon mood={comment.sentiment} /></span><div className="sat-comment-copy"><strong>{comment.name}</strong><small>{comment.details}</small><p>{comment.text}</p></div><span className="sat-category">{comment.category}</span><strong className="sat-comment-score">{comment.score}</strong><button type="button" className={treated.includes(comment.id) ? "is-treated" : ""} onClick={() => setTreated((current) => current.includes(comment.id) ? current : [...current, comment.id])}>{treated.includes(comment.id) ? "Traité" : "Marquer comme traité"}</button></article>)}{filteredComments.length === 0 && <p className="sat-empty">Aucun commentaire ne correspond à votre recherche.</p>}</div></section>;
-}
-
-function ZoomCard() {
-  return <section className="sat-card sat-zoom"><div className="sat-card-head"><h2>Zoom sur une catégorie</h2><select defaultValue="Enseignement"><option>Enseignement</option><option>Planning</option><option>Accueil</option></select></div><div>{INSTRUCTORS.map((instructor) => <article key={instructor.name}><span className={`sat-avatar sat-avatar-${instructor.tone}`}>{instructor.initials}</span><strong>{instructor.name}</strong><em>{instructor.score}</em><small>{instructor.answers}</small><button type="button">Voir les commentaires<ChevronRightIcon /></button></article>)}</div></section>;
-}
+function KpiCard({ card }) { return <article className="sat-card sat-kpi"><span className={`sat-kpi-icon sat-tone-${card.tone}`}>{card.icon}</span><div><span>{card.label}</span><strong>{card.value}</strong><em>{card.change}</em><small>{card.caption}</small></div></article>; }
+function StageChart({ data }) { return <section className="sat-card sat-stage-chart"><div className="sat-card-head"><h2>Satisfaction par grande étape</h2><div className="sat-chart-legend"><span><i className="blue" />Note moyenne</span><span><i className="green" />Satisfaction (4–5★)</span></div></div><div className="sat-bars-plot"><div className="sat-y-axis"><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span><span>0</span></div><div className="sat-bars-groups">{data.map((item) => <div key={item.id} className="sat-bar-group"><div className="sat-bar-pair"><div className="sat-bar sat-bar-blue" style={{ height: `${Math.max(0, (item.score || 0) * 20)}%` }}><span>{score(item.score)}</span></div><div className="sat-bar sat-bar-green" style={{ height: `${item.satisfaction || 0}%` }}><span>{item.satisfaction ?? 0}%</span></div></div><strong>{item.title}</strong></div>)}</div><div className="sat-right-axis"><span>100%</span><span>75%</span><span>50%</span><span>25%</span><span>0%</span></div></div></section>; }
+function EvolutionChart({ values, months, setMonths }) { const width = 455; const points = values.map((item, index) => `${22 + (values.length < 2 ? 0 : index * (width / (values.length - 1)))},${152 - ((item.score || 0) * 24)}`).join(" "); return <section className="sat-card sat-evolution"><div className="sat-card-head"><h2>Évolution de la note moyenne</h2><select value={months} onChange={(event) => setMonths(Number(event.target.value))}><option value="6">6 mois</option><option value="12">12 mois</option></select></div>{values.length ? <svg viewBox="0 0 510 184" role="img" aria-label="Évolution dynamique de la note moyenne"><defs><linearGradient id="satArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#1688e8" stopOpacity=".2" /><stop offset="1" stopColor="#1688e8" stopOpacity="0" /></linearGradient></defs>{[32,72,112,152].map((y) => <line key={y} x1="22" y1={y} x2="477" y2={y} className="sat-gridline" />)}<path d={`M${points} L477,152 L22,152 Z`} fill="url(#satArea)" /><polyline points={points} className="sat-line" />{values.map((item, index) => { const x = 22 + (values.length < 2 ? 0 : index * (width / (values.length - 1))); const y = 152 - ((item.score || 0) * 24); return <g key={item.label}><circle cx={x} cy={y} r="4" className="sat-line-point" /><text x={x} y="174" textAnchor="middle" className="sat-axis-labels">{item.label}</text></g>; })}</svg> : <p className="sat-empty">Aucune note pour cette période.</p>}</section>; }
+function StageCard({ stage }) { return <article className="sat-card sat-stage-card"><header><span className={`sat-stage-icon sat-tone-${stage.tone}`}>{stage.icon}</span><div><h3>{stage.title}</h3><strong>{stage.score === null ? "—" : `${score(stage.score)} / 5`}</strong></div></header><div className="sat-stage-rows">{stage.rows.length ? stage.rows.map((row) => <div key={row.label}><span>{row.label}</span><strong className={row.value >= 4 ? "sat-score-good" : "sat-score-warn"}>{score(row.value)}</strong></div>) : <p className="sat-empty">Aucune réponse.</p>}</div><button type="button">{stage.count} réponse{stage.count > 1 ? "s" : ""}<ChevronRightIcon /></button></article>; }
+function OriginCard({ origins, total }) { const visible = origins.slice(0, 3); const colors = ["#1889e6", "#55c875", "#cbd5df"]; const gradient = visible.map((item, index) => { const start = visible.slice(0, index).reduce((sum, current) => sum + current.percentage, 0); const end = Math.min(100, start + item.percentage); return `${colors[index]} ${start}% ${end}%`; }).join(", "); return <section className="sat-card sat-origin"><h2>Origine des élèves</h2><div className="sat-origin-content"><div className="sat-donut" style={{ background: visible.length ? `conic-gradient(${gradient})` : undefined }}><div><strong>{total}</strong><span>réponses</span></div></div><div className="sat-origin-legend">{visible.length ? visible.map((item, index) => <span key={item.name}><i className={["blue", "green", "gray"][index]} />{item.name}<strong>{item.percentage}%</strong></span>) : <span>Aucune origine disponible</span>}</div></div></section>; }
+function AlertsCard({ alerts }) { return <section className="sat-card sat-alerts"><div className="sat-card-head"><div className="sat-alert-heading"><AlertIcon /><h2>Alertes satisfaction faible</h2></div><button type="button">{alerts.length} alerte{alerts.length > 1 ? "s" : ""}</button></div><div>{alerts.length ? alerts.map((alert) => <article key={alert.label} className={`sat-alert-row sat-alert-${alert.value < 3.5 ? "danger" : "warning"}`}><AlertIcon /><div><strong>{alert.label}</strong><small>{alert.count} réponse{alert.count > 1 ? "s" : ""} analysée{alert.count > 1 ? "s" : ""}</small></div><em>{score(alert.value)}</em></article>) : <p className="sat-empty">Aucune alerte dans les réponses chargées.</p>}</div></section>; }
+function ComparisonChart({ categories }) { return <section className="sat-card sat-comparison"><div className="sat-card-head"><h2>Comparatif de toutes les catégories</h2><div className="sat-chart-legend"><span><i className="blue" />Creil</span><span><i className="green" />Toulouse</span><span><i className="gray" />Global</span></div></div><div className="sat-comparison-scroll"><div className="sat-comparison-plot"><div className="sat-comparison-y"><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span><span>0</span></div><div className="sat-comparison-groups">{categories.length ? categories.map((category) => <div key={category.label} className="sat-comparison-group"><div>{[category.creil, category.toulouse, category.global].map((value, index) => <i key={index} className={["blue", "green", "gray"][index]} style={{ height: `${Math.max(3, (value || 0) * 20)}%` }} />)}</div><span>{category.label}</span></div>) : <p className="sat-empty">Aucune catégorie notée.</p>}</div></div></div></section>; }
+function CommentsCard({ comments }) { const [activeTab, setActiveTab] = useState("all"); const [query, setQuery] = useState(""); const [treated, setTreated] = useState([]); const filtered = comments.filter((comment) => (activeTab === "all" || comment.sentiment === activeTab) && `${comment.name} ${comment.details} ${comment.text} ${comment.category}`.toLowerCase().includes(query.toLowerCase())); const tabs = [["all", `Tous (${comments.length})`], ["positive", `Positifs (${comments.filter((comment) => comment.sentiment === "positive").length})`], ["watch", `À surveiller (${comments.filter((comment) => comment.sentiment === "watch").length})`], ["negative", `Négatifs (${comments.filter((comment) => comment.sentiment === "negative").length})`]]; return <section className="sat-card sat-comments"><h2>Derniers commentaires des élèves</h2><div className="sat-comments-toolbar"><div className="sat-tabs" role="tablist" aria-label="Filtrer les commentaires">{tabs.map(([id, label]) => <button key={id} type="button" role="tab" aria-selected={activeTab === id} className={activeTab === id ? "active" : ""} onClick={() => setActiveTab(id)}>{label}</button>)}</div><label className="sat-search"><SearchIcon /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Rechercher un commentaire..." aria-label="Rechercher un commentaire" /></label></div><div className="sat-comment-list">{filtered.map((comment) => <article key={comment.id} className={`sat-comment sat-comment-${comment.sentiment}`}><span className="sat-face"><SmileIcon mood={comment.sentiment} /></span><div className="sat-comment-copy"><strong>{comment.name}</strong><small>{comment.details}</small><p>{comment.text}</p></div><span className="sat-category">{comment.category}</span><strong className="sat-comment-score">{comment.score}/5</strong><button type="button" className={treated.includes(comment.id) ? "is-treated" : ""} onClick={() => setTreated((current) => current.includes(comment.id) ? current : [...current, comment.id])}>{treated.includes(comment.id) ? "Traité" : "Marquer comme traité"}</button></article>)}{!filtered.length && <p className="sat-empty">Aucun commentaire ne correspond à ces critères.</p>}</div></section>; }
+function ZoomCard({ categories }) { return <section className="sat-card sat-zoom"><div className="sat-card-head"><h2>Zoom sur une catégorie</h2><select value="actual" disabled><option value="actual">Données actuelles</option></select></div><div>{categories.slice(0, 4).map((category, index) => <article key={category.label}><span className={`sat-avatar sat-avatar-${["blue", "amber", "purple", "green"][index]}`}>{category.label.slice(0, 2).toUpperCase()}</span><strong>{category.label}</strong><em>{score(category.global)}/5</em><small>{category.count} réponse{category.count > 1 ? "s" : ""}</small><button type="button">Voir les réponses<ChevronRightIcon /></button></article>)}{!categories.length && <p className="sat-empty">Aucune catégorie notée.</p>}</div></section>; }
 
 export default function SatisfactionSurveyPage() {
   const initialFilters = { agency: "all", period: "30", instructor: "all", training: "all" };
-  const [filters, setFilters] = useState(initialFilters);
+  const [filters, setFilters] = useState(initialFilters); const [responses, setResponses] = useState([]); const [monitors, setMonitors] = useState([]); const [agencies, setAgencies] = useState([]); const [loading, setLoading] = useState(true); const [error, setError] = useState(""); const [months, setMonths] = useState(6);
+  const fetchAllPages = async (path, params = {}) => { const all = []; let page = 1; let lastPage = 1; do { const { data } = await http.get(path, { params: { ...params, per_page: 100, page } }); all.push(...(data?.data || [])); lastPage = Number(data?.last_page || 1); page += 1; } while (page <= lastPage); return all; };
+  const load = async () => {
+    setLoading(true); setError("");
+    const [responseResult, monitorResult, agencyResult] = await Promise.allSettled([
+      fetchAllPages("/admin/satisfaction/responses", { status: "completed" }),
+      fetchAllPages("/admin/monitors/all"),
+      http.get("/admin/locations/area"),
+    ]);
+    if (responseResult.status === "fulfilled") setResponses(responseResult.value);
+    if (monitorResult.status === "fulfilled") setMonitors(monitorResult.value);
+    if (agencyResult.status === "fulfilled") setAgencies(Array.isArray(agencyResult.value?.data?.data) ? agencyResult.value.data.data : []);
+    const failed = [responseResult, monitorResult, agencyResult].filter((result) => result.status === "rejected").length;
+    if (failed) setError(failed === 3 ? "Impossible de charger les données de satisfaction." : "Certaines données n’ont pas pu être chargées. Vous pouvez actualiser la page.");
+    setLoading(false);
+  };
+  useEffect(() => { load(); }, []);
   const updateFilter = (key, value) => setFilters((current) => ({ ...current, [key]: value }));
-
-  return (
-    <div className="sat-page">
-      <div className="sat-shell">
-        <header className="sat-page-heading">
-          <div>
-            <span>PASS PERMIS FACILE</span>
-            <h1>Enquêtes de satisfaction</h1>
-            <p>Les retours de nos élèves pour toujours progresser</p>
-          </div>
-          <button type="button" title="Export visuel uniquement">
-            <DownloadIcon />Exporter le rapport
-          </button>
-        </header>
-
-        <form className="sat-filters" onSubmit={(event) => event.preventDefault()}>
-          <label><span>Agence</span><select value={filters.agency} onChange={(event) => updateFilter("agency", event.target.value)}><option value="all">Toutes les agences</option><option>Creil</option><option>Toulouse</option></select></label>
-          <label><span>Période</span><select value={filters.period} onChange={(event) => updateFilter("period", event.target.value)}><option value="30">30 jours</option><option value="90">3 mois</option><option value="180">6 mois</option></select></label>
-          <label><span>Moniteur</span><select value={filters.instructor} onChange={(event) => updateFilter("instructor", event.target.value)}><option value="all">Tous les moniteurs</option><option>Jordy</option><option>Ahmed</option></select></label>
-          <label><span>Formation</span><select value={filters.training} onChange={(event) => updateFilter("training", event.target.value)}><option value="all">Toutes les formations</option><option>Permis B</option><option>Conduite accompagnée</option></select></label>
-          <button type="submit" className="sat-filter-button"><FilterIcon />Filtrer</button>
-          <button type="button" className="sat-reset-button" onClick={() => setFilters(initialFilters)}><ResetIcon />Réinitialiser</button>
-        </form>
-
-        <section className="sat-kpi-grid" aria-label="Indicateurs de satisfaction">
-          {KPI_CARDS.map((card) => <KpiCard key={card.id} card={card} />)}
-          <article className="sat-card sat-kpi sat-google-kpi">
-            <span className="sat-google-mark">G</span>
-            <div>
-              <span>Avis Google</span>
-              <strong>4,8 / 5</strong>
-              <em>(256 avis)</em>
-              <div className="sat-google-stars" aria-label="5 étoiles">★★★★★</div>
-              <button type="button">Voir les avis Google <span>→</span></button>
-            </div>
-          </article>
-        </section>
-
-        <div className="sat-chart-grid">
-          <StageChart />
-          <EvolutionChart />
-        </div>
-
-        <div className="sat-lower-grid">
-          <div className="sat-lower-left">
-            <div className="sat-stage-grid">
-              {STAGES.map((stage) => <StageCard key={stage.id} stage={stage} />)}
-            </div>
-            <ComparisonChart />
-          </div>
-          <aside className="sat-side-stack">
-            <OriginCard />
-            <AlertsCard />
-          </aside>
-        </div>
-
-        <div className="sat-bottom-grid">
-          <CommentsCard />
-          <aside className="sat-bottom-side">
-            <ZoomCard />
-            <section className="sat-quote">
-              <blockquote>« Vos retours nous aident à faire<br />toujours mieux. Merci ! »</blockquote>
-              <div><WheelIcon /><strong>PASS PERMIS FACILE</strong></div>
-            </section>
-          </aside>
-        </div>
-      </div>
-    </div>
-  );
+  const monitorOptions = useMemo(() => monitors.map((monitor) => [monitor.id, monitor.name || `${monitor.first_name || ""} ${monitor.last_name || ""}`.trim() || monitor.email]).filter(([, name]) => Boolean(name)), [monitors]);
+  const agencyOptions = useMemo(() => agencies.map((agency) => agency?.name).filter(Boolean).sort((first, second) => first.localeCompare(second, "fr")), [agencies]);
+  const visibleResponses = useMemo(() => { const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - Number(filters.period)); return responses.filter((response) => { const submitted = response.submitted_at ? new Date(response.submitted_at) : null; const monitor = monitorOf(response); return (!submitted || submitted >= cutoff) && (filters.agency === "all" || cityOf(response) === filters.agency) && (filters.instructor === "all" || monitor?.id === filters.instructor) && (filters.training === "all" || response.survey?.stage === filters.training); }); }, [responses, filters]);
+  const analytics = useMemo(() => {
+    const ratings = visibleResponses.flatMap((response) => (response.answers || []).filter((answer) => answer.rating !== null && answer.rating !== undefined).map((answer) => ({ ...answer, response, city: cityOf(response) })));
+    const byStage = stages.map((stage) => { const values = ratings.filter((rating) => rating.response.survey?.stage === stage.id); return { ...stage, score: average(values.map((rating) => rating.rating)), satisfaction: values.length ? Math.round((values.filter((rating) => Number(rating.rating) >= 4).length / values.length) * 100) : 0, count: new Set(values.map((rating) => rating.response_id)).size, rows: [] };
+    });
+    // Build each stage card's rows separately so questions keep their real French wording.
+    byStage.forEach((stage) => { const values = ratings.filter((rating) => rating.response.survey?.stage === stage.id); const groups = values.reduce((all, rating) => { const label = rating.question?.question || "Question"; (all[label] ||= []).push(Number(rating.rating)); return all; }, {}); stage.rows = Object.entries(groups).map(([label, values]) => ({ label, value: average(values) })).sort((a, b) => b.value - a.value); });
+    const groupedQuestions = ratings.reduce((all, rating) => { const label = rating.question?.question || "Question"; (all[label] ||= []).push(rating); return all; }, {});
+    const categories = Object.entries(groupedQuestions).map(([label, values]) => ({ label, global: average(values.map((value) => value.rating)), creil: average(values.filter((value) => value.city === "Creil").map((value) => value.rating)), toulouse: average(values.filter((value) => value.city === "Toulouse").map((value) => value.rating)), count: values.length })).sort((a, b) => b.count - a.count).slice(0, 15);
+    const origins = Object.entries(visibleResponses.reduce((all, response) => { const city = cityOf(response); all[city] = (all[city] || 0) + 1; return all; }, {})).map(([name, count]) => ({ name, count, percentage: visibleResponses.length ? Math.round((count / visibleResponses.length) * 100) : 0 })).sort((a, b) => b.count - a.count);
+    const comments = visibleResponses.flatMap((response) => (response.answers || []).filter((answer) => String(answer.answer_text || "").trim()).map((answer) => { const responseRatings = (response.answers || []).map((item) => item.rating).filter((value) => value !== null && value !== undefined); const value = average(responseRatings) || 0; return { id: answer.id, name: responseName(response), details: `${response.survey?.name || "Enquête"} · ${cityOf(response)} · ${formatDate(response.submitted_at)}`, text: answer.answer_text.trim(), category: answer.question?.section || answer.question?.question || "Commentaire", score: value.toFixed(1), sentiment: value >= 4 ? "positive" : value >= 3 ? "watch" : "negative" }; })).sort((a, b) => b.id.localeCompare(a.id));
+    return { ratings, byStage, categories, origins, comments, average: average(ratings.map((rating) => rating.rating)), satisfaction: ratings.length ? Math.round((ratings.filter((rating) => Number(rating.rating) >= 4).length / ratings.length) * 100) : 0 };
+  }, [visibleResponses]);
+  const evolution = useMemo(() => { const current = new Date(); return Array.from({ length: months }, (_, index) => { const date = new Date(current.getFullYear(), current.getMonth() - (months - index - 1), 1); const next = new Date(date.getFullYear(), date.getMonth() + 1, 1); const values = analytics.ratings.filter((rating) => { const submitted = new Date(rating.response.submitted_at); return submitted >= date && submitted < next; }).map((rating) => rating.rating); return { label: date.toLocaleDateString("fr-FR", { month: "short" }).replace(".", ""), score: average(values) }; }).filter((item) => item.score !== null); }, [analytics.ratings, months]);
+  const kpis = [{ id: "score", tone: "green", icon: <StarIcon />, label: "Note moyenne", value: analytics.average === null ? "—" : `${score(analytics.average)} / 5`, change: `${analytics.ratings.length} note${analytics.ratings.length > 1 ? "s" : ""}`, caption: "selon les filtres actifs" }, { id: "answers", tone: "blue", icon: <UsersIcon />, label: "Nombre de réponses", value: String(visibleResponses.length), change: "réponses", caption: "chargées depuis l’API" }, { id: "recommendation", tone: "green", icon: <ThumbIcon />, label: "Taux de satisfaction", value: `${analytics.satisfaction} %`, change: "notes 4–5★", caption: "selon les filtres actifs" }];
+  const exportCsv = () => { const rows = [["Élève", "Enquête", "Date", "Ville"], ...visibleResponses.map((response) => [responseName(response), response.survey?.name || "", formatDate(response.submitted_at), cityOf(response)])]; const url = URL.createObjectURL(new Blob([rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(";")).join("\n")], { type: "text/csv;charset=utf-8" })); const link = document.createElement("a"); link.href = url; link.download = "enquetes-satisfaction.csv"; link.click(); URL.revokeObjectURL(url); };
+  return <div className="sat-page"><div className="sat-shell"><header className="sat-page-heading"><div><span>PASS PERMIS FACILE</span><h1>Enquêtes de satisfaction</h1><p>Les retours réels de vos élèves, mis à jour depuis les réponses reçues.</p></div><button type="button" onClick={exportCsv} disabled={!visibleResponses.length}><DownloadIcon />Exporter le rapport</button></header><form className="sat-filters" onSubmit={(event) => event.preventDefault()}><label><span>Agence</span><select value={filters.agency} onChange={(event) => updateFilter("agency", event.target.value)}><option value="all">Toutes les agences</option>{agencyOptions.map((agency) => <option key={agency} value={agency}>{agency}</option>)}</select></label><label><span>Période</span><select value={filters.period} onChange={(event) => updateFilter("period", event.target.value)}><option value="30">30 jours</option><option value="90">3 mois</option><option value="180">6 mois</option><option value="365">12 mois</option></select></label><label><span>Moniteur</span><select value={filters.instructor} onChange={(event) => updateFilter("instructor", event.target.value)}><option value="all">Tous les moniteurs</option>{monitorOptions.map(([id, name]) => <option key={id} value={id}>{name || "Moniteur"}</option>)}</select></label><label><span>Formation</span><select value={filters.training} onChange={(event) => updateFilter("training", event.target.value)}><option value="all">Toutes les formations</option>{stages.map((stage) => <option key={stage.id} value={stage.id}>{stage.title}</option>)}</select></label><button type="button" className="sat-filter-button" onClick={load}><FilterIcon />Actualiser</button><button type="button" className="sat-reset-button" onClick={() => setFilters(initialFilters)}><ResetIcon />Réinitialiser</button></form>{error && <p className="sat-empty" role="alert">{error}</p>}{loading ? <p className="sat-empty">Chargement des réponses de satisfaction…</p> : <><section className="sat-kpi-grid">{kpis.map((card) => <KpiCard key={card.id} card={card} />)}<article className="sat-card sat-kpi sat-google-kpi"><span className="sat-google-mark">G</span><div><span>Avis Google</span><strong>{visibleResponses.filter((response) => response.google_choice === "yes").length}</strong><em>{visibleResponses.filter((response) => response.google_clicked).length} ouvert{visibleResponses.filter((response) => response.google_clicked).length > 1 ? "s" : ""}</em><div className="sat-google-stars">★★★★★</div><button type="button">Choix “Oui” enregistrés</button></div></article></section><div className="sat-chart-grid"><StageChart data={analytics.byStage} /><EvolutionChart values={evolution} months={months} setMonths={setMonths} /></div><div className="sat-lower-grid"><div className="sat-lower-left"><div className="sat-stage-grid">{analytics.byStage.map((stage) => <StageCard key={stage.id} stage={stage} />)}</div><ComparisonChart categories={analytics.categories} /></div><aside className="sat-side-stack"><OriginCard origins={analytics.origins} total={visibleResponses.length} /><AlertsCard alerts={analytics.categories.map((category) => ({ ...category, value: category.global })).filter((category) => category.value !== null && category.value < 4).sort((a, b) => a.value - b.value).slice(0, 4)} /></aside></div><div className="sat-bottom-grid"><CommentsCard comments={analytics.comments} /><aside className="sat-bottom-side"><ZoomCard categories={analytics.categories} /><section className="sat-quote"><blockquote>« Vos retours nous aident à faire<br />toujours mieux. Merci ! »</blockquote><div><WheelIcon /><strong>PASS PERMIS FACILE</strong></div></section></aside></div></>}</div></div>;
 }

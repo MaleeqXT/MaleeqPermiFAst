@@ -28,7 +28,9 @@ const AddButton = ({ serviceId, service }) => {
   const isInCart = items.some(i => i.id === serviceId);
 
   const handleAdd = () => {
-    addItem(service);
+    // Keep the catalogue name as well as the visual card ID. Checkout resolves
+    // it to the matching, agency-compatible database offer before payment.
+    addItem({ ...service, offerName: service.title, cartType: "additional-service" });
     setAdded(true);
     setTimeout(() => setAdded(false), 1400);
   };

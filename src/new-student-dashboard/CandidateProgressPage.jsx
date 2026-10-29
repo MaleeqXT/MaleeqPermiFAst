@@ -207,6 +207,9 @@ export default function CandidateProgressPage() {
   const [historyExpanded, setHistoryExpanded] = useState(false);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [selectedLessonId, setSelectedLessonId] = useState(null);
+  const [bookletAction, setBookletAction] = useState("");
+  const [bookletNotice, setBookletNotice] = useState("");
+  const [bookletError, setBookletError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -256,6 +259,60 @@ export default function CandidateProgressPage() {
     navigate(path);
   };
 
+  const downloadBlob = (blob, filename) => {
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => window.URL.revokeObjectURL(url), 60_000);
+  };
+
+  const getBooklet = async (share = false) => {
+    if (bookletAction) return;
+
+    setBookletAction(share ? "share" : "download");
+    setBookletNotice("");
+    setBookletError("");
+
+    try {
+      const response = await http.get("/student/formation/booklet/download", {
+        responseType: "blob",
+      });
+      const filename = "livret-formation.pdf";
+      const blob = new Blob([response.data], { type: "application/pdf" });
+
+      if (share && typeof navigator.share === "function") {
+        const file = new File([blob], filename, { type: "application/pdf" });
+        const canShareFile = typeof navigator.canShare !== "function"
+          || navigator.canShare({ files: [file] });
+
+        if (canShareFile) {
+          await navigator.share({
+            title: "Mon livret de formation",
+            text: "Voici mon livret de formation.",
+            files: [file],
+          });
+          setBookletNotice("Votre livret est prêt à être partagé.");
+          return;
+        }
+      }
+
+      downloadBlob(blob, filename);
+      setBookletNotice(share
+        ? "Le partage de fichier n’est pas disponible sur ce navigateur : votre livret a été téléchargé."
+        : "Votre livret PDF a été téléchargé.");
+    } catch (requestError) {
+      // Closing the native share sheet is not a failed export.
+      if (share && requestError?.name === "AbortError") return;
+      setBookletError("Impossible de générer votre livret PDF pour le moment.");
+    } finally {
+      setBookletAction("");
+    }
+  };
+
   const saveStudentQuestionDetail = (questionKey, questionId, detail) => {
     setStudentQuestionDetails((current) => ({
       ...current,
@@ -291,7 +348,15 @@ export default function CandidateProgressPage() {
       <main className="nsd-main nsp-main">
         <StudentHeader className="nsp-header" headingClassName="nsp-page-heading" titleNode={<div className="nsp-title-row"><h1 className="nsd-greeting-title">Ma progression détaillée</h1><span className="nsp-title-icon"><ProgressIcon /></span></div>} subtitle="Votre apprentissage en temps réel et votre livret numérique connecté." onMenuOpen={() => setSidebarOpen(true)} />
 
-        <div className="nsp-actions" aria-label="Actions du livret"><button type="button" className="nsp-action-button"><FileIcon />Exporter mon livret (PDF)</button><button type="button" className="nsp-action-button nsp-action-button--green"><ShareIcon />Partager mon livret</button></div>
+        <div className="nsp-actions" aria-label="Actions du livret">
+          <button type="button" className="nsp-action-button" onClick={() => getBooklet(false)} disabled={Boolean(bookletAction)}>
+            <FileIcon />{bookletAction === "download" ? "Génération du PDF…" : "Exporter mon livret (PDF)"}
+          </button>
+          <button type="button" className="nsp-action-button nsp-action-button--green" onClick={() => getBooklet(true)} disabled={Boolean(bookletAction)}>
+            <ShareIcon />{bookletAction === "share" ? "Préparation du partage…" : "Partager mon livret"}
+          </button>
+        </div>
+        {(bookletNotice || bookletError) && <p className={"nsp-booklet-feedback" + (bookletError ? " nsp-booklet-feedback--error" : "")} role={bookletError ? "alert" : "status"}>{bookletError || bookletNotice}</p>}
 
         <section className="nsp-overview-grid" aria-label="Vue d'ensemble de la progression">
           <article className="nsp-panel nsp-overview-card nsp-global-card"><h2>Ma progression globale</h2><div className="nsp-global-body"><ProgressRing progress={overallPercentage} /><div className="nsp-global-copy"><strong>Bravo {studentName} !</strong><span>Votre moniteur met à jour votre progression.</span><span>Continuez vos efforts pour atteindre vos objectifs.</span><button type="button"><TargetIcon />Voir mes objectifs</button></div></div></article>

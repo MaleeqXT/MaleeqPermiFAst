@@ -1,5 +1,5 @@
-import React from "react";
-import { Link } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import "./Footer.css";
 import logo from "../../assets/logo.webp";
 
@@ -78,9 +78,24 @@ const menuAutoEcole = [
 ];
 const menuFormations = ["Permis B (Voiture)", "Conduite accompagnée", "Conduite supervisée", "Permis Moto", "Boîte automatique", "Code de la route"];
 const menuInfos = ["Financement CPF", "Paiement en 3x ou 4x", "Questions fréquentes", "Documents utiles", "Conditions générales", "Mentions légales"];
+const legalLinks = [
+  { label: "Mentions légales", to: "/mention-legales" },
+  { label: "Politique de confidentialité & cookies", to: "/politique-confidentialite" },
+  { label: "Conditions d’utilisation", to: "/conditions-utilisation" },
+  { label: "Conditions de vente", to: "/conditions-vente" },
+  { label: "Règlement intérieur", href: "/assets/clients/Reglement-interieur-PASSPERMISFACILE-1.pdf" },
+  { label: "Informations légales", href: "/assets/clients/Certification_Qualiopi_PASSEPERMISFACILE.pdf" },
+  { label: "Détail des formations", href: "/assets/clients/newpdf.pdf" },
+];
+const legalDocumentBaseUrl = String(
+  import.meta.env.DEV ? import.meta.env.VITE_API_PROXY_TARGET : import.meta.env.VITE_API_URL
+).replace(/\/$/, "");
 
 /* ─── Component ─────────────────────────────────────── */
 const Footer = () => {
+  const navigate = useNavigate();
+  const [isContractOpen, setIsContractOpen] = useState(false);
+
   return (
     <footer className="footer-root">
       <div className="footer-container">
@@ -94,7 +109,7 @@ const Footer = () => {
             <p className="footer-cta-sub">Rejoignez plus de 1200 élèves satisfaits.</p>
           </div>
           <div className="footer-cta-right">
-            <button className="footer-cta-btn">
+            <button type="button" className="footer-cta-btn" onClick={() => navigate("/packages-page")}>
               JE CHOISIS MON PACK
               <span className="footer-cta-btn-arrow"><ArrowRight /></span>
             </button>
@@ -149,6 +164,46 @@ const Footer = () => {
               {menuInfos.map(item => (
                 <li key={item}><a href="/" className="footer-menu-link">{item}</a></li>
               ))}
+            </ul>
+
+          </div>
+
+          <div className="footer-col footer-col--legal">
+            <h4 className="footer-col-heading">INFORMATIONS LÉGALES</h4>
+            <ul className="footer-menu footer-legal-menu">
+              {legalLinks.map((item) => (
+                <li key={item.label}>
+                  {item.to ? (
+                    <Link to={item.to} className="footer-menu-link">{item.label}</Link>
+                  ) : (
+                    <a href={legalDocumentBaseUrl + item.href} target="_blank" rel="noreferrer" className="footer-menu-link">{item.label}</a>
+                  )}
+                </li>
+              ))}
+              <li>
+                <button
+                  type="button"
+                  className="footer-menu-link footer-legal-toggle"
+                  aria-expanded={isContractOpen}
+                  onClick={() => setIsContractOpen((isOpen) => !isOpen)}
+                >
+                  Contrat de formation
+                </button>
+                {isContractOpen && (
+                  <ul className="footer-contract-menu">
+                    <li>
+                      <a href={legalDocumentBaseUrl + "/assets/clients/docscpf.pdf"} target="_blank" rel="noreferrer" className="footer-menu-link">
+                        Voici un exemple de contrat
+                      </a>
+                    </li>
+                    <li>
+                      <a href={legalDocumentBaseUrl + "/assets/clients/detail-des-formations.pdf"} target="_blank" rel="noreferrer" className="footer-menu-link">
+                        Détail des formations
+                      </a>
+                    </li>
+                  </ul>
+                )}
+              </li>
             </ul>
           </div>
 

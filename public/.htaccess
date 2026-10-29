@@ -1,0 +1,10 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Let Apache serve deployed assets and physical directories normally.
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+
+    # BrowserRouter client routes must load the Vite application entry point.
+    RewriteRule ^ /index.html [L]
+</IfModule>

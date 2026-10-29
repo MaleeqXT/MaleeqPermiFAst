@@ -42,6 +42,9 @@
   box-sizing: border-box;
   transition: background 0.15s;
   background: transparent;
+  border: 0;
+  font: inherit;
+  text-align: left;
 }
 
 .ts-skill-item:hover:not(.active) {

@@ -16,11 +16,10 @@ import {
 } from "../../redux/reducers/locationSlice.jsx";
 
 import { updateMonitor } from "../../redux/reducers/monitorsSlice.jsx";
+import { apiAssetUrl } from "../../config/api.js";
 
 import { useParams } from "react-router-dom";
 
-
-const BASE_URL = import.meta.env.VITE_API_URL;
 
 function getMonitorImageUrl(media) {
   const path = typeof media === "string"
@@ -28,9 +27,7 @@ function getMonitorImageUrl(media) {
     : media?.path ?? media?.url ?? media?.storage_media?.path ?? media?.storageMedia?.path;
   if (!path) return null;
   if (/^https?:\/\//i.test(path) || path.startsWith("data:")) return path;
-  if (path.startsWith("/storage/")) return `${BASE_URL}${path}`;
-  if (path.startsWith("storage/")) return `${BASE_URL}/${path}`;
-  return `${BASE_URL}/storage/${path.replace(/^\/+/, "")}`;
+  return apiAssetUrl(`storage/${String(path).replace(/^\/?(?:storage\/)?/, "")}`);
 }
 
 function EyeIcon({ open }) {
@@ -421,8 +418,8 @@ useEffect(() => {
 
       {isFullWidth && (
         <div className="cp-fullwidth-tab">
-          {activeTab === "invoices" && <Document />}
-          {activeTab === "attachments" && <Attatchments />}
+          {activeTab === "invoices" && <Document monitorId={monitorId} />}
+          {activeTab === "attachments" && <Attatchments monitorId={monitorId} />}
         </div>
       )}
 
@@ -576,7 +573,7 @@ useEffect(() => {
               selectedSrc={media}
               onSelect={(src, file) => {
                 setMedia(src);
-                setMediaFile(file.file);
+                setMediaFile(file?.file ?? null);
               }}
             />
 

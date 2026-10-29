@@ -5,9 +5,11 @@ import http from "../../helpers/http.jsx";
 // Response: { data: null | { autorisations: { autorisation, visite, media: [...] }, date_creation, denomination_social, forme_juridique, num_autorisation, siret } }
 export const fetchProfessionalDocuments = createAsyncThunk(
   "professionalDocuments/fetch",
-  async (_, { rejectWithValue }) => {
+  async (monitorId = null, { rejectWithValue }) => {
     try {
-      const response = await http.get("/monitor/documents/professionnel");
+      const response = await http.get("/monitor/documents/professionnel", {
+        params: monitorId ? { monitor_id: monitorId } : undefined,
+      });
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data || { message: "Unable to load professional documents" });

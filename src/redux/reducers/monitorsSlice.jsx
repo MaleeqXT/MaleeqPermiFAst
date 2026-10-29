@@ -69,6 +69,18 @@ export const updateMonitor = createAsyncThunk(
     }
 );
 
+export const updateMonitorStatus = createAsyncThunk(
+    'monitors/updateStatus',
+    async ({ id, status }, { rejectWithValue }) => {
+        try {
+            const response = await http.put(`/admin/users/monitors/${id}/status`, { status });
+            return response.data.data;
+        } catch (error) {
+            return rejectWithValue(error.response?.data);
+        }
+    }
+);
+
 // DELETE
 export const deleteCompetence = createAsyncThunk(
     'competences/delete',
@@ -97,6 +109,7 @@ const monitorsSlice = createSlice({
          activeCount: 0,   // ✅ add karo
             archiveCount: 0,   //add
             inholdCount:0,
+            archivedCount:0,
             allCount:0,
         loading: false,
         error: null,
@@ -126,6 +139,7 @@ const monitorsSlice = createSlice({
                             state.allCount=action.payload.all_count,   // ✅ backend se aayega
                         state.archiveCount = action.payload.inactive_count;
                         state.inholdCount = action.payload.inhold_count;
+                            state.archivedCount = action.payload.archived_count;
 
                 })
                 .addCase(fetchMonitors.rejected, (state, action) => {
@@ -163,6 +177,12 @@ const monitorsSlice = createSlice({
                                 : user
                         );
                     })
+                .addCase(updateMonitorStatus.fulfilled, (state, action) => {
+                    const updated = action.payload;
+                    state.list = state.list.map((user) =>
+                        user.monitor?.id === updated.id ? { ...user, monitor: { ...user.monitor, status: updated.status } } : user
+                    );
+                })
                         // delete cases
                         .addCase(deleteCompetence.fulfilled, (state, action) => {
                             state.list = state.list.filter(s => s.id !== action.payload);

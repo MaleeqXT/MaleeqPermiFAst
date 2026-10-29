@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
+import { FiArrowLeft } from "react-icons/fi";
 import http from "../../helpers/http.jsx";
 import "./RegisterStudentForm.css";
 
@@ -76,6 +77,7 @@ const INITIAL_FORM = {
   phone: "",
   boite_type: "",       // Boîte Manuelle (BM) / Boîte Automatique (BA)
   ville: "",             // Centre de formation — Creil / Toulouse
+  zone_id: "",           // Derived from the selected centre before submission
   neph_status: "",       // Sans NEPH / Avec NEPH
   neph_document_requirement: "",
   sexe: "",              // Homme / Femme
@@ -94,6 +96,14 @@ const INITIAL_FORM = {
 const POSTAL_CODES = {
   Creil: "60100",
   Toulouse: "31300",
+};
+
+// Keep the submitted zone in sync with the only centres offered by this form.
+// The API resolves this again from `ville` before persisting the user, so the
+// server remains authoritative if the request is modified outside the UI.
+const AGENCY_ZONE_IDS = {
+  Creil: "9eeb1c0b-3a2a-41f6-8887-e17879995335",
+  Toulouse: "9ef0999c-3842-4de1-ade2-d88412135519",
 };
 
 const SANS_NEPH_DOCUMENTS = [
@@ -280,10 +290,17 @@ export default function RegisterStudentForm({ onSubmit = () => {} }) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  // Equivalent of Vue's `watch(() => form.ville, ...)`:
-  // whenever the chosen city changes, auto-fill the (hidden) postal code.
+  // Equivalent of Vue's `watch(() => form.ville, ...)`: selecting an agency
+  // updates both the hidden postal code and the user's agency zone.
   useEffect(() => {
-    setField("postal", POSTAL_CODES[form.ville] || "");
+    const postal = POSTAL_CODES[form.ville] || "";
+    const zoneId = AGENCY_ZONE_IDS[form.ville] || "";
+
+    setForm((previous) => (
+      previous.postal === postal && previous.zone_id === zoneId
+        ? previous
+        : { ...previous, postal, zone_id: zoneId }
+    ));
   }, [form.ville]);
 
   // Simple frontend-only validation, mirroring which fields the Vue
@@ -370,10 +387,18 @@ export default function RegisterStudentForm({ onSubmit = () => {} }) {
   const activeStep = REGISTRATION_STEPS[currentStep];
   const progress = ((currentStep + 1) / REGISTRATION_STEPS.length) * 100;
 
+  const handleBack = () => {
+    if (window.history.length > 1) navigate(-1);
+    else navigate("/");
+  };
+
   return (
     <div className="sp-page rf-page">
       {/* ── Header, matching the text from RegisterStudentPage.vue ── */}
       <div className="rf-header">
+        <button type="button" className="rf-back-button" onClick={handleBack} aria-label="Retour">
+          <FiArrowLeft />
+        </button>
         <h1 className="rf-title">S'inscrire à votre espace</h1>
         <p className="rf-subtitle">
           Tu es déjà membre ?{" "}

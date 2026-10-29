@@ -364,6 +364,7 @@
   background: #63B933;
   color: #ffffff;
   box-shadow: 0 4px 16px rgba(99, 185, 51, 0.32);
+  justify-content: center;
 }
 
 .agencydetails-btn--primary:hover {

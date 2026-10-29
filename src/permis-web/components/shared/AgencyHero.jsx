@@ -24,6 +24,18 @@ const FitBounds = () => {
   return null;
 };
 
+const FocusAgency = ({ agency }) => {
+  const map = useMap();
+
+  useEffect(() => {
+    if (agency) {
+      map.flyTo([agency.lat, agency.lng], 13, { duration: 0.8 });
+    }
+  }, [agency, map]);
+
+  return null;
+};
+
 /* ─── Custom agency marker with floating label ───────
    Green ring → white fill → green dot + label beside it */
 const makeAgencyIcon = (name, dept) =>
@@ -92,9 +104,19 @@ const cityLabels = [
   { name: "Marseille", lat: 43.297, lng: 5.370  },
 ];
 
+const normalizeSearch = (value) => String(value || "")
+  .toLocaleLowerCase("fr-FR")
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "")
+  .replace(/[^a-z0-9]+/g, " ")
+  .trim();
+
 /* ─── Component ──────────────────────────────────────── */
 const AgencyHero = () => {
   const [visible, setVisible] = useState(false);
+  const [query, setQuery] = useState("");
+  const [searchMessage, setSearchMessage] = useState("");
+  const [focusedAgency, setFocusedAgency] = useState(null);
   const sectionRef = useRef(null);
 
   useEffect(() => {
@@ -105,6 +127,30 @@ const AgencyHero = () => {
     if (sectionRef.current) obs.observe(sectionRef.current);
     return () => obs.disconnect();
   }, []);
+
+  const searchAgency = (event) => {
+    event.preventDefault();
+    const term = normalizeSearch(query);
+
+    if (!term) {
+      setSearchMessage("Saisissez une ville ou un code postal.");
+      setFocusedAgency(null);
+      return;
+    }
+
+    const agency = agencies.find((item) => normalizeSearch(
+      item.name + " " + item.dept + " " + item.address
+    ).includes(term));
+
+    if (!agency) {
+      setSearchMessage("Aucune agence trouvée pour cette recherche.");
+      setFocusedAgency(null);
+      return;
+    }
+
+    setFocusedAgency(agency);
+    setSearchMessage("Agence " + agency.name + " trouvée.");
+  };
 
   return (
     <section
@@ -154,7 +200,7 @@ const AgencyHero = () => {
             </div>
           </div>
 
-          <div className="agencyfinder-search">
+          <form className="agencyfinder-search" onSubmit={searchAgency}>
             <div className="agencyfinder-search__input-wrap">
               <svg className="agencyfinder-search__pin" viewBox="0 0 24 24" fill="none">
                 <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" stroke="#9ca3af" strokeWidth="1.8"/>
@@ -164,10 +210,16 @@ const AgencyHero = () => {
                 type="text"
                 className="agencyfinder-search__input"
                 placeholder="Entrez votre ville ou code postal"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                aria-label="Rechercher une agence par ville ou code postal"
               />
             </div>
-            <button className="agencyfinder-search__btn">Rechercher</button>
-          </div>
+            <button type="submit" className="agencyfinder-search__btn">Rechercher</button>
+          </form>
+          <p className="agencyfinder-search__feedback" role="status" aria-live="polite">
+            {searchMessage}
+          </p>
 
         </div>
 
@@ -178,7 +230,7 @@ const AgencyHero = () => {
             center={[46.5, 2.4]}
             zoom={6}
             zoomControl={false}
-            attributionControl={false}
+            attributionControl={true}
             scrollWheelZoom={true}
             dragging={true}
             doubleClickZoom={true}
@@ -187,11 +239,12 @@ const AgencyHero = () => {
             className="agencyfinder-map"
           >
             <FitBounds />
+            <FocusAgency agency={focusedAgency} />
 
-            {/* CartoDB Positron – clean white/grey minimal tiles, no API key needed */}
+            {/* OpenStreetMap tiles do not require a private API key. */}
             <TileLayer
-              url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-              subdomains="abcd"
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               maxZoom={19}
             />
 
@@ -224,7 +277,11 @@ const AgencyHero = () => {
                 key={a.id}
                 position={[a.lat, a.lng]}
                 icon={makeAgencyIcon(a.name, a.dept)}
-                interactive={false}
+                eventHandlers={{ click: () => {
+                  setFocusedAgency(a);
+                  setQuery(a.name);
+                  setSearchMessage("Agence " + a.name + " sélectionnée.");
+                }}}
               />
             ))}
           </MapContainer>

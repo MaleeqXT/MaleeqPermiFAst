@@ -90,7 +90,9 @@ export default function CandidateProfileDrawer({
     practice_frequency: "",
     observation: "",
   });
-  const studentId = candidate?.id ?? candidate?.studentId ?? candidate?.user?.id ?? null;
+  // Monitor formation/proposal endpoints bind the Student UUID, not the user
+  // ID. Keep this identity intact when opening the proposal calendar.
+  const studentId = candidate?.student?.id ?? candidate?.student_id ?? candidate?.studentId ?? candidate?.id ?? null;
   const studentStats = useSelector((state) => selectStudentStatsById(state, studentId));
   const studentStatsLoading = useSelector((state) => selectStudentStatsLoadingById(state, studentId));
 
@@ -224,17 +226,26 @@ export default function CandidateProfileDrawer({
     balanceReste: Number(balanceStats.rest ?? candidate?.balanceReste ?? 0),
   };
 
+  const proposalCandidate = {
+    ...candidate,
+    ...data,
+    id: studentId,
+    studentId,
+    student_id: studentId,
+    phone: data.phone,
+  };
+
   const menuOptions = [
-    { label: "Toutes les séances", action: () => { setMenuOpen(false); onOpenAllSessions?.(data); } },
-    { label: "Commentaires pédagogiques", action: () => { setMenuOpen(false); onOpenPedagogicalComments?.(data); } },
-    { label: "Compétences", action: () => { setMenuOpen(false); onOpenCompetence?.(data); } },
-    { label: "Proposer une séance", action: () => { setMenuOpen(false); onPropose?.(data); } },
+    { label: "Toutes les séances", action: () => { setMenuOpen(false); onOpenAllSessions?.(proposalCandidate); } },
+    { label: "Commentaires pédagogiques", action: () => { setMenuOpen(false); onOpenPedagogicalComments?.(proposalCandidate); } },
+    { label: "Compétences", action: () => { setMenuOpen(false); onOpenCompetence?.(proposalCandidate); } },
+    { label: "Proposer une séance", action: () => { setMenuOpen(false); onPropose?.(proposalCandidate); } },
   ];
 
   const initials = getInitials(data.name);
   const segments = 14;
   const filledCount = Math.round((data.progress / 100) * segments);
-  const profileStudentId = candidate?.student?.id ?? candidate?.student_id ?? studentId;
+  const profileStudentId = studentId;
   const hours = profileHours?.hours ?? {};
   const estimatedHours = profileHours?.initial_evaluation?.estimated_hours;
   const transmission = profileExam?.transmission ?? {};

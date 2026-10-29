@@ -16,7 +16,10 @@ export function uniquePendingSurveys(items) {
   const seen = new Set();
 
   return (Array.isArray(items) ? items : []).filter((survey) => {
-    const key = survey?.id || survey?.stage;
+    // A survey template can be pending for more than one paid enrolment.
+    // The response ID is the durable lifecycle key; the survey ID is only the
+    // questionnaire definition used by the submit endpoint.
+    const key = survey?.response_id || survey?.id || survey?.stage;
     if (!key || seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -25,9 +28,9 @@ export function uniquePendingSurveys(items) {
 
 export function selectPendingSurvey(items, requestedSurveyId) {
   const surveys = uniquePendingSurveys(items);
-  return surveys.find((survey) => survey.id === requestedSurveyId) || surveys[0] || null;
+  return surveys.find((survey) => survey.response_id === requestedSurveyId || survey.id === requestedSurveyId) || surveys[0] || null;
 }
 
 export function removeSubmittedSurvey(items, submittedSurveyId) {
-  return uniquePendingSurveys(items).filter((survey) => survey.id !== submittedSurveyId);
+  return uniquePendingSurveys(items).filter((survey) => survey.response_id !== submittedSurveyId && survey.id !== submittedSurveyId);
 }

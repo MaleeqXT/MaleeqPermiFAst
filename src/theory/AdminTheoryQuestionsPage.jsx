@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import http from "../helpers/http.jsx";
+import { apiAssetUrl } from "../config/api.js";
 import "./TheoryAdmin.css";
 import "./TheoryAdminExtras.css";
 
@@ -25,8 +26,8 @@ const statusLabel = { published: "Publiée", draft: "Brouillon", archived: "Arch
 function mediaUrl(path) {
   if (!path) return null;
   if (/^https?:\/\//i.test(path)) return path;
-  const root = String(import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
-  return `${root}/${path.startsWith("theory/questions/") ? "storage/" : ""}${path.replace(/^\//, "")}`;
+  const normalizedPath = path.replace(/^\//, "");
+  return apiAssetUrl(`${normalizedPath.startsWith("theory/questions/") ? "storage/" : ""}${normalizedPath}`);
 }
 
 export default function AdminTheoryQuestionsPage() {

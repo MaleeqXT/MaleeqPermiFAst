@@ -7,6 +7,8 @@ import http from "../helpers/http.jsx";
 
 const STRIPE_PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || import.meta.env.VITE_STRIP_PUBLISHABLE;
 
+// Kept as legacy catalogue reference while offers are loaded from the API.
+// eslint-disable-next-line no-unused-vars
 const OFFERS = [
   {
     id: 1,
@@ -153,10 +155,81 @@ function normalizeBoiteType(value) {
   return [0, 1, "0", "1"].includes(value) ? Number(value) : null;
 }
 
+function normalizeOfferName(value) {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\bpass\b/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+const ADDITIONAL_SERVICE_NAMES = new Set([
+  "inscription prefectorale",
+  "fabrication permis",
+  "rdv pedagogique 2h",
+  "accompagnement examen",
+  "accompagnement examen 1h",
+  "forfait 10h",
+  "livre de code",
+  "conduite supervisee 2h",
+  "heure a l unite boite manuelle",
+]);
+
+function isAdditionalServiceCartItem(item) {
+  return item?.cartType === "additional-service"
+    || ADDITIONAL_SERVICE_NAMES.has(normalizeOfferName(item?.offerName ?? item?.title ?? item?.name));
+}
+
+// Mirrors the old checkout's SummaryOrder.vue fallback for menu services.
+// Their parent offer is a menu and therefore has no single balance; the
+// service label itself is the authoritative source when it contains hours.
+function balanceFromServiceLabel(item) {
+  const explicitBalance = Number(item?.balance);
+  if (Number.isFinite(explicitBalance) && explicitBalance > 0) return explicitBalance;
+
+  const label = String(item?.offerName ?? item?.title ?? item?.name ?? "");
+  const match = label.match(/(\d+(?:[.,]\d+)?)\s*h\b/i);
+  if (!match) return 0;
+
+  const parsed = Number(match[1].replace(",", "."));
+  return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : 0;
+}
+
+function parseInstallments(value) {
+  let parsed = value;
+  while (typeof parsed === "string") {
+    try {
+      parsed = JSON.parse(parsed);
+    } catch {
+      return [];
+    }
+  }
+
+  if (!Array.isArray(parsed)) return [];
+
+  return parsed
+    .map((installment, index) => ({
+      no: Number(installment?.no ?? installment?.installment_no ?? index + 1),
+      amount: Number(installment?.amount),
+      status: String(installment?.status || "pending").toLowerCase(),
+    }))
+    .filter((installment) => Number.isInteger(installment.no) && installment.no > 0 && Number.isFinite(installment.amount) && installment.amount > 0)
+    .sort((left, right) => left.no - right.no);
+}
+
 function toCommanderOffer(offer) {
-  const price = Number(offer.final_price ?? offer.discounted_price ?? offer.price_ht ?? offer.original_price) || 0;
-  const installments = Math.max(1, Number(offer.multi_payment) || 1);
-  const installmentAmount = Number(offer.second_price) || price / installments;
+  // The offers endpoint already applies the student's agency pricing to the
+  // top-level fields. For checkout, price_ht is the agency's full price and
+  // takes precedence over promotional/display-only final_price values.
+  const price = Number(offer.price_ht ?? offer.original_price ?? offer.discounted_price ?? offer.final_price) || 0;
+  const paymentSchedule = parseInstallments(offer.installments_data);
+  const configuredInstallments = Math.max(1, Number(offer.multi_payment) || 1);
+  const installmentEligible = configuredInstallments > 1 && paymentSchedule.length > 0;
+  const installments = installmentEligible ? paymentSchedule.length : 1;
+  const installmentAmount = installmentEligible ? paymentSchedule[0].amount : price;
   const name = offer.name || "Offre permis";
 
   return {
@@ -168,11 +241,73 @@ function toCommanderOffer(offer) {
     paymentLabel: installments > 1 ? `Paiement en ${installments} fois` : "Paiement comptant",
     paymentAmount: installmentAmount,
     installments,
+    paymentSchedule,
+    installmentEligible,
+    isMenuOffer: normalizeOfferName(offer.name) === "permis a la carte",
     balance: Number(offer.balance) || 0,
     rawOffer: offer,
     features: offerFeatures(offer.caracteristiques),
     accent: /^#[0-9a-f]{3,8}$/i.test(offer.color || "") ? offer.color : "#2563eb",
   };
+}
+
+function resolveCartOffer(savedItem, catalogue) {
+  const persistedId = savedItem?.offer_id ?? savedItem?.offerId;
+  if (persistedId) {
+    const byPersistedId = catalogue.find((offer) => String(offer.id) === String(persistedId));
+    if (byPersistedId) return byPersistedId;
+  }
+
+  const byId = catalogue.find((offer) => String(offer.id) === String(savedItem?.id));
+  if (byId) return byId;
+
+  // Service-page cards used human-readable local IDs before checkout was
+  // connected to the offer catalogue. Resolve those older saved items by their
+  // display name, then continue with the real database offer ID.
+  const savedName = normalizeOfferName(savedItem?.offerName ?? savedItem?.title ?? savedItem?.name);
+  if (!savedName) return null;
+
+  const matchingOffer = catalogue.find((offer) => normalizeOfferName(offer.name) === savedName);
+  if (matchingOffer) return matchingOffer;
+
+  // Additional services are individual selections from the existing menu
+  // offer. The legacy Vue checkout saves their own price/balance against this
+  // one offer ID, which the backend payment service already supports.
+  if (isAdditionalServiceCartItem(savedItem)) {
+    return catalogue.find((offer) => offer.isMenuOffer) || null;
+  }
+
+  return null;
+}
+
+function hydrateCartItem(savedItem, offer) {
+  const isMenuSelection = offer.isMenuOffer && isAdditionalServiceCartItem(savedItem);
+  if (!isMenuSelection) {
+    return { ...offer, quantity: itemQuantity(savedItem) };
+  }
+
+  return {
+    ...offer,
+    // Preserve the service selected by the learner while using the existing
+    // menu offer UUID for the backend cart and payment records.
+    name: savedItem.title || savedItem.offerName || offer.name,
+    price: Number(savedItem.price) || 0,
+    balance: balanceFromServiceLabel(savedItem),
+    quantity: itemQuantity(savedItem),
+  };
+}
+
+function installmentBalanceFor(item, installmentNo) {
+  const schedule = item.paymentSchedule || [];
+  if (!schedule.length || !installmentNo) return Number(item.balance || 0);
+
+  const totalBalance = Math.round(Number(item.balance || 0));
+  const share = Math.floor(totalBalance / schedule.length);
+  const remainder = totalBalance - (share * schedule.length);
+  const index = schedule.findIndex((installment) => Number(installment.no) === Number(installmentNo));
+
+  if (index < 0) return totalBalance;
+  return share + (index === 0 ? remainder : 0);
 }
 
 function loadStripeJs() {
@@ -451,18 +586,39 @@ function OffersDrawer({ items, total, onClose, onRemove, onCheckout }) {
   );
 }
 
-function CheckoutPage({ items, total, studentId, student, onBack, onRemove, onPaymentSuccess }) {
+function CheckoutPage({ items, studentId, student, onBack, onRemove, onPaymentSuccess }) {
   const [paymentMode, setPaymentMode] = useState("standard");
+  const [selectedInstallments, setSelectedInstallments] = useState({});
   const [stripeContext, setStripeContext] = useState(null);
   const [cardholderName, setCardholderName] = useState("");
   const [paymentError, setPaymentError] = useState("");
   const [paymentLoading, setPaymentLoading] = useState(false);
 
+  const getSelectedInstallment = useCallback((item) => {
+    const installmentNo = Number(selectedInstallments[item.id]);
+    return item.paymentSchedule?.find((installment) => installment.no === installmentNo) || null;
+  }, [selectedInstallments]);
+
+  const balanceForItem = useCallback((item) => {
+    const selectedInstallment = getSelectedInstallment(item);
+    const unitBalance = selectedInstallment
+      ? installmentBalanceFor(item, selectedInstallment.no)
+      : Number(item.balance || 0);
+    return unitBalance * itemQuantity(item);
+  }, [getSelectedInstallment]);
+
+  const amountForItem = useCallback((item) => {
+    const selectedInstallment = getSelectedInstallment(item);
+    return Number(selectedInstallment?.amount ?? item.price) * itemQuantity(item);
+  }, [getSelectedInstallment]);
+
   const amountToPay = useMemo(() => (
-    paymentMode === "split"
-      ? items.reduce((sum, item) => sum + Number(item.installments > 1 ? item.paymentAmount : item.price) * itemQuantity(item), 0)
-      : total
-  ), [items, paymentMode, total]);
+    items.reduce((sum, item) => sum + amountForItem(item), 0)
+  ), [amountForItem, items]);
+
+  const selectedTrancheCount = useMemo(() => (
+    items.reduce((count, item) => count + (getSelectedInstallment(item) ? 1 : 0), 0)
+  ), [getSelectedInstallment, items]);
 
   const handleStripeReady = useCallback((context) => {
     setStripeContext(context);
@@ -488,19 +644,20 @@ function CheckoutPage({ items, total, studentId, student, onBack, onRemove, onPa
 
     try {
       const cartData = items.map((item) => {
-        const isInstallment = paymentMode === "split" && item.installments > 1;
-        const trancheCount = Math.max(1, Number(item.installments) || 1);
+        const selectedInstallment = getSelectedInstallment(item);
+        const isInstallment = Boolean(selectedInstallment);
+        const trancheCount = isInstallment ? Math.max(1, Number(item.installments) || 1) : 1;
         const balance = isInstallment
-          ? Math.ceil(Number(item.balance || 0) / trancheCount)
+          ? installmentBalanceFor(item, selectedInstallment.no)
           : Number(item.balance || 0);
 
         return {
           offer_id: item.id,
           quantity: itemQuantity(item),
           tranches: trancheCount,
-          selected_price_type: isInstallment ? "installment" : "final",
-          ...(isInstallment ? { selected_installment_no: 1 } : {}),
-          price: isInstallment ? Number(item.paymentAmount) : Number(item.price),
+          // cart_details only supports its existing enum values: final and second.
+          selected_price_type: isInstallment ? "second" : "final",
+          price: isInstallment ? Number(selectedInstallment.amount) : Number(item.price),
           balance,
         };
       });
@@ -509,11 +666,12 @@ function CheckoutPage({ items, total, studentId, student, onBack, onRemove, onPa
       // Store the selected offers there first so the sale, wallet and offer are linked.
       await http.post("/carts/many", { data: cartData, ...(studentId ? { student_id: studentId } : {}) });
 
-      const installments = paymentMode === "split"
-        ? items
-          .filter((item) => Number(item.installments) > 1)
-          .map((item) => ({ offer_id: item.id, installment_no: 1 }))
-        : [];
+      const installments = items
+        .map((item) => {
+          const selectedInstallment = getSelectedInstallment(item);
+          return selectedInstallment ? { offer_id: item.id, installment_no: selectedInstallment.no } : null;
+        })
+        .filter(Boolean);
 
       // A student uses the protected student Stripe API. Staff viewing a student
       // dashboard use the staff-aware payment API with the selected student_id.
@@ -595,18 +753,33 @@ function CheckoutPage({ items, total, studentId, student, onBack, onRemove, onPa
 
         <div className="cmd-payment-grid">
           <button
-            className={`cmd-payment-option${paymentMode === "standard" ? " cmd-payment-option--active" : ""}`}
-            onClick={() => setPaymentMode("standard")}
+            type="button"
+            className={"cmd-payment-option" + (paymentMode === "standard" ? " cmd-payment-option--active" : "")}
+            onClick={() => {
+              setPaymentMode("standard");
+              setSelectedInstallments({});
+            }}
           >
             <div className="cmd-payment-option-title">Standard</div>
             <div className="cmd-payment-option-sub">Réglez l'intégralité du montant en une seule transaction.</div>
           </button>
           <button
-            className={`cmd-payment-option${paymentMode === "split" ? " cmd-payment-option--active" : ""}`}
-            onClick={() => setPaymentMode("split")}
+            type="button"
+            className={"cmd-payment-option" + (paymentMode === "split" ? " cmd-payment-option--active" : "")}
+            onClick={() => {
+              setPaymentMode("split");
+              setSelectedInstallments(
+                items.reduce((selection, item) => {
+                  if (item.installmentEligible && item.paymentSchedule?.[0]) {
+                    selection[item.id] = item.paymentSchedule[0].no;
+                  }
+                  return selection;
+                }, {})
+              );
+            }}
           >
             <div className="cmd-payment-option-title">Paiement par tranche</div>
-            <div className="cmd-payment-option-sub">Utilisez les echeances disponibles selon les offres du panier.</div>
+            <div className="cmd-payment-option-sub">Utilisez les échéances disponibles selon les offres du panier.</div>
           </button>
         </div>
 
@@ -648,26 +821,72 @@ function CheckoutPage({ items, total, studentId, student, onBack, onRemove, onPa
       </div>
 
       <aside className="cmd-checkout-summary">
-        <h3>Récapitulatif</h3>
+        <h3>Récapitulatif de la Commande</h3>
         <div className="cmd-checkout-summary-list">
           {items.map((item) => (
             <div key={item.id} className="cmd-checkout-summary-item">
-              <div>
+              <div className="cmd-checkout-summary-content">
                 <div className="cmd-checkout-summary-name">{item.name}{itemQuantity(item) > 1 ? ` × ${itemQuantity(item)}` : ""}</div>
-                <div className="cmd-checkout-summary-balance">{`Solde : ${Number(item.balance || 0) * itemQuantity(item)}h`}</div>
+                <div className="cmd-checkout-summary-balance">{`Solde : ${balanceForItem(item)}h`}</div>
               </div>
               <div className="cmd-checkout-summary-side">
-                <strong>{formatPrice(item.price * itemQuantity(item))}</strong>
+                <strong>{formatPrice(amountForItem(item))}</strong>
                 <button className="cmd-checkout-remove" onClick={() => onRemove(item.id)}>
                   Retirer
                 </button>
               </div>
+              {item.installmentEligible && (
+                <div className="cmd-installment-picker">
+                  <span className="cmd-installment-title">Choisir le mode de paiement</span>
+                  <div className="cmd-installment-controls">
+                    <button
+                      type="button"
+                      className={"cmd-installment-full" + (!getSelectedInstallment(item) ? " cmd-installment-full--active" : "")}
+                      onClick={() => {
+                        setPaymentMode("standard");
+                        setSelectedInstallments((current) => {
+                          const next = { ...current };
+                          delete next[item.id];
+                          return next;
+                        });
+                      }}
+                    >
+                      <span className="cmd-installment-option-label">Prix complet</span>
+                      <span className="cmd-installment-option-amount">{formatPrice(item.price)}</span>
+                    </button>
+                    <select
+                      className={"cmd-installment-select" + (getSelectedInstallment(item) ? " cmd-installment-select--active" : "")}
+                      value={getSelectedInstallment(item)?.no || ""}
+                      onChange={(event) => {
+                        setPaymentMode(event.target.value ? "split" : "standard");
+                        setSelectedInstallments((current) => ({
+                          ...current,
+                          [item.id]: Number(event.target.value),
+                        }));
+                      }}
+                      aria-label={"Choisir une échéance pour " + item.name}
+                    >
+                      <option value="">Choisir une échéance</option>
+                      {item.paymentSchedule.map((installment) => (
+                        <option key={installment.no} value={installment.no}>
+                          {"Paiement " + installment.no + "/" + item.installments + " — " + formatPrice(installment.amount)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {getSelectedInstallment(item) && (
+                    <div className="cmd-installment-selected">
+                      {"Échéance sélectionnée : Paiement " + getSelectedInstallment(item).no + "/" + item.installments + " — " + formatPrice(getSelectedInstallment(item).amount)}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </div>
         <div className="cmd-checkout-summary-row">
-          <span>Paiement</span>
-          <strong>{paymentMode === "split" ? "Par tranche" : "Standard"}</strong>
+          <span>Paiement sur tranches</span>
+          <strong>{selectedTrancheCount ? selectedTrancheCount + " échéance" + (selectedTrancheCount > 1 ? "s" : "") : "Standard (Une fois)"}</strong>
         </div>
         <div className="cmd-checkout-summary-row">
           <span>Sous-total</span>
@@ -678,7 +897,9 @@ function CheckoutPage({ items, total, studentId, student, onBack, onRemove, onPa
           <strong>{formatPrice(amountToPay)}</strong>
         </div>
         <p className="cmd-checkout-summary-note">
-          Le total s'ajuste automatiquement selon les offres ajoutées ou retirées du panier.
+          {selectedTrancheCount
+            ? "Le montant affiché correspond aux échéances sélectionnées. Les échéances suivantes restent gérées depuis votre espace élève."
+            : "Le total s'ajuste automatiquement selon les offres ajoutées ou retirées du panier."}
         </p>
       </aside>
     </div>
@@ -716,7 +937,11 @@ export default function Commander({ studentId = null, initialCheckout = false, o
       try {
         let savedItems = [];
         if (initialCheckout) {
-          try { savedItems = JSON.parse(window.localStorage.getItem("ppf_cart") || "[]"); } catch (_) {}
+          try {
+            savedItems = JSON.parse(window.localStorage.getItem("ppf_cart") || "[]");
+          } catch {
+            savedItems = [];
+          }
           if (!Array.isArray(savedItems) || !savedItems.length) {
             throw new Error("Votre panier est vide. Choisissez une offre pour continuer.");
           }
@@ -725,6 +950,7 @@ export default function Commander({ studentId = null, initialCheckout = false, o
           params: {
             ...(studentId ? { student_id: studentId } : {}),
             ...(initialCheckout ? { per_page: 100 } : {}),
+            ...(savedItems.some((item) => item?.isCpf) ? { include_cpf: 1 } : {}),
           },
         });
         const payload = response.data?.offers;
@@ -734,7 +960,7 @@ export default function Commander({ studentId = null, initialCheckout = false, o
           for (let page = 2; page <= Number(payload?.last_page || 1); page += 1) {
             if (savedItems.every((saved) => rows.some((offer) => String(offer.id) === String(saved?.id)))) break;
             const next = await http.get("/student/offers", {
-              params: { per_page: 100, page, ...(studentId ? { student_id: studentId } : {}) },
+              params: { per_page: 100, page, ...(studentId ? { student_id: studentId } : {}), ...(savedItems.some((item) => item?.isCpf) ? { include_cpf: 1 } : {}) },
             });
             if (!active) return;
             rows.push(...(next.data?.offers?.data || []));
@@ -745,9 +971,12 @@ export default function Commander({ studentId = null, initialCheckout = false, o
           throw new Error("Le type de boîte de l'élève est introuvable.");
         }
         // Hard client-side guard: a manual student never sees BA cards and an
-        // automatic student never sees BM cards, even from an old mixed API.
+        // automatic student never sees BM cards, except the existing menu
+        // offer used by additional services. That menu deliberately contains
+        // service lines for both learner types.
         const matchingRows = rows.filter(
           (offer) => Number(offer.is_auto) === loggedBoiteType
+            || normalizeOfferName(offer.name) === "permis a la carte"
         );
 
         if (!active) return;
@@ -758,12 +987,11 @@ export default function Commander({ studentId = null, initialCheckout = false, o
         if (initialCheckout) {
           const importedItems = savedItems
             .map((saved) => {
-              const offer = commanderOffers.find((item) => String(item.id) === String(saved?.id));
-              if (!offer) throw new Error("Une offre du panier n'est plus disponible pour votre agence ou votre type de boîte. Veuillez modifier votre panier.");
-              return {
-                ...offer,
-                quantity: itemQuantity(saved),
-              };
+              const offer = resolveCartOffer(saved, commanderOffers);
+              if (!offer) {
+                throw new Error(`L’offre « ${saved?.title || saved?.name || "sélectionnée"} » n’est pas disponible pour votre agence ou votre type de boîte. Veuillez modifier votre panier.`);
+              }
+              return hydrateCartItem(saved, offer);
             });
 
           if (importedItems.length) {
@@ -803,7 +1031,9 @@ export default function Commander({ studentId = null, initialCheckout = false, o
       try {
         const savedItems = JSON.parse(window.localStorage.getItem("ppf_cart") || "[]");
         window.localStorage.setItem("ppf_cart", JSON.stringify(savedItems.filter((item) => String(item.id) !== String(id))));
-      } catch (_) {}
+      } catch {
+        return;
+      }
     }
   }
 
@@ -821,7 +1051,6 @@ export default function Commander({ studentId = null, initialCheckout = false, o
     return (
       <CheckoutPage
         items={cartItems}
-        total={total}
         studentId={studentId}
         student={checkoutStudent}
         onBack={initialCheckout ? onHome : () => setView("catalog")}

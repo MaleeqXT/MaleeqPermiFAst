@@ -106,9 +106,9 @@ export default function StudentSidebar({ activePath, onNavigate, onLogout, isOpe
       <aside className={`sidebar ${effectiveCollapsed ? "collapsed" : "expanded"} ${isOpen ? "mobile-open" : ""}`}>
         <div className="sidebar-logo">
           {effectiveCollapsed ? (
-            <img src="https://passpermisfacile.fr/assets/logo.svg" alt="PassPermis" className="logo-img" />
+            <img src={apiAssetUrl("assets/logo.svg")} alt="PermiFast" className="logo-img" />
           ) : (
-            <img src={apiAssetUrl("assets/logo-permis-facile.webp")} alt="Permis Facile" className="logo-img" />
+            <img src={apiAssetUrl("assets/logo-permis-facile.webp")} alt="PermiFast" className="logo-img" />
           )}
         </div>
 

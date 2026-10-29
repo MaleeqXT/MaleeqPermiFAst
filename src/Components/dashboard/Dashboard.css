@@ -718,11 +718,16 @@ body {
 .dash-orders-header .dash-section-title { margin: 0; }
 
 .dash-see-all {
+  padding: 0;
+  border: 0;
+  background: transparent;
   font-size: 14px;
   font-weight: 500;
   color: #2563eb;
+  font-family: inherit;
   text-decoration: none;
   white-space: nowrap;
+  cursor: pointer;
 }
 .dash-see-all:hover { text-decoration: underline; }
 

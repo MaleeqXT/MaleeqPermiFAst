@@ -296,6 +296,23 @@
   box-sizing: border-box;
 }
 
+.loginpage-back {
+  width: 38px;
+  height: 38px;
+  display: inline-grid;
+  place-items: center;
+  margin: 0 0 14px;
+  border: 1px solid #e1e7ef;
+  border-radius: 11px;
+  background: #f8fafc;
+  color: #31435f;
+  cursor: pointer;
+  transition: background .18s, border-color .18s, transform .18s;
+}
+
+.loginpage-back:hover { background: #edf6e6; border-color: #b9d99a; transform: translateX(-2px); }
+.loginpage-back svg { width: 19px; height: 19px; stroke-width: 2.25; }
+
 .loginpage-form-title {
   font-family: "Manrope", sans-serif;
   font-size: 22px;

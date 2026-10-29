@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import http from "../helpers/http.jsx";
 import "./VehiclesAndDocumentsPage.css";
 import {
   uploadMedia,
@@ -170,24 +171,122 @@ function DocumentsSection({ docs, setDocs }) {
   );
 }
 
-function VehiclesPage({ onBack }) {
-  const [vehicles] = useState([]);
+function VehiclesPage({ onBack, monitorId }) {
+  const [vehicles, setVehicles] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [form, setForm] = useState({ marque: "", modele: "", immatriculation: "", date_achat: "", date_assurance: "", date_control_tech: "", color: "#000000", is_auto: false });
+
+  const loadVehicles = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const { data } = await http.get("/monitor/vehicles", { params: monitorId ? { monitor_id: monitorId } : undefined });
+      setVehicles(Array.isArray(data?.data) ? data.data : []);
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || "Impossible de charger vos véhicules.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { loadVehicles(); }, [monitorId]);
+
+  const openCreate = () => {
+    setError("");
+    setSelected({});
+    setForm({ marque: "", modele: "", immatriculation: "", date_achat: "", date_assurance: "", date_control_tech: "", color: "#000000", is_auto: false });
+  };
+
+  const openEdit = (vehicle) => {
+    setError("");
+    setSelected(vehicle);
+    setForm({
+      marque: vehicle.marque || "", modele: vehicle.modele || "", immatriculation: vehicle.immatriculation || "",
+      date_achat: vehicle.date_achat || "", date_assurance: vehicle.date_assurance || "", date_control_tech: vehicle.date_control_tech || "",
+      color: vehicle.color || "#000000", is_auto: Boolean(vehicle.is_auto),
+    });
+  };
+
+  const updateForm = (key, value) => setForm((current) => ({ ...current, [key]: value }));
+
+  const saveVehicle = async (event) => {
+    event.preventDefault();
+    setSaving(true);
+    setError("");
+    const payload = { ...form, is_auto: Boolean(form.is_auto), ...(monitorId ? { monitor_id: monitorId } : {}) };
+    try {
+      if (selected?.id) await http.put(`/monitor/vehicles/${selected.id}`, payload);
+      else await http.post("/monitor/vehicles", payload);
+      setSelected(null);
+      await loadVehicles();
+    } catch (requestError) {
+      const messages = requestError.response?.data?.errors;
+      setError(messages ? Object.values(messages).flat().join(" ") : requestError.response?.data?.message || "Impossible d'enregistrer le véhicule.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteVehicle = async () => {
+    if (!selected?.id || !window.confirm("Supprimer ce véhicule ?")) return;
+    setSaving(true);
+    setError("");
+    try {
+      await http.delete(`/monitor/vehicles/${selected.id}`, { params: monitorId ? { monitor_id: monitorId } : undefined });
+      setSelected(null);
+      await loadVehicles();
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || "Impossible de supprimer le véhicule.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="vd-page">
       <header className="vd-header">
         <button className="vd-back-btn" onClick={onBack}><IconArrowLeft /></button>
         <span className="vd-header-title">Véhicule</span>
-        <button className="vd-header-action"><IconPlus /></button>
+        <button type="button" className="vd-header-action" onClick={openCreate} aria-label="Ajouter un véhicule"><IconPlus /></button>
       </header>
       <main className="vd-main">
-        {vehicles.length === 0 ? (
+        {error && <p className="vd-error-text">{error}</p>}
+        {loading ? <div className="vd-docs-empty">Chargement des véhicules...</div> : vehicles.length === 0 ? (
           <div className="vd-empty-card">
             <IconWarning />
             <p className="vd-empty-title">Vous n'avez aucun véhicule</p>
             <p className="vd-empty-sub">Commencez par ajouter un véhicule</p>
           </div>
-        ) : null}
+        ) : (
+          <div className="vd-docs-list">
+            {vehicles.map((vehicle) => (
+              <button type="button" className="vd-vehicle-row" key={vehicle.id} onClick={() => openEdit(vehicle)}>
+                <span className="vd-doc-name"><strong>{vehicle.marque} {vehicle.modele}</strong><small>{vehicle.immatriculation} · {vehicle.is_auto ? "Automatique" : "Manuelle"}</small></span>
+                <span aria-hidden="true">›</span>
+              </button>
+            ))}
+          </div>
+        )}
       </main>
+      {selected && (
+        <div className="vd-modal-backdrop" role="presentation" onMouseDown={() => !saving && setSelected(null)}>
+          <form className="vd-vehicle-modal" onSubmit={saveVehicle} onMouseDown={(event) => event.stopPropagation()}>
+            <div className="vd-docs-header"><span className="vd-docs-title">{selected.id ? "Modifier le véhicule" : "Ajouter un véhicule"}</span><button type="button" className="vd-doc-delete" onClick={() => setSelected(null)}>×</button></div>
+            <div className="vd-vehicle-fields">
+              {[['marque', 'Marque'], ['modele', 'Modèle'], ['immatriculation', 'Immatriculation']].map(([key, label]) => <label className="vd-field" key={key}><span className="vd-field-label">{label}</span><input className="vd-input" required value={form[key]} onChange={(e) => updateForm(key, e.target.value)} /></label>)}
+              <label className="vd-field"><span className="vd-field-label">Date de 1ère immatriculation</span><input className="vd-input" required type="date" value={form.date_achat} onChange={(e) => updateForm("date_achat", e.target.value)} /></label>
+              <label className="vd-field"><span className="vd-field-label">Validité assurance</span><input className="vd-input" required type="date" value={form.date_assurance} onChange={(e) => updateForm("date_assurance", e.target.value)} /></label>
+              <label className="vd-field"><span className="vd-field-label">Contrôle technique</span><input className="vd-input" required type="date" value={form.date_control_tech} onChange={(e) => updateForm("date_control_tech", e.target.value)} /></label>
+              <label className="vd-field"><span className="vd-field-label">Couleur</span><input className="vd-input" required value={form.color} onChange={(e) => updateForm("color", e.target.value)} /></label>
+              <label className="vd-vehicle-toggle"><input type="checkbox" checked={form.is_auto} onChange={(e) => updateForm("is_auto", e.target.checked)} /> Boîte automatique</label>
+            </div>
+            <div className="vd-vehicle-actions">{selected.id && <button type="button" className="vd-delete-btn" disabled={saving} onClick={deleteVehicle}>Supprimer</button>}<button className="vd-save-btn vd-save-btn--active" disabled={saving}>{saving ? "Enregistrement..." : "Enregistrer"}</button></div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }
@@ -196,7 +295,7 @@ function VehiclesPage({ onBack }) {
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? "";
 
-function IdentityDocumentPage({ onBack }) {
+function IdentityDocumentPage({ onBack, monitorId }) {
   const dispatch    = useDispatch();
   const fileRef     = useRef();
 
@@ -216,13 +315,13 @@ function IdentityDocumentPage({ onBack }) {
 
   // fetch existing identity docs on mount
   useEffect(() => {
-    dispatch(fetchIdentityDocuments());
-  }, [dispatch]);
+    dispatch(fetchIdentityDocuments(monitorId));
+  }, [dispatch, monitorId]);
 
   // after successful save → re-fetch + clear newly uploaded list
   useEffect(() => {
     if (saveSuccess === true) {
-      dispatch(fetchIdentityDocuments());
+      dispatch(fetchIdentityDocuments(monitorId));
       dispatch(clearUploadedMedia());
     }
   }, [saveSuccess, dispatch]);
@@ -247,6 +346,7 @@ function IdentityDocumentPage({ onBack }) {
     dispatch(clearDocumentsState());
     dispatch(storeMonitorDocuments({
       media_piece_identite: uploaded.map((m) => m.id),
+      ...(monitorId ? { monitor_id: monitorId } : {}),
     }));
   };
 
@@ -385,7 +485,7 @@ function IdentityDocumentPage({ onBack }) {
   );
 }
 
-function DrivingLicensePage({ onBack }) {
+function DrivingLicensePage({ onBack, monitorId }) {
   const dispatch   = useDispatch();
   const fileRef    = useRef();
 
@@ -405,13 +505,13 @@ function DrivingLicensePage({ onBack }) {
 
   // fetch existing on mount
   useEffect(() => {
-    dispatch(fetchPermisDocuments());
-  }, [dispatch]);
+    dispatch(fetchPermisDocuments(monitorId));
+  }, [dispatch, monitorId]);
 
   // after successful save → re-fetch + clear uploaded
   useEffect(() => {
     if (saveSuccess === true) {
-      dispatch(fetchPermisDocuments());
+      dispatch(fetchPermisDocuments(monitorId));
       dispatch(clearUploadedMedia());
     }
   }, [saveSuccess, dispatch]);
@@ -437,6 +537,7 @@ function DrivingLicensePage({ onBack }) {
     dispatch(clearDocumentsState());
     dispatch(storeMonitorDocuments({
       media_permis: uploaded.map((m) => m.id),
+      ...(monitorId ? { monitor_id: monitorId } : {}),
     }));
   };
 
@@ -565,7 +666,7 @@ function DrivingLicensePage({ onBack }) {
   );
 }
 
-function TeachingDiplomaPage({ onBack }) {
+function TeachingDiplomaPage({ onBack, monitorId }) {
   const dispatch   = useDispatch();
   const fileRef    = useRef();
 
@@ -578,11 +679,11 @@ function TeachingDiplomaPage({ onBack }) {
   const saveSuccess  = useSelector(selectDocumentsSuccess);
   const saveError    = useSelector(selectDocumentsError);
 
-  useEffect(() => { dispatch(fetchDiplomDocuments()); }, [dispatch]);
+  useEffect(() => { dispatch(fetchDiplomDocuments(monitorId)); }, [dispatch, monitorId]);
 
   useEffect(() => {
     if (saveSuccess === true) {
-      dispatch(fetchDiplomDocuments());
+      dispatch(fetchDiplomDocuments(monitorId));
       dispatch(clearUploadedMedia());
     }
   }, [saveSuccess, dispatch]);
@@ -593,7 +694,7 @@ function TeachingDiplomaPage({ onBack }) {
   const handleSave = () => {
     if (!uploaded.length) return;
     dispatch(clearDocumentsState());
-    dispatch(storeMonitorDocuments({ media_diplom: uploaded.map((m) => m.id) }));
+    dispatch(storeMonitorDocuments({ media_diplom: uploaded.map((m) => m.id), ...(monitorId ? { monitor_id: monitorId } : {}) }));
   };
 
   const canSave = uploaded.length > 0 && !saving && !uploading;
@@ -686,7 +787,7 @@ function TeachingDiplomaPage({ onBack }) {
   );
 }
 
-function ProfessionalDocumentsPage({ onBack }) {
+function ProfessionalDocumentsPage({ onBack, monitorId }) {
   const dispatch  = useDispatch();
   const fileRef   = useRef();
 
@@ -717,8 +818,8 @@ function ProfessionalDocumentsPage({ onBack }) {
 
   // fetch on mount
   useEffect(() => {
-    dispatch(fetchProfessionalDocuments());
-  }, [dispatch]);
+    dispatch(fetchProfessionalDocuments(monitorId));
+  }, [dispatch, monitorId]);
 
   // pre-fill form when server data arrives
   useEffect(() => {
@@ -736,7 +837,7 @@ function ProfessionalDocumentsPage({ onBack }) {
   // after save → re-fetch + clear uploads
   useEffect(() => {
     if (saveSuccess === true) {
-      dispatch(fetchProfessionalDocuments());
+      dispatch(fetchProfessionalDocuments(monitorId));
       dispatch(clearUploadedMedia());
     }
   }, [saveSuccess, dispatch]);
@@ -774,6 +875,7 @@ function ProfessionalDocumentsPage({ onBack }) {
         visite,
         media: allMediaIds,
       },
+      ...(monitorId ? { monitor_id: monitorId } : {}),
     }));
   };
 
@@ -941,14 +1043,14 @@ const MENU_ITEMS = [
   { key: "professional", label: "Documents professionnels", icon: <IconBuilding /> },
 ];
 
-export default function VehiclesAndDocumentsPage({ onBack }) {
+export default function VehiclesAndDocumentsPage({ onBack, monitorId = null }) {
   const [page, setPage] = useState(null);
 
-  if (page === "vehicles")     return <VehiclesPage           onBack={() => setPage(null)} />;
-  if (page === "identity")     return <IdentityDocumentPage   onBack={() => setPage(null)} />;
-  if (page === "driving")      return <DrivingLicensePage     onBack={() => setPage(null)} />;
-  if (page === "diploma")      return <TeachingDiplomaPage    onBack={() => setPage(null)} />;
-  if (page === "professional") return <ProfessionalDocumentsPage onBack={() => setPage(null)} />;
+  if (page === "vehicles")     return <VehiclesPage             monitorId={monitorId} onBack={() => setPage(null)} />;
+  if (page === "identity")     return <IdentityDocumentPage     monitorId={monitorId} onBack={() => setPage(null)} />;
+  if (page === "driving")      return <DrivingLicensePage       monitorId={monitorId} onBack={() => setPage(null)} />;
+  if (page === "diploma")      return <TeachingDiplomaPage      monitorId={monitorId} onBack={() => setPage(null)} />;
+  if (page === "professional") return <ProfessionalDocumentsPage monitorId={monitorId} onBack={() => setPage(null)} />;
 
   return (
     <div className="vd-page">

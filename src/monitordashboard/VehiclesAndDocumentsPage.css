@@ -385,6 +385,23 @@ button { font-family: var(--vd-font); }
 }
 .vd-doc-row:last-child { border-bottom: none; }
 .vd-doc-row:hover { background: var(--vd-surface); }
+.vd-vehicle-row {
+  width: 100%; display: flex; align-items: center; gap: 12px; padding: 14px 16px;
+  border: 0; border-bottom: 1px solid var(--vd-border); background: var(--vd-bg);
+  text-align: left; color: var(--vd-text); cursor: pointer; font: inherit;
+}
+.vd-vehicle-row:last-child { border-bottom: 0; }
+.vd-vehicle-row:hover { background: var(--vd-surface); }
+.vd-vehicle-row small { display: block; margin-top: 4px; color: var(--vd-muted); font-weight: 400; }
+.vd-modal-backdrop { position: fixed; inset: 0; z-index: 200; padding: 20px; background: rgba(15, 23, 42, .42); display: grid; place-items: center; }
+.vd-vehicle-modal { width: min(100%, 520px); max-height: calc(100vh - 40px); overflow: auto; border-radius: 14px; background: #fff; box-shadow: 0 22px 60px rgba(15, 23, 42, .28); }
+.vd-vehicle-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; padding: 12px; }
+.vd-vehicle-fields .vd-field { border: 1px solid var(--vd-border); margin: -1px 0 0 -1px; }
+.vd-vehicle-toggle { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; padding: 13px; font-size: 13px; }
+.vd-vehicle-actions { display: flex; justify-content: flex-end; gap: 10px; padding: 14px; border-top: 1px solid var(--vd-border); }
+.vd-vehicle-actions .vd-save-btn { position: static; width: auto; min-width: 145px; padding: 11px 18px; border: 0; border-radius: 8px; }
+.vd-delete-btn { border: 0; border-radius: 8px; padding: 11px 14px; color: #b42318; background: #fff1f0; cursor: pointer; font-weight: 700; }
+@media (max-width: 520px) { .vd-vehicle-fields { grid-template-columns: 1fr; } .vd-vehicle-actions { flex-direction: column-reverse; } .vd-vehicle-actions .vd-save-btn { width: 100%; } }
 .vd-doc-icon { font-size: 18px; flex-shrink: 0; }
 .vd-doc-name { flex: 1; font-size: 13px; font-weight: 500; color: var(--vd-text); }
 .vd-doc-delete {

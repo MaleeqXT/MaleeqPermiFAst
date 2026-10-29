@@ -14,8 +14,15 @@ import ActionToast from "../shared/ActionToast.jsx";
 import { useDispatch, useSelector } from "react-redux";
 import { useParams } from "react-router-dom";
 import { fetchCandidateById,selectSelectedCandidate,selectSelectedCandidateLoading,clearSelectedCandidate,updateCandidate  } from "../../redux/reducers/candidateSlice.jsx";
+import { apiAssetUrl } from "../../config/api.js";
 
 const BASE_URL = import.meta.env.VITE_API_URL;
+
+function candidateMediaUrl(media) {
+  if (!media) return null;
+  if (/^https?:\/\//i.test(media) || media.startsWith("data:")) return media;
+  return apiAssetUrl(`storage/${String(media).replace(/^\/?(?:storage\/)?/, "")}`);
+}
 
 
 
@@ -142,7 +149,7 @@ useEffect(() => {
   };
   setForm(populated);
   setCommitted(populated);
-  setPhoto(user.media ? `${BASE_URL}/storage/${user.media}` : null);
+  setPhoto(candidateMediaUrl(user.media));
   setHasInitialized(true);
 }, [user, hasInitialized, candidateId]);
 
@@ -258,8 +265,8 @@ const handleSave = async () => {
       {isFullWidth && (
         <div className="cp-fullwidth-tab">
           {activeTab === "balance"  && <TabBalance form={committed} student={user?.student} user={user} />}
-          {activeTab === "skills"   && <TabSkills />}
-          {activeTab === "basket"   && <TabBasket />}
+          {activeTab === "skills"   && <TabSkills studentId={candidateId} />}
+          {activeTab === "basket"   && <TabBasket candidateName={fullName} studentId={candidateId} userId={user?.id} boiteType={user?.student?.boite_type} />}
           {activeTab === "contract" && <TabContract studentId={candidateId} />}
         </div>
       )}
