@@ -155,6 +155,13 @@ function normalizeBoiteType(value) {
   return [0, 1, "0", "1"].includes(value) ? Number(value) : null;
 }
 
+function cartOfferId(item) {
+  const value = item?.offer_id ?? item?.offerId ?? item?.id;
+  return typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+    ? value
+    : null;
+}
+
 function normalizeOfferName(value) {
   return String(value ?? "")
     .normalize("NFD")
@@ -181,6 +188,10 @@ const ADDITIONAL_SERVICE_NAMES = new Set([
 function isAdditionalServiceCartItem(item) {
   return item?.cartType === "additional-service"
     || ADDITIONAL_SERVICE_NAMES.has(normalizeOfferName(item?.offerName ?? item?.title ?? item?.name));
+}
+
+function isCodeCartItem(item) {
+  return /(?:^|\s)code(?:\s|$)/.test(normalizeOfferName(item?.offerName ?? item?.title ?? item?.name));
 }
 
 // Mirrors the old checkout's SummaryOrder.vue fallback for menu services.
@@ -270,6 +281,19 @@ function resolveCartOffer(savedItem, catalogue) {
   const matchingOffer = catalogue.find((offer) => normalizeOfferName(offer.name) === savedName);
   if (matchingOffer) return matchingOffer;
 
+  // The public Code page historically stored visual IDs such as
+  // `code-normal` instead of the offer UUID. Resolve those persisted carts
+  // to the published database product, including the slightly different
+  // "Code (Intensif)" catalogue naming.
+  if (isCodeCartItem(savedItem)) {
+    const intensive = savedName.includes("intensif");
+    const codeOffers = catalogue.filter((offer) => {
+      const offerName = normalizeOfferName(offer.name);
+      return offerName.includes("permis code") && offerName.includes("intensif") === intensive;
+    });
+    if (codeOffers.length === 1) return codeOffers[0];
+  }
+
   // Additional services are individual selections from the existing menu
   // offer. The legacy Vue checkout saves their own price/balance against this
   // one offer ID, which the backend payment service already supports.
@@ -283,6 +307,21 @@ function resolveCartOffer(savedItem, catalogue) {
 function hydrateCartItem(savedItem, offer) {
   const isMenuSelection = offer.isMenuOffer && isAdditionalServiceCartItem(savedItem);
   if (!isMenuSelection) {
+    // The Code page is a fixed-price public product selector. Preserve the
+    // amount the learner selected there (290 € for the intensive option,
+    // 29 € for normal access) instead of replacing it with a legacy base
+    // catalogue value while restoring the cart after login.
+    if (isCodeCartItem(savedItem)) {
+      const selectedPrice = Number(savedItem.price);
+      if (Number.isFinite(selectedPrice) && selectedPrice > 0) {
+        return {
+          ...offer,
+          price: selectedPrice,
+          paymentAmount: selectedPrice,
+          quantity: itemQuantity(savedItem),
+        };
+      }
+    }
     return { ...offer, quantity: itemQuantity(savedItem) };
   }
 
@@ -946,11 +985,13 @@ export default function Commander({ studentId = null, initialCheckout = false, o
             throw new Error("Votre panier est vide. Choisissez une offre pour continuer.");
           }
         }
+        const savedOfferIds = [...new Set(savedItems.map(cartOfferId).filter(Boolean))];
         const response = await http.get("/student/offers", {
           params: {
             ...(studentId ? { student_id: studentId } : {}),
             ...(initialCheckout ? { per_page: 100 } : {}),
             ...(savedItems.some((item) => item?.isCpf) ? { include_cpf: 1 } : {}),
+            ...(savedOfferIds.length ? { cart_offer_ids: savedOfferIds } : {}),
           },
         });
         const payload = response.data?.offers;
@@ -958,9 +999,15 @@ export default function Commander({ studentId = null, initialCheckout = false, o
         // Selected website offers may be beyond the first page of the catalogue.
         if (initialCheckout) {
           for (let page = 2; page <= Number(payload?.last_page || 1); page += 1) {
-            if (savedItems.every((saved) => rows.some((offer) => String(offer.id) === String(saved?.id)))) break;
+            if (savedOfferIds.every((id) => rows.some((offer) => String(offer.id) === id))) break;
             const next = await http.get("/student/offers", {
-              params: { per_page: 100, page, ...(studentId ? { student_id: studentId } : {}), ...(savedItems.some((item) => item?.isCpf) ? { include_cpf: 1 } : {}) },
+              params: {
+                per_page: 100,
+                page,
+                ...(studentId ? { student_id: studentId } : {}),
+                ...(savedItems.some((item) => item?.isCpf) ? { include_cpf: 1 } : {}),
+                ...(savedOfferIds.length ? { cart_offer_ids: savedOfferIds } : {}),
+              },
             });
             if (!active) return;
             rows.push(...(next.data?.offers?.data || []));
@@ -977,6 +1024,7 @@ export default function Commander({ studentId = null, initialCheckout = false, o
         const matchingRows = rows.filter(
           (offer) => Number(offer.is_auto) === loggedBoiteType
             || normalizeOfferName(offer.name) === "permis a la carte"
+            || savedOfferIds.includes(String(offer.id))
         );
 
         if (!active) return;

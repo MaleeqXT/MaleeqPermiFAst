@@ -103,7 +103,7 @@ export default function NewCandidate({ onBack }) {
 
   const [form, setForm] = useState({
     first_name: "", last_name: "", email: "", phone: "",
-    sexe: "", date_naissance: "", ville: "", postal: "", adresse: "",
+    sexe: "", date_naissance: "", ville: "", zone_id: "", postal: "", adresse: "",
     neph: "", date_code: "", password: "", password_confirmation: "",
     status: "", is_cpf: 1, boite_type: 0,
     balance: "0", estimation: "0",
@@ -126,7 +126,17 @@ export default function NewCandidate({ onBack }) {
     const [submitting,  setSubmitting]  = useState(false);
 
 
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const set = (k, v) => setForm((f) => {
+    if (k !== "ville") return { ...f, [k]: v };
+
+    const city = String(v || "").trim().toLowerCase();
+    const zoneByCity = {
+      creil: "9eeb1c0b-3a2a-41f6-8887-e17879995335",
+      toulouse: "9ef0999c-3842-4de1-ade2-d88412135519",
+    };
+
+    return { ...f, ville: v, zone_id: zoneByCity[city] || "" };
+  });
 
   function handlePhoto(e) {
     const file = e.target.files[0];
