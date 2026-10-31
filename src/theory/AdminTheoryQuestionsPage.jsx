@@ -34,8 +34,11 @@ const ORIGINAL_DRAFT_BANK = "00000000-0000-4000-8000-000000000002";
 
 function mediaUrl(path) {
   if (!path) return null;
-  if (/^https?:\/\//i.test(path)) return path;
-  const normalizedPath = path.replace(/^\//, "");
+  const rawPath = String(path);
+  // Translate a backend localhost URL to the configured API host.
+  const localStorageMatch = rawPath.match(/^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?(\/storage\/.+)$/i);
+  if (/^https?:\/\//i.test(rawPath) && !localStorageMatch) return rawPath;
+  const normalizedPath = (localStorageMatch?.[1] || rawPath).replace(/^\//, "");
   return apiAssetUrl(`${normalizedPath.startsWith("theory/questions/") ? "storage/" : ""}${normalizedPath}`);
 }
 
@@ -304,7 +307,7 @@ export default function AdminTheoryQuestionsPage() {
         <div className="theory-table-wrap">
           <table><thead><tr><th>Question</th><th>Catégorie</th><th>Type</th><th>Statut</th><th>Utilisation</th><th>Actions</th></tr></thead>
             <tbody>{loading ? <tr><td colSpan="6" className="theory-empty">Chargement…</td></tr> : questions.length ? questions.map((question) => <tr key={question.id}>
-              <td><strong>{question.public_id}</strong><p>{question.question_text}</p>{(question.image_url || question.image_path || question.media_path) && <img className="theory-thumb" src={question.image_url || mediaUrl(question.image_path || question.media_path)} alt="Illustration de la question" loading="lazy" onError={(event) => { event.currentTarget.style.display = "none"; }} />}</td>
+              <td><strong>{question.public_id}</strong><p>{question.question_text}</p>{(question.image_url || question.image_path || question.media_path) && <img className="theory-thumb" src={mediaUrl(question.image_url || question.image_path || question.media_path)} alt="Illustration de la question" loading="lazy" onError={(event) => { event.currentTarget.style.display = "none"; }} />}</td>
               <td>{question.category?.name || categoryById[question.category_id]?.name || "—"}</td><td>{question.answer_type === "multiple" ? "Plusieurs réponses" : "Une réponse"}</td>
               <td><span className={`theory-status theory-status--${question.status}`}>{statusLabel[question.status]}</span>{reviewMode ? <small className={`theory-review-state theory-review-state--${question.review_status}`}>{reviewLabel[question.review_status] || "En attente"}</small> : question.requires_review && <small className="theory-review">À relire</small>}</td>
               <td>{question.attempt_answers_count || 0}</td>

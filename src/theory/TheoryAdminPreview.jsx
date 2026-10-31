@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiAssetUrl } from "../config/api.js";
 import "./TheoryAdminPreview.css";
-const mediaUrl = (path) => !path ? null : (/^https?:\/\//i.test(path) ? path : apiAssetUrl(`${path.replace(/^\//, "").startsWith("theory/questions/") ? "storage/" : ""}${path.replace(/^\//, "")}`));
+const mediaUrl = (path) => {
+  if (!path) return null;
+  const rawPath = String(path);
+  const localStorageMatch = rawPath.match(/^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?(\/storage\/.+)$/i);
+  if (/^https?:\/\//i.test(rawPath) && !localStorageMatch) return rawPath;
+  const normalizedPath = (localStorageMatch?.[1] || rawPath).replace(/^\//, "");
+  return apiAssetUrl(`${normalizedPath.startsWith("theory/questions/") ? "storage/" : ""}${normalizedPath}`);
+};
 const canSpeak = () => typeof window !== "undefined" && "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
 const equal = (a, b) => [...a].sort().join("|") === [...b].sort().join("|");
 const optionOffset = (parts, partIndex) => parts.slice(0, partIndex).reduce((total, part) => total + (part.options || []).length, 0);
