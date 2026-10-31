@@ -55,14 +55,16 @@ export const storeMonitorPlaces = createAsyncThunk(
 
 export const addPlacesByZone = createAsyncThunk(
     'addPlacesByZone/add',
-    async ({ zoneId, formData }, { rejectWithValue }) => {
+    async ({ zoneId, place }, { rejectWithValue }) => {
         try {
-            const response = await http.post(`admin/places/${zoneId}`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
+            // The API only accepts scalar fields, so send JSON consistently in
+            // development and through the live reverse proxy.
+            const response = await http.post(`admin/places/${zoneId}`, place);
             return response.data;
         } catch (error) {
-            return rejectWithValue(error.response.data);
+            return rejectWithValue(
+                error.response?.data ?? { message: "Impossible d'ajouter le lieu." }
+            );
         }
     }
 );
@@ -87,10 +89,12 @@ export const fetchPlacesById = createAsyncThunk(
             'places/update',
             async ({ placeId, formData }, { rejectWithValue }) => {
                 try {
-                    const response = await http.put(`admin/places/${placeId}/`, formData);
+                    const response = await http.put(`admin/places/${placeId}`, formData);
                     return response.data;
                 } catch (error) {
-                    return rejectWithValue(error.response.data);
+                    return rejectWithValue(
+                        error.response?.data ?? { message: "Impossible de modifier le lieu." }
+                    );
                 }
             }
         );

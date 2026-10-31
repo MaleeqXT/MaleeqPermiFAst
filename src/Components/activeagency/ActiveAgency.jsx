@@ -194,7 +194,6 @@ function CurrentStatusTab({ selectedSchool, schools, selectedSchoolId, searchQue
           <InfoIcon />
           <p className="aa-stat-label">Eleves inscrits</p>
           <strong className="aa-stat-value">{selectedSchool?.waitingStudents ?? 0}</strong>
-          <button className="aa-dark-button" type="button">Voir mes eleves</button>
         </article>
 
         <article className="aa-stat-card">
@@ -202,7 +201,6 @@ function CurrentStatusTab({ selectedSchool, schools, selectedSchoolId, searchQue
           <p className="aa-stat-label">Demandes de reservation</p>
           <strong className="aa-stat-value">5</strong>
           <p className="aa-card-note">Veuillez valider les eleves une fois convertis</p>
-          <button className="aa-dark-button" type="button">Voir mes demandes d'eleves</button>
         </article>
 
         <article className="aa-stat-card aa-qr-card">
@@ -221,10 +219,6 @@ function CurrentStatusTab({ selectedSchool, schools, selectedSchoolId, searchQue
             seed={`permifast-${selectedSchool?.id ?? "default"}-${selectedSchool?.name ?? ""}`}
             size={140}
           /> */}
-          <button className="aa-dark-button aa-button-inline" type="button">
-            Voir ma vitrine PermiFast
-            <ExternalIcon />
-          </button>
         </article>
       </section>
 

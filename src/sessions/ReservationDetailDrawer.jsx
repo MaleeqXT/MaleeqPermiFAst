@@ -16,6 +16,7 @@ export default function ReservationDetailDrawer({ reservation, onClose, onOpenMo
       onEditReservation={onEditReservation}
       drawerTitle="Reservation details"
       primaryActionLabel="Immediate call"
+      hideAdminReservationActions
     />
   );
 }

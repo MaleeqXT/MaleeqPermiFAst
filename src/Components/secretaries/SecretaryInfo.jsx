@@ -266,7 +266,6 @@ export default function CandidateProfile({ candidateId, initialData, onSaveProfi
             <button className="nc-add-btn" type="button" onClick={handleSave}>
               Modifier la secrétaire
             </button>
-            <button className="cp-action-btn cp-action-giveup">Abandonner</button>
           </aside>
         </div>
       )}

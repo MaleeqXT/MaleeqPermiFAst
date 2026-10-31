@@ -21,17 +21,16 @@ export const fetchCompetence = createAsyncThunk(
 
 export const addCompetence = createAsyncThunk(
     'competences/add',
-    async (formData, { rejectWithValue }) => {
-        try { 
-            // const response = await http.post('/admin/users/secretaries', formData);
-            const response = await http.post('admin/competences/group/', formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data'  // ✅ yeh add karo
-                }
-            });
+    async (competence, { rejectWithValue }) => {
+        try {
+            // This endpoint only receives scalar fields. JSON avoids multipart
+            // parsing and redirect issues that can occur behind the live proxy.
+            const response = await http.post('admin/competences/group', competence);
             return response.data.data;
         } catch (error) {
-            return rejectWithValue(error.response.data);
+            return rejectWithValue(
+                error.response?.data ?? { message: "Impossible d'ajouter la compétence." }
+            );
         }
     }
 );
@@ -41,10 +40,12 @@ export const updateCompetence = createAsyncThunk(
     'competences/update',
     async ({ id, formData }, { rejectWithValue }) => {
         try {
-            const response = await http.put(`admin/competences/group/${id}/`, formData); // 👈 slash add kiya
+            const response = await http.put(`admin/competences/group/${id}`, formData);
             return response.data;
         } catch (error) {
-            return rejectWithValue(error.response.data);
+            return rejectWithValue(
+                error.response?.data ?? { message: "Impossible de modifier la compétence." }
+            );
         }
     }
 );

@@ -239,7 +239,7 @@ export default function CandidateCoursePage() {
 
             <section className="ncp-booking-card">
               <img src={coursesImage} alt="Voiture de l'auto-école" className="ncp-booking-image" />
-              <div className="ncp-booking-content"><h2>Besoin de réserver un cours ?</h2><p>Contactez votre auto-école pour planifier un nouveau créneau.</p><button type="button">Nous contacter</button></div>
+              <div className="ncp-booking-content"><h2>Besoin de réserver un cours ?</h2><p>Contactez votre auto-école pour planifier un nouveau créneau.</p><button type="button" onClick={() => navigate("/student-contact")}>Nous contacter</button></div>
             </section>
           </aside>
         </div>

@@ -144,6 +144,7 @@ export default function CandidateSkills() {
   const [editSkill,    setEditSkill]    = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [toast,        setToast]        = useState(null);
+  const [saveError,    setSaveError]    = useState(null);
   const [sort,         setSort]         = useState(null);
   const [detailSkill,  setDetailSkill]  = useState(null);
 
@@ -209,37 +210,40 @@ useEffect(() => {
 
 
 async function handleSave(data) {
-  if (drawerMode === "add") {
-    const formData = new FormData();
-    formData.append("name", data.name);
-    formData.append("label", data.label);
-    formData.append("position", data.position);
-    formData.append("status", data.status);
+  setSaveError(null);
 
-    const result = await dispatch(addCompetence(formData));
-       if (addCompetence.fulfilled.match(result)) {
-      dispatch(fetchCompetence({ page: 1, search, status: activeTab === "all" ? "" : activeTab }));
-      showToast();
+  if (drawerMode === "add") {
+    const result = await dispatch(addCompetence({
+      name: data.name,
+      label: data.label,
+      position: data.position,
+      status: data.status === "1",
+    }));
+
+    if (!addCompetence.fulfilled.match(result)) {
+      setSaveError(result.payload?.message || "Impossible d'ajouter la compétence. Réessayez.");
+      return;
     }
 
   } else {
-    // PUT request — plain object bhejo, FormData ki zaroorat nahi
     const result = await dispatch(updateCompetence({
       id: data.id,
       formData: {
         name: data.name,
         label: data.label,
         position: data.position,
-        status: data.status,
+        status: data.status === "1",
       }
     }));
 
-   if (updateCompetence.fulfilled.match(result)) {
-      dispatch(fetchCompetence({ page: 1, search, status: activeTab === "all" ? "" : activeTab }));
-      showToast();
+    if (!updateCompetence.fulfilled.match(result)) {
+      setSaveError(result.payload?.message || "Impossible de modifier la compétence. Réessayez.");
+      return;
     }
   }
 
+  dispatch(fetchCompetence({ page: 1, search, status: activeTab === "all" ? "" : activeTab }));
+  showToast();
   setDrawerMode(null);
   setEditSkill(null);
 }
@@ -256,12 +260,17 @@ async function handleSave(data) {
       {/* Header */}
       <div className="skills-header">
         <h1 className="skills-title">Compétences des candidats</h1>
-        <button className="skills-btn-new" onClick={() => { setDrawerMode("add"); setEditSkill(null); }}>
+        <button className="skills-btn-new" onClick={() => { setSaveError(null); setDrawerMode("add"); setEditSkill(null); }}>
           <IconPlus /> Nouvelle compétence
         </button>
       </div>
 
       {toast && <InlineToast message={toast} onClose={() => setToast(null)} />}
+      {saveError && (
+        <div role="alert" style={{ marginBottom: 16, padding: "12px 16px", borderRadius: 8, color: "#b42318", background: "#fef3f2", border: "1px solid #fecdca" }}>
+          {saveError}
+        </div>
+      )}
 
       {/* Tabs + search toolbar */}
       <div className="skills-tabs-row">
@@ -407,7 +416,7 @@ async function handleSave(data) {
           skill={editSkill}
           nextPosition={nextPosition}
           onSave={handleSave}
-          onClose={() => { setDrawerMode(null); setEditSkill(null); }}
+          onClose={() => { setSaveError(null); setDrawerMode(null); setEditSkill(null); }}
         />
       )}
       {deleteTarget !== null && (

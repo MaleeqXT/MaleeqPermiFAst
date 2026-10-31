@@ -155,7 +155,7 @@ function DetailRow({ icon, label, value }) {
   );
 }
 
-function CandidateCard({ candidate, email, phone, avatarUrl, onOpenProfile }) {
+function CandidateCard({ candidate, email, phone, avatarUrl, onOpenProfile, hideContactActions = false }) {
   const initials = getCandidateInitials(candidate);
   return (
     <div className="bd-card bd-candidate-card">
@@ -171,10 +171,10 @@ function CandidateCard({ candidate, email, phone, avatarUrl, onOpenProfile }) {
           <p>{email}</p>
           {phone && <p style={{ fontSize: "12px", color: "#6b7280", marginTop: 2 }}>{phone}</p>}
         </div>
-        {phone
+        {!hideContactActions && (phone
           ? <a href={`tel:${phone}`} className="bd-phone-button" aria-label={`Appeler ${candidate}`} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", textDecoration: "none" }}><IconPhone /></a>
           : <button type="button" className="bd-phone-button" disabled aria-label="Numéro non disponible"><IconPhone /></button>
-        }
+        )}
       </div>
 
       <button type="button" className="bd-inline-action" onClick={onOpenProfile}>
@@ -252,6 +252,7 @@ export default function BookingDrawer({
   onSavePedagogicalReview,
   drawerTitle = "Détails de la réservation",
   primaryActionLabel = " Appel immediat ",
+  hideAdminReservationActions = false,
 }) {
   const dispatch = useDispatch();
   const currentUser = useSelector((state) => state.auth.user);
@@ -481,6 +482,7 @@ export default function BookingDrawer({
               phone={booking.phone}
               avatarUrl={booking.candidateAvatar}
               onOpenProfile={() => setIsCandidateOpen(true)}
+              hideContactActions={hideAdminReservationActions}
             />
 
             {isAvailability && (
@@ -599,10 +601,10 @@ export default function BookingDrawer({
             </div>
           </section>
 
-          <NoticeCard review={review} onOpenReviewList={onOpenReviewList} />
+          {!hideAdminReservationActions && <NoticeCard review={review} onOpenReviewList={onOpenReviewList} />}
         </div>
 
-        <footer className="bd-footer">
+        {!hideAdminReservationActions && <footer className="bd-footer">
           {booking?.phone && !onOpenNotice ? (
             <a
               href={`tel:${booking.phone}`}
@@ -623,6 +625,7 @@ export default function BookingDrawer({
             </button>
           )}
         </footer>
+        }
       </aside>
 
       {isMapOpen && (
@@ -643,6 +646,7 @@ export default function BookingDrawer({
             onClose();
             onOpenAllSessions?.(candidateData);
           }}
+          hideContactActions={hideAdminReservationActions}
           onOpenCompetence={(candidateData) => {
             setIsCandidateOpen(false);
             onClose();

@@ -171,6 +171,7 @@ console.log("zoneId:", selectedSchool?.id);
   const [editPlace,    setEditPlace]    = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [toast,        setToast]        = useState(null);
+  const [saveError,    setSaveError]    = useState(null);
   const [search,       setSearch]       = useState("");
 
 useEffect(() => {
@@ -196,30 +197,40 @@ useEffect(() => {
   // }
 
   async function handleSave(data) {
-  if (drawerMode === "add") {
-    const formData = new FormData();
-    formData.append("name", data.name);
-    formData.append("map_url", data.mapUrl ?? "");
-    formData.append("status", data.status === "active" ? 1 : 0);
+  setSaveError(null);
 
-    const result = await dispatch(addPlacesByZone({ zoneId, formData }));
-    if (addPlacesByZone.fulfilled.match(result)) {
-      dispatch(fetchPlacesById({ zoneId, page: 1, search, status: activeTab === "all" ? "all" : activeTab }));
-      setToast("Lieu ajouté avec succès.");
+  if (drawerMode === "add") {
+    const result = await dispatch(addPlacesByZone({
+      zoneId,
+      place: {
+        name: data.name,
+        url: data.mapUrl ?? "",
+        status: data.status === "active",
+      },
+    }));
+
+    if (!addPlacesByZone.fulfilled.match(result)) {
+      setSaveError(result.payload?.message || "Impossible d'ajouter le lieu. Réessayez.");
+      return;
     }
   } else {
-    // update baad mein
-    const formData = new FormData();
-    formData.append("name", data.name);
-    formData.append("url", data.mapUrl ?? "");
-    formData.append("status", data.status === "active" ? 1 : 0);
+    const result = await dispatch(updatePlaceById({
+      placeId: data.id,
+      formData: {
+        name: data.name,
+        url: data.mapUrl ?? "",
+        status: data.status === "active",
+      },
+    }));
 
-    const result = await dispatch(updatePlaceById({ placeId: data.id, formData }));
-    if (updatePlaceById.fulfilled.match(result)) {
-      dispatch(fetchPlacesById({ zoneId, page: 1, search, status: activeTab === "all" ? "all" : activeTab }));
-      setToast("L'emplacement a été mis à jour avec succès.");
+    if (!updatePlaceById.fulfilled.match(result)) {
+      setSaveError(result.payload?.message || "Impossible de modifier le lieu. Réessayez.");
+      return;
     }
   }
+
+  dispatch(fetchPlacesById({ zoneId, page: 1, search, status: activeTab === "all" ? "all" : activeTab }));
+  setToast(drawerMode === "add" ? "Lieu ajouté avec succès." : "L'emplacement a été mis à jour avec succès.");
   setDrawerMode(null);
   setEditPlace(null);
   setPage(1);
@@ -274,7 +285,7 @@ const counts = {
         </div>
         <button
           className="zones-btn-new"
-          onClick={() => { setEditPlace(null); setDrawerMode("add"); }}
+          onClick={() => { setSaveError(null); setEditPlace(null); setDrawerMode("add"); }}
         >
           <IconPlus /> Ajouter un Lieu
         </button>
@@ -282,6 +293,11 @@ const counts = {
 
       {/* Toast */}
       {toast && <InlineToast message={toast} onClose={() => setToast(null)} />}
+      {saveError && (
+        <div role="alert" style={{ marginBottom: 16, padding: "12px 16px", borderRadius: 8, color: "#b42318", background: "#fef3f2", border: "1px solid #fecdca" }}>
+          {saveError}
+        </div>
+      )}
 
       {/* Tabs + icon buttons */}
       <div className="zones-tabs-row">
@@ -364,7 +380,7 @@ const counts = {
           mode={drawerMode}
           item={editPlace}
           onSave={handleSave}
-          onClose={() => { setDrawerMode(null); setEditPlace(null); }}
+          onClose={() => { setSaveError(null); setDrawerMode(null); setEditPlace(null); }}
         />
       )}
 

@@ -1,8 +1,38 @@
-import { useEffect, useMemo, useState } from "react";
+import { Component, useEffect, useMemo, useState } from "react";
 import http from "../helpers/http.jsx";
 import vehicleImage from "../assets/vehicle-image.png";
 import AddVehicleModal from "./AddVehicleModal";
 import "./VehicleManagementPage.css";
+
+class VehicleModalErrorBoundary extends Component {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidUpdate(previousProps) {
+    if (previousProps.resetKey !== this.props.resetKey && this.state.hasError) {
+      this.setState({ hasError: false });
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div
+          role="alert"
+          style={{ padding: "16px", margin: "16px 0", border: "1px solid #fecaca", borderRadius: "10px", background: "#fff7f7", color: "#991b1b" }}
+        >
+          Une erreur est survenue dans le formulaire véhicule. Veuillez le fermer puis le rouvrir.
+          <button type="button" onClick={this.props.onClose} style={{ marginLeft: "12px" }}>Fermer</button>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 function Icon({ children, className = "" }) {
   return (
@@ -731,14 +761,19 @@ export default function VehicleManagementPage({ selectedSchoolId }) {
         </section>}
       </div>
 
-      <AddVehicleModal
-        key={editingVehicle?.id || "new-vehicle"}
-        isOpen={isAddModalOpen}
+      <VehicleModalErrorBoundary
+        resetKey={`${isAddModalOpen}-${editingVehicle?.id || "new-vehicle"}`}
         onClose={() => { setIsAddModalOpen(false); setEditingVehicle(null); }}
-        vehicleToEdit={editingVehicle}
-        selectedSchoolId={selectedSchoolId}
-        onSaved={(saved) => { const vehicle = normalizeVehicle(saved); setVehicles((current) => current.some((item) => item.id === vehicle.id) ? current.map((item) => item.id === vehicle.id ? vehicle : item) : [vehicle, ...current]); setSelectedVehicleId(vehicle.id); setEditingVehicle(null); }}
-      />
+      >
+        <AddVehicleModal
+          key={editingVehicle?.id || "new-vehicle"}
+          isOpen={isAddModalOpen}
+          onClose={() => { setIsAddModalOpen(false); setEditingVehicle(null); }}
+          vehicleToEdit={editingVehicle}
+          selectedSchoolId={selectedSchoolId}
+          onSaved={(saved) => { const vehicle = normalizeVehicle(saved); setVehicles((current) => current.some((item) => item.id === vehicle.id) ? current.map((item) => item.id === vehicle.id ? vehicle : item) : [vehicle, ...current]); setSelectedVehicleId(vehicle.id); setEditingVehicle(null); }}
+        />
+      </VehicleModalErrorBoundary>
     </div>
   );
 }

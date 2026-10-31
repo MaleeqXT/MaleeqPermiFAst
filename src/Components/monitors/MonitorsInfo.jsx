@@ -600,7 +600,6 @@ useEffect(() => {
             <button className="nc-add-btn" type="button" onClick={handleSave}>
               Modifier le moniteur
             </button>
-            <button className="cp-action-btn cp-action-giveup" type="button" onClick={handleCancel}>Abandonner</button>
           </aside>
         </div>
       )}

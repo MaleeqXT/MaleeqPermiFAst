@@ -177,7 +177,6 @@ export default function CandidateProfile({ candidateId, initialData, onSaveProfi
             <button className="nc-add-btn" onClick={handleSave}>
               Modifier l'administrateur
             </button>
-            <button className="cp-action-btn cp-action-giveup">Abandonner</button>
           </aside>
         </div>
       )}

@@ -69,6 +69,7 @@ export default function CandidateProfileDrawer({
   onOpenAllSessions,
   onOpenPedagogicalComments,
   monitorId,
+  hideContactActions = false,
 }) {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -353,9 +354,11 @@ export default function CandidateProfileDrawer({
               <div className="cpd-name">{data.name}</div>
               <div className="cpd-email">{data.email}</div>
             </div>
-            <button className="cpd-phone-btn" aria-label="Appeler le candidat">
-              <IconPhone />
-            </button>
+            {!hideContactActions && (
+              <button className="cpd-phone-btn" aria-label="Appeler le candidat">
+                <IconPhone />
+              </button>
+            )}
           </div>
 
           <section className="cpd-card cpd-permit-code-card" aria-live="polite" aria-busy={profileExamLoading}>
@@ -544,11 +547,13 @@ export default function CandidateProfileDrawer({
           </button>
         </div>
 
-        <footer className="cpd-footer">
-          <button className="cpd-call-btn">
-            <IconPhone /> Appel immédiat
-          </button>
-        </footer>
+        {!hideContactActions && (
+          <footer className="cpd-footer">
+            <button className="cpd-call-btn">
+              <IconPhone /> Appel immédiat
+            </button>
+          </footer>
+        )}
       </aside>
     </>
   );

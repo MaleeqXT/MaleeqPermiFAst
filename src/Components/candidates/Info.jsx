@@ -427,7 +427,6 @@ const handleSave = async () => {
             <button className="cp-action-btn cp-action-modifier" onClick={handleSave}>
               Modifier le candidat
             </button>
-            <button className="cp-action-btn cp-action-giveup">Abandonner</button>
           </aside>
 
         </div>
