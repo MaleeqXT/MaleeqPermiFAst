@@ -10,6 +10,24 @@ const mediaUrl = (path) => {
   return apiAssetUrl(`${normalizedPath.startsWith("theory/questions/") ? "storage/" : ""}${normalizedPath}`);
 };
 const canSpeak = () => typeof window !== "undefined" && "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
+const frenchVoice = (voices = []) => {
+  const frenchVoices = voices.filter((voice) => /^fr(?:-|_)/i.test(voice.lang || ""));
+  if (!frenchVoices.length) return null;
+
+  // Windows, Chrome and Edge do not return voices in a consistent order. Prefer
+  // the higher-quality voices when the operating system has one installed.
+  const score = (voice) => {
+    const name = `${voice.name || ""} ${voice.voiceURI || ""}`.toLowerCase();
+    let value = 0;
+    if (/natural|neural|online|enhanced|premium/.test(name)) value += 100;
+    if (/microsoft|google|apple/.test(name)) value += 20;
+    if (/france|français|french/.test(name)) value += 5;
+    if (voice.default) value += 1;
+    return value;
+  };
+
+  return [...frenchVoices].sort((left, right) => score(right) - score(left))[0];
+};
 const equal = (a, b) => [...a].sort().join("|") === [...b].sort().join("|");
 const optionOffset = (parts, partIndex) => parts.slice(0, partIndex).reduce((total, part) => total + (part.options || []).length, 0);
 
@@ -37,7 +55,7 @@ export default function TheoryAdminPreview({ questions, title = "Aperçu adminis
   }, [question]);
   const stopMp3 = useCallback(() => { if (mp3Ref.current && !mp3Ref.current.paused) mp3Ref.current.pause(); }, []);
   const stopSpeech = useCallback(() => { runRef.current += 1; if (canSpeak()) window.speechSynthesis.cancel(); }, []);
-  const speak = useCallback((items) => { if (!canSpeak() || muted) return; stopMp3(); window.speechSynthesis.cancel(); const run = ++runRef.current; let at = 0; const phrases = items.filter(Boolean); const next = () => { if (runRef.current !== run || at >= phrases.length) return; const u = new window.SpeechSynthesisUtterance(phrases[at]); u.lang = "fr-FR"; u.rate = .93; u.voice = voices.find((voice) => /^fr(-|_)/i.test(voice.lang)) || null; u.onend = () => { if (runRef.current === run) { at += 1; window.setTimeout(next, 260); } }; window.speechSynthesis.speak(u); }; next(); }, [muted, stopMp3, voices]);
+  const speak = useCallback((items) => { if (!canSpeak() || muted) return; stopMp3(); window.speechSynthesis.cancel(); const run = ++runRef.current; let at = 0; const phrases = items.filter(Boolean); const next = () => { if (runRef.current !== run || at >= phrases.length) return; const u = new window.SpeechSynthesisUtterance(phrases[at]); u.lang = "fr-FR"; u.rate = .96; u.pitch = 1; u.volume = 1; u.voice = frenchVoice(voices.length ? voices : window.speechSynthesis.getVoices()) || null; u.onend = () => { if (runRef.current === run) { at += 1; window.setTimeout(next, 300); } }; u.onerror = () => { if (runRef.current === run) { at += 1; window.setTimeout(next, 300); } }; window.speechSynthesis.speak(u); }; next(); }, [muted, stopMp3, voices]);
   const readQuestion = useCallback(() => speak(parts.flatMap((part, partIndex) => [`Question ${partIndex + 1}. ${part.question_text}`, ...(part.options || []).map((option, optionIndex) => `Réponse ${String.fromCharCode(65 + (option.globalIndex ?? optionOffset(parts, partIndex) + optionIndex))} : ${option.label}`)])), [parts, speak]);
   const moveTo = (next) => { stopSpeech(); stopMp3(); setIndex(next); };
   useEffect(() => { setIndex(0); setAnswers({}); setValidated({}); setFailedImages({}); }, [questions]);
