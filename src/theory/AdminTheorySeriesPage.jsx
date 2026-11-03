@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import http from "../helpers/http.jsx";
+import TheoryAdminPreview from "./TheoryAdminPreview.jsx";
 import "./TheoryAdmin.css";
 import "./TheorySeriesAdmin.css";
 
@@ -20,6 +21,7 @@ export default function AdminTheorySeriesPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [previewing, setPreviewing] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -138,12 +140,24 @@ export default function AdminTheorySeriesPage() {
       question_text: "Chargement…",
     });
   }, [questionBank, questionIds, selected]);
+  const previewQuestions = useMemo(() => {
+    const existing = new Map((selected?.questions || []).map((question) => [question.id, question]));
+    return questionIds.map((id) => existing.get(id)).filter(Boolean);
+  }, [questionIds, selected]);
 
   const toggleQuestion = (id) => {
     setQuestionIds((current) => current.includes(id)
       ? current.filter((questionId) => questionId !== id)
-      : current.length < 40 ? [...current, id] : current);
+      : current.length < 200 ? [...current, id] : current);
   };
+  const moveQuestion = (id, direction) => setQuestionIds((current) => {
+    const index = current.indexOf(id);
+    const target = index + direction;
+    if (index < 0 || target < 0 || target >= current.length) return current;
+    const next = [...current];
+    [next[index], next[target]] = [next[target], next[index]];
+    return next;
+  });
 
   const startNew = () => {
     setSelected(null);
@@ -192,6 +206,7 @@ export default function AdminTheorySeriesPage() {
               <span className={item.questions_count >= 40 ? "complete" : "incomplete"}>{item.questions_count} questions dans le pool</span>
               {item.status !== "published" && <button type="button" disabled={saving || item.questions_count < 40} onClick={() => changePublication(item, "published")}>Publier</button>}
               {item.status === "published" && <button type="button" disabled={saving} onClick={() => changePublication(item, "draft")}>Dépublier</button>}
+              {item.status !== "archived" && <button type="button" className="theory-danger" disabled={saving} onClick={() => { if (window.confirm(`Archiver « ${item.title} » ?`)) changePublication(item, "archived"); }}>Archiver</button>}
             </footer>
           </article>)}
         </div>
@@ -212,15 +227,18 @@ export default function AdminTheorySeriesPage() {
         setQuestionCategory={setQuestionCategory}
         onSearch={loadQuestionBank}
         onToggleQuestion={toggleQuestion}
+        onMoveQuestion={moveQuestion}
+        onPreview={() => setPreviewing(true)}
         onCancel={startNew}
         onSubmit={saveSeries}
       />}
       {!form && <section className="theory-question-panel theory-series-empty"><h2>Sélectionnez une série</h2><p>Choisissez une série dans la liste ou créez-en une nouvelle pour gérer son titre, sa publication et son pool de questions.</p></section>}
+    {previewing && previewQuestions.length > 0 && <TheoryAdminPreview questions={previewQuestions.slice(0, 40)} title={`${selected.title} · aperçu des 40 premières questions`} onClose={() => setPreviewing(false)} />}
     </div>
   </div>;
 }
 
-function SeriesEditor({ form, selected, questionIds, selectedQuestions, questionBank, categories, questionSearch, questionCategory, saving, setForm, setQuestionSearch, setQuestionCategory, onSearch, onToggleQuestion, onCancel, onSubmit }) {
+function SeriesEditor({ form, selected, questionIds, selectedQuestions, questionBank, categories, questionSearch, questionCategory, saving, setForm, setQuestionSearch, setQuestionCategory, onSearch, onToggleQuestion, onMoveQuestion, onPreview, onCancel, onSubmit }) {
   return <form className="theory-question-panel theory-series-editor" onSubmit={onSubmit}>
     <div className="theory-series-editor-title">
       <div><span>{selected ? "MODIFIER LA SÉRIE" : "NOUVELLE SÉRIE"}</span><h2>{selected?.title || "Préparer une série"}</h2></div>
@@ -234,11 +252,11 @@ function SeriesEditor({ form, selected, questionIds, selectedQuestions, question
     {form.type === "exam" && <label>Durée (minutes)<input required type="number" min="1" max="180" value={form.duration_minutes} onChange={(event) => setForm((value) => ({ ...value, duration_minutes: Number(event.target.value) }))} /></label>}
     <label>Description<textarea value={form.description} onChange={(event) => setForm((value) => ({ ...value, description: event.target.value }))} placeholder="Optionnelle, visible par l’élève" /></label>
     {selected && <>
-      <div className="theory-series-count"><strong>{questionIds.length}/200 questions dans le pool</strong><span>{questionIds.length >= 40 ? "La série peut être publiée : chaque élève recevra 40 questions tirées au hasard." : `${40 - questionIds.length} question(s) manquante(s) avant publication.`}</span></div>
+      <div className="theory-series-count"><strong>{questionIds.length}/200 questions dans le pool</strong><span>{questionIds.length >= 40 ? "La série peut être publiée : chaque élève recevra 40 questions tirées au hasard." : `${40 - questionIds.length} question(s) manquante(s) avant publication.`}</span>{selectedQuestions.length > 0 && <button type="button" className="theory-secondary" onClick={onPreview}>Prévisualiser la série</button>}</div>
       <div className="theory-assignment-grid">
         <div>
           <h3>Questions retenues</h3>
-          <ol>{selectedQuestions.map((question, index) => <li key={question.id}><span><strong>{index + 1}. {question.public_id}</strong><small>{question.question_text}</small></span><button type="button" onClick={() => onToggleQuestion(question.id)} aria-label="Retirer la question">×</button></li>)}</ol>
+          <ol>{selectedQuestions.map((question, index) => <li key={question.id}><span><strong>{index + 1}. {question.public_id}</strong><small>{question.question_text}</small></span><div><button type="button" disabled={index === 0} onClick={() => onMoveQuestion(question.id, -1)} aria-label="Monter la question">↑</button><button type="button" disabled={index === selectedQuestions.length - 1} onClick={() => onMoveQuestion(question.id, 1)} aria-label="Descendre la question">↓</button><button type="button" onClick={() => onToggleQuestion(question.id)} aria-label="Retirer la question">×</button></div></li>)}</ol>
         </div>
         <div>
           <h3>Banque de questions</h3>
