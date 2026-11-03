@@ -626,6 +626,7 @@ export default function MonitorSessions({
   onEventsChange,
   onOpenProposeSession,
   onOpenAllSessions,
+  onOpenReviewList,
   onProposalCreated,
   initialSelectedAvailabilityIds = [],
   monitorId = null,
@@ -711,9 +712,15 @@ const [cancelTargetBooking, setCancelTargetBooking] = useState(null);
 
     // Add proposals that don't have a matching availability in current week
     const scheduleIds = new Set(scheduleEvents.map((e) => String(e.id)));
-    const standaloneProposals = proposalItems.filter(
-      (p) => !scheduleIds.has(String(p.reservationId ?? ""))
-    );
+    const standaloneProposals = proposalItems
+      .filter((p) => !scheduleIds.has(String(p.reservationId ?? "")))
+      .map((proposal) => ({
+        ...proposal,
+        // Keep the proposal and reservation identifiers distinct. A standalone
+        // proposal is not merged with a calendar reservation event, so it does
+        // not receive this field from the block above.
+        proposalId: proposal.id,
+      }));
 
     return [...scheduleEvents, ...standaloneProposals];
   }, [proposalItems, reservationGroups]);
@@ -1581,6 +1588,11 @@ const handleConfirmSessionCancellation = async ({ justification }) => {
           onClose={() => setActiveBooking(null)}
           onOpenProposeSession={handleOpenProposalFlow}
           onOpenAllSessions={onOpenAllSessions}
+          onOpenReviewList={() => {
+            const booking = activeBooking;
+            setActiveBooking(null);
+            onOpenReviewList?.(booking);
+          }}
           onCancelSession={activeBooking.type === "reservation" ? handleOpenCancelSessionModal : undefined}
         />
       )}
@@ -1622,8 +1634,8 @@ const handleConfirmSessionCancellation = async ({ justification }) => {
             location: activeProposal.mapLocation || activeProposal.place,
             mapUrl: activeProposal.mapUrl ?? null,
           }}
-          proposalId={activeProposal.proposalId ?? null}
-          reservationId={activeProposal.id ?? null}
+          proposalId={activeProposal.proposalId ?? activeProposal.id ?? null}
+          reservationId={activeProposal.reservationId ?? null}
           onClose={() => setActiveProposal(null)}
           onCancel={handleCancelProposal}
         />

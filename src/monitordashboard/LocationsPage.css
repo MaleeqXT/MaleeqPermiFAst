@@ -223,6 +223,26 @@
   line-height: 1.5;
 }
 
+.mp-area-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  color: #4b5563;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.mp-area-picker select {
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  background: #fff;
+  color: #1f2937;
+  padding: 0 12px;
+  font: inherit;
+}
+
 .mp-message {
   border-radius: 12px;
   padding: 12px 14px;

@@ -191,7 +191,7 @@ export default function CandidatePaymentPage() {
           </div>
         </section>
 
-        <section className="nspay-contact-strip"><span><InfoIcon /></span><p><strong>Une question ?</strong> Contactez votre équipe pédagogique, nous sommes là pour vous accompagner.</p><button type="button">Nous contacter</button></section>
+        <section className="nspay-contact-strip"><span><InfoIcon /></span><p><strong>Une question ?</strong> Contactez votre équipe pédagogique, nous sommes là pour vous accompagner.</p><button type="button" onClick={() => navigate("/student-contact")}>Nous contacter</button></section>
       </main>
 
       {activeModal === "payment-info" && <ModalShell title="Payer maintenant" description="Le paiement en ligne n’est pas connecté à cette interface de démonstration." onClose={() => setActiveModal(null)}><div className="nspay-payment-notice"><span><CardIcon /></span><div><small>Reste à payer</small><strong>{payments ? formatCurrency(payments.remaining) : "—"}</strong><p>Aucune opération bancaire ne sera effectuée depuis cette maquette.</p></div></div><footer className="nspay-modal-actions"><button type="button" className="primary" onClick={() => setActiveModal(null)}>Compris</button></footer></ModalShell>}
