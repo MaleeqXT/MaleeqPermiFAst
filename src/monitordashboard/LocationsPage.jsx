@@ -13,6 +13,14 @@ import {
   selectMonitorProfile,
   selectMonitorProfileLoading,
 } from "../redux/reducers/monitorProfileSlice.jsx";
+import {
+  fetchZones,
+  fetchPlacesByZone,
+  selectZones,
+  selectZonesStatus,
+  selectPlacesForZone,
+  selectPlacesStatusForZone,
+} from "../redux/reducers/locationSlice.jsx";
 
 // ─── Icons ───────────────────────────────────────────────────────────────────
 
@@ -89,7 +97,17 @@ function ZoneSection({ zone, selectedIds, onToggle }) {
 // ─── Drawer ──────────────────────────────────────────────────────────────────
 
 function PlaceSelectionDrawer({ zones, loadingZones, selectedIds, onToggle, onClose, onSave, saving }) {
+  const dispatch = useDispatch();
   const canSave = selectedIds.length > 0 && !saving;
+  const [selectedZoneId, setSelectedZoneId] = useState("");
+  const selectedZone = zones.find((zone) => String(zone.id) === selectedZoneId) ?? null;
+  const places = useSelector(selectPlacesForZone(selectedZoneId));
+  const placesStatus = useSelector(selectPlacesStatusForZone(selectedZoneId));
+  const placesLoading = Boolean(selectedZoneId) && placesStatus === "loading";
+
+  useEffect(() => {
+    if (selectedZoneId) dispatch(fetchPlacesByZone(selectedZoneId));
+  }, [dispatch, selectedZoneId]);
 
   return (
     <>
@@ -102,6 +120,19 @@ function PlaceSelectionDrawer({ zones, loadingZones, selectedIds, onToggle, onCl
         </div>
 
         <div className="mp-drawer-body">
+          <label className="mp-area-picker">
+            <span>Select an area</span>
+            <select
+              value={selectedZoneId}
+              onChange={(event) => setSelectedZoneId(event.target.value)}
+              disabled={loadingZones || saving}
+            >
+              <option value="">Select an area</option>
+              {zones.map((zone) => (
+                <option key={zone.id} value={zone.id}>{zone.name}</option>
+              ))}
+            </select>
+          </label>
           <div className="mp-zone-summary">
             <div className="mp-zone-summary-label">Sélection des lieux</div>
             <div className="mp-zone-summary-note">
@@ -111,7 +142,7 @@ function PlaceSelectionDrawer({ zones, loadingZones, selectedIds, onToggle, onCl
 
           <div className="mp-places-label">Zones et lieux</div>
 
-          {loadingZones ? (
+          {loadingZones || placesLoading ? (
             <div className="mp-place-loading" style={{ padding: "24px 0", textAlign: "center" }}>
               Chargement des lieux...
             </div>
@@ -121,14 +152,16 @@ function PlaceSelectionDrawer({ zones, loadingZones, selectedIds, onToggle, onCl
             </div>
           ) : (
             <div className="mp-zones-sections">
-              {zones.map((zone) => (
+              {selectedZone ? (
                 <ZoneSection
-                  key={zone.id}
-                  zone={zone}
+                  key={selectedZone.id}
+                  zone={{ ...selectedZone, lieux: places }}
                   selectedIds={selectedIds}
                   onToggle={onToggle}
                 />
-              ))}
+              ) : (
+                <div className="mp-place-empty">Select an area to view meeting places.</div>
+              )}
             </div>
           )}
         </div>
@@ -150,13 +183,15 @@ function PlaceSelectionDrawer({ zones, loadingZones, selectedIds, onToggle, onCl
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-export default function MeetingPlacesPage({ onBack }) {
+export default function MeetingPlacesPage({ onBack, monitorId = null }) {
   const dispatch = useDispatch();
 
   // All available zones+lieux (for the drawer)
   const allZones    = useSelector(selectMonitorLieuxZones);
   const loadingAll  = useSelector(selectMonitorLieuxLoading);
   const saving      = useSelector(selectMonitorLieuxSaving);
+  const availableZones = useSelector(selectZones);
+  const availableZonesStatus = useSelector(selectZonesStatus);
 
   // Monitor profile — contains monitor.lieux (his selected places)
   const profile        = useSelector(selectMonitorProfile);
@@ -176,9 +211,10 @@ export default function MeetingPlacesPage({ onBack }) {
 
   // ── Fetch both on mount ──────────────────────────────────────────────────
   useEffect(() => {
-    dispatch(fetchMonitorLieux());    // all available zones+lieux
-    dispatch(fetchMonitorProfile());  // monitor's selected lieux
-  }, [dispatch]);
+    dispatch(fetchMonitorLieux(monitorId));    // all available zones+lieux
+    dispatch(fetchMonitorProfile(monitorId));  // monitor's selected lieux
+    dispatch(fetchZones());           // master areas from /locations
+  }, [dispatch, monitorId]);
 
   // ── Pre-fill drawer with monitor's current selection when it opens ───────
   useEffect(() => {
@@ -200,9 +236,12 @@ export default function MeetingPlacesPage({ onBack }) {
     setError("");
     setMessage("");
     try {
-      await dispatch(storeMonitorLieux({ lieux: selectedIds })).unwrap();
-      // Re-fetch profile so savedPlaceIds updates from server
-      await dispatch(fetchMonitorProfile());
+      await dispatch(storeMonitorLieux({ lieux: selectedIds, monitorId })).unwrap();
+      // Refresh both sources so the saved places render immediately below.
+      await Promise.all([
+        dispatch(fetchMonitorProfile(monitorId)).unwrap(),
+        dispatch(fetchMonitorLieux(monitorId)).unwrap(),
+      ]);
       setShowDrawer(false);
       setMessage("Les lieux de rendez-vous ont été enregistrés.");
     } catch (err) {
@@ -290,8 +329,8 @@ export default function MeetingPlacesPage({ onBack }) {
 
       {showDrawer && (
         <PlaceSelectionDrawer
-          zones={allZones}
-          loadingZones={loadingAll}
+          zones={availableZones}
+          loadingZones={availableZonesStatus === "loading"}
           selectedIds={selectedIds}
           onToggle={handleToggle}
           onClose={() => setShowDrawer(false)}

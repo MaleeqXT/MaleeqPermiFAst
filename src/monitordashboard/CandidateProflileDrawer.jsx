@@ -354,11 +354,6 @@ export default function CandidateProfileDrawer({
               <div className="cpd-name">{data.name}</div>
               <div className="cpd-email">{data.email}</div>
             </div>
-            {!hideContactActions && (
-              <button className="cpd-phone-btn" aria-label="Appeler le candidat">
-                <IconPhone />
-              </button>
-            )}
           </div>
 
           <section className="cpd-card cpd-permit-code-card" aria-live="polite" aria-busy={profileExamLoading}>

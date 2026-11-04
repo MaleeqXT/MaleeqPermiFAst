@@ -7,9 +7,11 @@ import http from "../../helpers/http.jsx";
 // The monitor's selected lieux come from GET /monitor/profile -> monitor.lieux
 export const fetchMonitorLieux = createAsyncThunk(
   "monitorLieux/fetch",
-  async (_, { rejectWithValue }) => {
+  async (monitorId = null, { rejectWithValue }) => {
     try {
-      const response = await http.get("/monitor/places");
+      const response = await http.get("/monitor/places", {
+        params: monitorId ? { monitor_id: monitorId } : undefined,
+      });
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data || { message: "Unable to load lieux" });
@@ -21,9 +23,12 @@ export const fetchMonitorLieux = createAsyncThunk(
 // Body: { lieux: [id1, id2, ...] }
 export const storeMonitorLieux = createAsyncThunk(
   "monitorLieux/store",
-  async ({ lieux }, { rejectWithValue }) => {
+  async ({ lieux, monitorId = null }, { rejectWithValue }) => {
     try {
-      const response = await http.post("/monitor/places", { lieux });
+      const response = await http.post("/monitor/places", {
+        lieux,
+        ...(monitorId ? { monitor_id: monitorId } : {}),
+      });
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data || { message: "Unable to save lieux" });

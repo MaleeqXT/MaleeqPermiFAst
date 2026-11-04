@@ -232,7 +232,7 @@ function MonitorChatContent({ monitorId, actorId, onNavigate }) {
               <p><strong>Lundi - Vendredi</strong><span>08h00 - 18h00</span></p>
               <p><strong>Samedi</strong><span>09h00 - 13h00</span></p>
             </div>
-            <button type="button" onClick={() => onNavigate?.('settings')}>Gérer mes disponibilités</button>
+            <button type="button" onClick={() => onNavigate?.('sessions')}>Gérer mes disponibilités</button>
           </section>
         </aside>
       </section>

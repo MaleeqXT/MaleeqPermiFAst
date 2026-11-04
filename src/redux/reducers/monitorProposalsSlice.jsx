@@ -125,9 +125,12 @@ export const createProposals = createAsyncThunk(
 
 export const fetchAllProposals = createAsyncThunk(
   "monitorProposals/fetchAll",
-  async ({ search = "" } = {}, { rejectWithValue }) => {
+  async ({ search = "", status = 1 } = {}, { rejectWithValue }) => {
     try {
-      const params = {};
+      // This screen is the monitor's pending-proposals list. Accepted or
+      // refused proposals are historical sessions and cannot be cancelled
+      // through the proposal endpoint.
+      const params = { status };
       if (search && search.trim()) {
         params.search = search.trim();
       }
