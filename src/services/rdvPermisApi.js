@@ -7,11 +7,13 @@ const rdvPermisApi = {
   connect: () => http.post("/rdvpermis/connect"),
   currentSchool: () => http.get("/rdvpermis/current-school"),
   employees: () => http.get("/rdvpermis/employees"),
+  trainerAssignments: () => http.get("/rdvpermis/trainer-assignments"),
 
   searchCentres: (payload) => http.post("/rdvpermis/centres/recherche", payload),
   centreDetails: (centreId) => http.get(`/rdvpermis/centres/${encodeURIComponent(centreId)}`),
   searchPlanning: (payload) => http.post("/rdvpermis/planning/recherche", payload),
   searchEligibleCandidates: (payload) => http.post("/rdvpermis/candidats/recherche", payload),
+  searchHeavyVehicleCandidates: (payload) => http.post("/rdvpermis/candidats-groupe-lourd/recherche", payload),
   searchMandatedCandidates: (payload) => http.post("/rdvpermis/candidats-mandats/recherche", payload),
 
   listExams: (params) => http.get("/rdvpermis/examens", { params }),
@@ -22,7 +24,7 @@ const rdvPermisApi = {
   replaceExamCandidate: (payload) => http.post("/rdvpermis/examens/remplacement", payload),
   permuteExams: (payload) => http.post("/rdvpermis/examens/permutation", payload),
 
-  listPaniers: () => http.get("/rdvpermis/paniers"),
+  listPaniers: (params = {}) => http.get("/rdvpermis/paniers", { params }),
   panierDetails: (panierId) => http.get(`/rdvpermis/paniers/${encodeURIComponent(panierId)}`),
   createPanier: (payload = {}) => http.post("/rdvpermis/paniers", payload),
   addPanierSlot: (panierId, payload) => http.post(`/rdvpermis/paniers/${encodeURIComponent(panierId)}/creneaux`, payload),

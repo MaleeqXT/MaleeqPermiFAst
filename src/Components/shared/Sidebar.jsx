@@ -135,6 +135,7 @@ const NAV_STRUCTURE = [
   { type: "item", path: "/theory-accesses", label: "Accès Code en espèces", icon: <ExamsIcon />,          alwaysEnabled: true },
 
   { type: "item", path: "/rdvpermis",       label: "RdvPermis",                 icon: <RdvPermisIcon />,      alwaysEnabled: true },
+  { type: "item", path: "/livret-numerique", label: "Livret Numérique",          icon: <RdvPermisIcon />,      alwaysEnabled: true },
 
   { type: "item", path: "/billing",         label: "Facturation",               icon: <BillingIcon />,        alwaysEnabled: true },
   { type: "item", path: "/form-cpf",        label: "Form CPF",                  icon: <FormCPFIcon />,        alwaysEnabled: true },

@@ -11,6 +11,7 @@ let browser;
 let context;
 let page;
 let origin;
+let allowedApiOrigins;
 let calls;
 let overrides;
 let failures;
@@ -28,6 +29,8 @@ const section = (name) => page.locator("section").filter({ has: page.getByRole("
 function defaultResponse(call) {
   const { path, method } = call;
   if (path.endsWith("/status")) return response({ data: { status: "connected", connected: true, configured: true, environment: "mocked" } });
+  if (path.endsWith("/current-school")) return response({ id: "school-1", nom: "Auto-école fixture", formateursParDepartement: [] });
+  if (path.endsWith("/trainer-assignments")) return response({ data: [] });
   if (path.endsWith("/admin/users/students")) return response({ data: { data: [{ id: 9, first_name: "Élève", last_name: "Fixture", email: "fixture@example.test", student: { id: "student-1", neph: "001234567890" } }], last_page: 1 } });
   if (path.endsWith("/centres/recherche")) return response([{ id: centreId, nom: "Centre fixture" }]);
   if (path.endsWith("/planning/recherche")) return response([{ creneauDuPlanning: { id: slotId, nom: "Créneau fixture", dateHeureDebut: "2026-10-20T10:00:00" } }]);
@@ -59,6 +62,10 @@ before(async () => {
   });
   await server.listen();
   origin = `http://127.0.0.1:${server.httpServer.address().port}`;
+  // Local development deliberately sends /api requests through Vite's
+  // same-origin proxy. Keep the former explicit mock origin too, so the
+  // fixture remains valid if the API-base strategy changes.
+  allowedApiOrigins = new Set([origin, apiOrigin]);
   browser = await chromium.launch({ headless: true, channel: process.env.RDVPERMIS_TEST_BROWSER || "chrome" });
 });
 
@@ -76,7 +83,7 @@ beforeEach(async () => {
     const request = route.request();
     const url = new URL(request.url());
     if (url.origin === origin && !url.pathname.startsWith("/api/")) return route.continue();
-    if (url.origin !== apiOrigin || !url.pathname.startsWith("/api/")) {
+    if (!allowedApiOrigins.has(url.origin) || !url.pathname.startsWith("/api/")) {
       failures.push(`Blocked unexpected network request: ${url.origin}${url.pathname}`);
       return route.abort();
     }
@@ -167,6 +174,41 @@ test("local student selector loads every local pagination page, not just the fir
   await page.getByRole("button", { name: "Charger les élèves", exact: true }).click();
   await page.getByRole("combobox", { name: /^Élève local/ }).selectOption("student-page-2");
   assert.deepEqual(calls.filter((call) => call.path.endsWith("/admin/users/students")).map((call) => call.query.page), ["1", "2"]);
+});
+
+test("current-school trainer counts are rendered as a labelled table", async () => {
+  overrides.set("GET /api/rdvpermis/current-school", () => response({
+    id: "school-1",
+    formateursParDepartement: [{ codeDepartement: "033", nombreDeFormateursPermisB: 5.5, nombreDeFormateursPermisA: 4 }],
+  }));
+  await page.getByRole("button", { name: "Charger l’auto-école", exact: true }).click();
+  const school = section("Auto-école actuelle");
+  await school.getByRole("heading", { name: "Formateurs déclarés par département", exact: true }).waitFor();
+  assert.match(await school.locator("table").innerText(), /033[\s\S]*5\.5[\s\S]*4/);
+});
+
+test("trainer assignments use only the verified read path and preserve an opaque response", async () => {
+  overrides.set("GET /api/rdvpermis/trainer-assignments", () => response({ opaque: { preserved: true } }));
+  const assignments = section("Affectations des formateurs");
+  await assignments.getByRole("button", { name: "Charger les affectations", exact: true }).click();
+  await assignments.getByText("opaque", { exact: true }).waitFor();
+  assert.equal(calls.filter((call) => call.path.endsWith("/trainer-assignments")).length, 1);
+});
+
+test("past exam dates are rejected before an API request", async () => {
+  const exams = section("Examens programmés");
+  await exams.getByLabel("Date").fill("2000-01-01");
+  await exams.getByRole("button", { name: "Lister les examens", exact: true }).click();
+  await page.getByRole("alert").getByText("La date des examens ne peut pas être antérieure à aujourd’hui.", { exact: true }).waitFor();
+  assert.equal(calls.filter((call) => call.path.endsWith("/examens")).length, 0);
+});
+
+test("non-modifiable or cancelled exams disable cancellation and modification actions", async () => {
+  overrides.set(`GET /api/rdvpermis/examens/${exam.id}`, () => response({ ...exam, estModifiable: false, estAnnule: true }));
+  const exams = section("Examens programmés");
+  await exams.getByRole("button", { name: "Lister les examens", exact: true }).click();
+  await exams.getByRole("button", { name: "Voir le détail", exact: true }).click();
+  assert.equal(await exams.getByRole("button", { name: "Annuler l’examen", exact: true }).isDisabled(), true);
 });
 
 test("panier transitions and candidate assignment use the selected provider slot/candidate", async () => {

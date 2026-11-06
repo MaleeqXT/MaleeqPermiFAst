@@ -17,7 +17,11 @@ const STEPS = ["Centre", "Créneau", "Créer le panier", "Ajouter le créneau", 
 const today = localCalendarDate();
 
 function unwrap(response) {
-  return response?.data?.data ?? response?.data ?? null;
+  const payload = response?.data;
+  // Provider pagination carries its list in `data`; retaining the surrounding
+  // object is necessary to keep the verified French pagination metadata.
+  if (payload && typeof payload === "object" && ["nombreTotalPages", "pageCourante", "nombreTotalElements", "nombreElementsPageCourante"].some((key) => key in payload)) return payload;
+  return payload?.data ?? payload ?? null;
 }
 
 function asList(value, keys = []) {
@@ -103,6 +107,17 @@ function expirationText(value, now) {
   return `Expire dans ${Math.floor(totalMinutes / 60)} h ${totalMinutes % 60} min`;
 }
 
+function panierPagination(value) {
+  const pagination = value?.pagination && typeof value.pagination === "object" ? value.pagination : value;
+  return {
+    totalPages: Number(pagination?.nombreTotalPages) || 1,
+    page: Number(pagination?.pageCourante) || 1,
+    pageSize: Number(pagination?.parPage) || 20,
+    total: Number(pagination?.nombreTotalElements),
+    count: Number(pagination?.nombreElementsPageCourante),
+  };
+}
+
 function statusLabel(status) {
   return {
     connected: "Connecté",
@@ -149,6 +164,49 @@ function JsonDetails({ value }) {
   ) : <EmptyState />;
 }
 
+function TrainerCounts({ school }) {
+  const counts = Array.isArray(school?.formateursParDepartement) ? school.formateursParDepartement : [];
+  if (!counts.length) return null;
+
+  return <div className="rdv-subsection"><h3>Formateurs déclarés par département</h3><div className="rdv-table-wrap"><table className="rdv-table"><thead><tr><th>Département</th><th>Formateurs permis B</th><th>Formateurs permis A</th></tr></thead><tbody>{counts.map((count, index) => <tr key={count?.codeDepartement ?? index}><td>{count?.codeDepartement ?? "—"}</td><td>{count?.nombreDeFormateursPermisB ?? "—"}</td><td>{count?.nombreDeFormateursPermisA ?? "—"}</td></tr>)}</tbody></table></div></div>;
+}
+
+function SchoolDetails({ school }) {
+  const fields = [
+    ["Identifiant", school?.id],
+    ["Nom", school?.nom],
+    ["E-mail de notification", school?.emailNotification],
+    ["Code postal", school?.codePostal],
+    ["Ville", school?.ville],
+    ["Identifiant Aurige", school?.aurigeId],
+    ["Plateforme", school?.estPlateforme === true ? "Oui" : school?.estPlateforme === false ? "Non" : "Non communiqué"],
+    ["Bloquée", school?.estBloquee === true ? "Oui" : school?.estBloquee === false ? "Non" : "Non communiqué"],
+  ];
+  return <><dl className="rdv-details">{fields.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value ?? "—"}</dd></div>)}</dl><TrainerCounts school={school} /></>;
+}
+
+function ExamDetails({ exam }) {
+  if (!exam || typeof exam !== "object") return null;
+  const candidate = nestedItem(exam.candidat, ["candidat"]);
+  const centre = nestedItem(exam.centre, ["centre"]);
+  const canModify = exam.estModifiable !== false && exam.estAnnule !== true;
+  const fields = [
+    ["Centre", centre.nom ?? centre.libelle ?? "—"],
+    ["Inspecteur", exam.numeroInspecteur ?? "—"],
+    ["Début", exam.dateHeureDebut ?? "—"],
+    ["Fin", exam.dateHeureFin ?? "—"],
+    ["Groupe de permis", exam.groupePermis ?? "—"],
+    ["Statut de réservation", exam.statutDeReservation ?? exam.statut ?? "—"],
+    ["Épreuve pratique", exam.typeEpreuvePratique ?? "—"],
+    ["Candidat", [candidate.prenom, candidate.nom].filter(Boolean).join(" ") || "—"],
+    ["NEPH / dossier", candidate.numeroDossier ?? candidate.neph ?? "—"],
+    ["Modifiable", exam.estModifiable === true ? "Oui" : exam.estModifiable === false ? "Non" : "Non communiqué"],
+    ["Annulé", exam.estAnnule === true ? "Oui" : exam.estAnnule === false ? "Non" : "Non communiqué"],
+  ];
+
+  return <div className="rdv-subsection"><h3>Détails de l’examen</h3><dl className="rdv-details">{fields.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{String(value)}</dd></div>)}</dl>{!canModify && <p className="rdv-helper">Cet examen n’est plus modifiable dans RdvPermis.</p>}</div>;
+}
+
 function ConfirmationDialog({ action, onCancel, onConfirm, busy }) {
   if (!action) return null;
   return (
@@ -172,6 +230,7 @@ export default function RdvPermisPage() {
   const [status, setStatus] = useState(null);
   const [school, setSchool] = useState(null);
   const [employees, setEmployees] = useState(null);
+  const [trainerAssignments, setTrainerAssignments] = useState(null);
   const [centreSearch, setCentreSearch] = useState({ codeDepartement: "", groupePermis: "B", estFerme: false });
   const [centres, setCentres] = useState(null);
   const [selectedCentre, setSelectedCentre] = useState(null);
@@ -190,6 +249,8 @@ export default function RdvPermisPage() {
   const [mandates, setMandates] = useState(null);
   const [panier, setPanier] = useState(null);
   const [paniers, setPaniers] = useState(null);
+  const [panierFilters, setPanierFilters] = useState({ page: 1, parPage: 20, employeAutoEcoleId: "" });
+  const [panierOwnerId, setPanierOwnerId] = useState("");
   const [panierDetail, setPanierDetail] = useState(null);
   const [validationResult, setValidationResult] = useState(null);
   const [selectedExam, setSelectedExam] = useState(null);
@@ -219,6 +280,7 @@ export default function RdvPermisPage() {
   const eligibleCandidates = useMemo(() => asList(eligibility, ["candidats", "items", "content", "data"]), [eligibility]);
   const examItems = useMemo(() => asList(exams, ["examens", "items", "content", "data"]), [exams]);
   const studentItems = useMemo(() => asList(localStudents, ["data", "students", "items"]), [localStudents]);
+  const employeeItems = useMemo(() => asList(employees, ["employes", "employees", "items", "data"]), [employees]);
   const studentProfiles = useMemo(() => studentItems.map(studentProfile), [studentItems]);
   const selectedStudent = useMemo(
     () => studentProfiles.find((student) => student.id === localStudentId) ?? null,
@@ -244,6 +306,9 @@ export default function RdvPermisPage() {
   const selectedSlotId = useMemo(() => getSlotId(selectedSlot), [selectedSlot]);
   const basketExpired = isPanierExpired(panierDetail ?? panier, clock);
   const bookingLocked = basketExpired || Boolean(validationResult);
+  const panierPageData = useMemo(() => panierPagination(paniers), [paniers]);
+  const selectedExamData = examDetail && typeof examDetail === "object" ? examDetail : selectedExam;
+  const selectedExamIsModifiable = selectedExamData?.estModifiable !== false && selectedExamData?.estAnnule !== true;
 
   useEffect(() => {
     if (!basketId && paniers === null) return undefined;
@@ -436,6 +501,10 @@ export default function RdvPermisPage() {
 
   const searchExams = (event) => {
     event.preventDefault();
+    if (examFilter.date < today) {
+      setError("La date des examens ne peut pas être antérieure à aujourd’hui.");
+      return;
+    }
     runRead("exams", () => rdvPermisApi.listExams(examFilter), setExams);
   };
 
@@ -454,7 +523,7 @@ export default function RdvPermisPage() {
     Promise.all([
       runRead("school", rdvPermisApi.currentSchool, setSchool),
       runRead("students", rdvPermisApi.listAllLocalStudents, setLocalStudents),
-      runRead("paniers", rdvPermisApi.listPaniers, setPaniers),
+      loadPaniers(),
       runRead("exams", () => rdvPermisApi.listExams(examFilter), setExams),
     ]);
   };
@@ -474,7 +543,11 @@ export default function RdvPermisPage() {
     }), setMandates);
   };
 
-  const loadPaniers = () => runRead("paniers", rdvPermisApi.listPaniers, setPaniers);
+  const loadPaniers = (filters = panierFilters) => runRead("paniers", () => rdvPermisApi.listPaniers({
+    page: filters.page,
+    parPage: filters.parPage,
+    ...(filters.employeAutoEcoleId ? { employeAutoEcoleId: filters.employeAutoEcoleId } : {}),
+  }), setPaniers);
 
   const loadPanierDetail = (panierId = basketId) => {
     if (!panierId) return;
@@ -538,7 +611,7 @@ export default function RdvPermisPage() {
     "create-panier",
     "Créer un nouveau panier RdvPermis pour le créneau sélectionné.",
     async () => {
-      const response = await rdvPermisApi.createPanier();
+      const response = await rdvPermisApi.createPanier(panierOwnerId ? { employeAutoEcoleId: panierOwnerId } : {});
       const data = unwrap(response);
       const id = itemId(data) || String(response.headers?.location ?? "").split("/").filter(Boolean).at(-1);
       if (!id) throw new Error("missing_panier_identifier");
@@ -748,12 +821,22 @@ export default function RdvPermisPage() {
 
       <section className="rdv-card">
         <div className="rdv-card-heading"><div><h2>Auto-école actuelle</h2><p>Vérification en lecture seule auprès de RdvPermis.</p></div><button type="button" className="rdv-button rdv-button--secondary" onClick={() => runRead("school", rdvPermisApi.currentSchool, setSchool)} disabled={loading.school}>{loading.school ? "Chargement…" : "Charger l’auto-école"}</button></div>
-        {school ? <JsonDetails value={school} /> : <EmptyState>Chargez les informations de l’auto-école pour les afficher ici.</EmptyState>}
+        {school ? <SchoolDetails school={school} /> : <EmptyState>Chargez les informations de l’auto-école pour les afficher ici.</EmptyState>}
+      </section>
+
+      <section className="rdv-card">
+        <div className="rdv-card-heading"><div><h2>Affectations des formateurs</h2><p>Chemin v2 vérifié ; le schéma de réponse reste à confirmer.</p></div><button type="button" className="rdv-button rdv-button--secondary" onClick={() => runRead("trainerAssignments", rdvPermisApi.trainerAssignments, setTrainerAssignments)} disabled={loading.trainerAssignments}>{loading.trainerAssignments ? "Chargement…" : "Charger les affectations"}</button></div>
+        {trainerAssignments !== null ? <JsonDetails value={trainerAssignments} /> : <EmptyState>Le détail des affectations sera affiché sans transformation lorsque RdvPermis le retournera.</EmptyState>}
       </section>
 
       <section className="rdv-card">
         <div className="rdv-card-heading"><div><h2>Employés de l’auto-école</h2><p>Lecture seule des employés retournés par le contrat v2 actuellement vérifié.</p></div><button type="button" className="rdv-button rdv-button--secondary" onClick={() => runRead("employees", rdvPermisApi.employees, setEmployees)} disabled={loading.employees}>{loading.employees ? "Chargement…" : "Charger les employés"}</button></div>
         {employees !== null && (asList(employees, ["employes", "employees", "items", "data"]).length ? <div className="rdv-result-list">{asList(employees, ["employes", "employees", "items", "data"]).map((employee, index) => <article className="rdv-result-row" key={itemId(employee) || index}><div><strong>{itemTitle(employee, "Employé")}</strong><span>{employee.email ?? employee.role ?? itemId(employee)}</span></div></article>)}</div> : <EmptyState>Aucun employé retourné par RdvPermis.</EmptyState>)}
+      </section>
+
+      <section className="rdv-card">
+        <div className="rdv-card-heading"><div><h2>Candidats groupe lourd</h2><p>Le chemin provider v2 est vérifié, mais le schéma de recherche actuel n’a pas encore été capturé.</p></div></div>
+        <EmptyState>La recherche n’est pas envoyée tant que les champs et la réponse Swagger ne sont pas vérifiés.</EmptyState>
       </section>
 
       <section className="rdv-card">
@@ -804,9 +887,9 @@ export default function RdvPermisPage() {
 
       <section className="rdv-card">
         <div className="rdv-card-heading"><div><h2>Examens programmés</h2><p>Liste en lecture seule des examens RdvPermis.</p></div></div>
-        <form className="rdv-form-grid" onSubmit={searchExams}>
+        <form className="rdv-form-grid" noValidate onSubmit={searchExams}>
           <Field label="Groupe de permis"><select value={examFilter.groupePermis} onChange={(event) => setExamFilter((current) => ({ ...current, groupePermis: event.target.value }))}><option value="A">A</option><option value="B">B</option></select></Field>
-          <Field label="Date"><input required type="date" value={examFilter.date} onChange={(event) => setExamFilter((current) => ({ ...current, date: event.target.value }))} /></Field>
+          <Field label="Date"><input required min={today} type="date" value={examFilter.date} onChange={(event) => setExamFilter((current) => ({ ...current, date: event.target.value }))} /></Field>
           <button className="rdv-button rdv-button--primary" disabled={loading.exams}>{loading.exams ? "Chargement…" : "Lister les examens"}</button>
         </form>
         {exams !== null && (examItems.length ? <div className="rdv-result-list">{examItems.map((exam, index) => {
@@ -814,13 +897,13 @@ export default function RdvPermisPage() {
           return <article className={`rdv-result-row ${selected ? "is-selected" : ""}`} key={itemId(exam) || index}><div><strong>{itemTitle(exam, "Examen")}</strong><span>{exam.date ?? exam.dateHeure ?? exam.statut ?? itemId(exam)}</span></div><button type="button" className="rdv-button rdv-button--secondary" onClick={() => loadExamDetail(exam)}>{selected ? "Sélectionné" : "Voir le détail"}</button></article>;
         })}</div> : <EmptyState />)}
         {selectedExam && <div className="rdv-selection"><span>Examen choisi : <strong>{itemTitle(selectedExam, "Examen")}</strong></span><button type="button" className="rdv-text-button" onClick={() => loadExamSupport(selectedExam)} disabled={loading.permutables || loading.replacementAllowance}>{loading.permutables || loading.replacementAllowance ? "Chargement…" : "Voir les options"}</button></div>}
-        {examDetail && <JsonDetails value={examDetail} />}
-        {selectedExam && <div className="rdv-booking-actions"><button type="button" className="rdv-button rdv-button--danger" onClick={() => cancelExam(selectedExam)}>Annuler l’examen</button></div>}
+        {examDetail && <ExamDetails exam={examDetail} />}
+        {selectedExam && <div className="rdv-booking-actions"><button type="button" className="rdv-button rdv-button--danger" onClick={() => cancelExam(selectedExam)} disabled={!selectedExamIsModifiable}>Annuler l’examen</button></div>}
         {(replacementAllowance || permutableExams !== null) && <div className="rdv-subsection">
           <h3>Remplacement et permutation</h3>
           {replacementAllowance && <JsonDetails value={replacementAllowance} />}
-          {permutableExams !== null && (asList(permutableExams, ["examens", "items", "data"]).length ? <div className="rdv-result-list">{asList(permutableExams, ["examens", "items", "data"]).map((exam, index) => <article className="rdv-result-row" key={itemId(exam) || index}><div><strong>{itemTitle(exam, "Examen permutable")}</strong><span>{exam.date ?? exam.dateHeure ?? itemId(exam)}</span></div><button type="button" className="rdv-button rdv-button--secondary" onClick={() => permuteExam(exam)}>Permuter</button></article>)}</div> : <EmptyState>Aucun examen permutable pour cette date.</EmptyState>)}
-          {selectedCandidate && <button type="button" className="rdv-button rdv-button--secondary" onClick={() => replaceExamCandidate(candidateId(selectedCandidate))}>Remplacer par le candidat sélectionné</button>}
+          {permutableExams !== null && (asList(permutableExams, ["examens", "items", "data"]).length ? <div className="rdv-result-list">{asList(permutableExams, ["examens", "items", "data"]).map((exam, index) => <article className="rdv-result-row" key={itemId(exam) || index}><div><strong>{itemTitle(exam, "Examen permutable")}</strong><span>{exam.date ?? exam.dateHeure ?? itemId(exam)}</span></div><button type="button" className="rdv-button rdv-button--secondary" disabled={!selectedExamIsModifiable} onClick={() => permuteExam(exam)}>Permuter</button></article>)}</div> : <EmptyState>Aucun examen permutable pour cette date.</EmptyState>)}
+          {selectedCandidate && <button type="button" className="rdv-button rdv-button--secondary" disabled={!selectedExamIsModifiable} onClick={() => replaceExamCandidate(candidateId(selectedCandidate))}>Remplacer par le candidat sélectionné</button>}
         </div>}
       </section>
 
@@ -833,9 +916,15 @@ export default function RdvPermisPage() {
       </section>
 
       <section className="rdv-card">
-        <div className="rdv-card-heading"><div><h2>Paniers RdvPermis</h2><p>Consultez les paniers existants, leur expiration et les créneaux qu’ils contiennent.</p></div><button type="button" className="rdv-button rdv-button--secondary" onClick={loadPaniers} disabled={loading.paniers}>{loading.paniers ? "Chargement…" : "Lister les paniers"}</button></div>
+        <div className="rdv-card-heading"><div><h2>Paniers RdvPermis</h2><p>Consultez les paniers existants, leur expiration et les créneaux qu’ils contiennent.</p></div><button type="button" className="rdv-button rdv-button--secondary" onClick={() => loadPaniers()} disabled={loading.paniers}>{loading.paniers ? "Chargement…" : "Lister les paniers"}</button></div>
+        <form className="rdv-form-grid" onSubmit={(event) => { event.preventDefault(); setPanierFilters((current) => ({ ...current, page: 1 })); loadPaniers({ ...panierFilters, page: 1 }); }}>
+          <Field label="Paniers par page"><select value={panierFilters.parPage} onChange={(event) => setPanierFilters((current) => ({ ...current, parPage: Number(event.target.value), page: 1 }))}>{[10, 20, 50, 100].map((size) => <option value={size} key={size}>{size}</option>)}</select></Field>
+          <Field label="Employé auto-école (facultatif)"><select value={panierFilters.employeAutoEcoleId} onChange={(event) => setPanierFilters((current) => ({ ...current, employeAutoEcoleId: event.target.value, page: 1 }))}><option value="">Tous les employés</option>{employeeItems.map((employee, index) => <option key={itemId(employee) || index} value={itemId(employee)}>{itemTitle(employee, "Employé")}</option>)}</select></Field>
+          <button className="rdv-button rdv-button--secondary" disabled={loading.paniers}>Appliquer les filtres</button>
+        </form>
         {paniers !== null && (asList(paniers, ["paniers", "items", "data"]).length ? <div className="rdv-result-list">{asList(paniers, ["paniers", "items", "data"]).map((entry, index) => <article className={`rdv-result-row ${itemId(entry) === basketId ? "is-selected" : ""}`} key={itemId(entry) || index}><div><strong>{itemId(entry) || "Panier"}</strong><span>{expirationText(entry, clock)}</span></div><div className="rdv-inline-actions"><button type="button" className="rdv-button rdv-button--secondary" onClick={() => loadPanierDetail(itemId(entry))}>Détail</button><button type="button" className="rdv-button rdv-button--danger" onClick={() => deletePanier(itemId(entry))}>Supprimer</button></div></article>)}</div> : <EmptyState>Aucun panier actif.</EmptyState>)}
         {panierDetail && <div className="rdv-subsection"><h3>Panier sélectionné</h3><p className="rdv-expiry">{expirationText(panierDetail, clock)}</p>{panierSlots(panierDetail).length ? <div className="rdv-result-list">{panierSlots(panierDetail).map((slot, index) => { const creneauId = panierSlotId(slot); const candidateId = panierSlotCandidateId(slot); return <article className="rdv-result-row" key={creneauId || index}><div><strong>{creneauId || "Créneau"}</strong><span>{candidateId ? `Candidat : ${candidateId}` : "Aucun candidat affecté"}</span></div><div className="rdv-inline-actions">{candidateId && <button type="button" className="rdv-button rdv-button--secondary" onClick={() => unassignPanierCandidate(basketId, creneauId)}>Retirer le candidat</button>}<button type="button" className="rdv-button rdv-button--danger" onClick={() => removePanierSlot(basketId, creneauId)}>Retirer le créneau</button></div></article>; })}</div> : <EmptyState>Ce panier ne contient aucun créneau.</EmptyState>}</div>}
+        {paniers !== null && <div className="rdv-pagination"><span>Page {panierPageData.page} / {panierPageData.totalPages}{Number.isFinite(panierPageData.total) ? ` — ${panierPageData.total} panier(s)` : ""}</span><div className="rdv-inline-actions"><button type="button" className="rdv-button rdv-button--secondary" disabled={loading.paniers || panierPageData.page <= 1} onClick={() => { const next = { ...panierFilters, page: panierPageData.page - 1 }; setPanierFilters(next); loadPaniers(next); }}>Précédent</button><button type="button" className="rdv-button rdv-button--secondary" disabled={loading.paniers || panierPageData.page >= panierPageData.totalPages} onClick={() => { const next = { ...panierFilters, page: panierPageData.page + 1 }; setPanierFilters(next); loadPaniers(next); }}>Suivant</button></div></div>}
       </section>
 
       <section className="rdv-card rdv-booking-card">
@@ -847,6 +936,7 @@ export default function RdvPermisPage() {
           <div><span>Panier</span><strong>{basketId || "À créer"}</strong></div>
           <div><span>Candidat</span><strong>{selectedCandidate ? itemTitle(selectedCandidate, "Candidat") : "À sélectionner"}</strong></div>
         </div>
+        <Field label="Employé responsable du panier (facultatif)" hint="Transmis seulement si vous le sélectionnez."><select value={panierOwnerId} onChange={(event) => setPanierOwnerId(event.target.value)}><option value="">Aucun employé sélectionné</option>{employeeItems.map((employee, index) => <option key={itemId(employee) || index} value={itemId(employee)}>{itemTitle(employee, "Employé")}</option>)}</select></Field>
         <div className="rdv-booking-actions">
           <button type="button" className="rdv-button rdv-button--secondary" onClick={createPanier} disabled={!selectedSlotId || Boolean(basketId) || mutating}>Créer le panier</button>
           <button type="button" className="rdv-button rdv-button--secondary" onClick={addSlotToPanier} disabled={!basketId || !selectedSlotId || workflowStep > 3 || bookingLocked || mutating}>Ajouter le créneau</button>

@@ -101,6 +101,7 @@ import AdminTheorySeriesPage from "./theory/AdminTheorySeriesPage.jsx";
 import AdminTheoryAccessPage from "./theory/AdminTheoryAccessPage.jsx";
 
 import RdvPermisPage from "./rdvpermis/RdvPermisPage.jsx";
+import LivretNumeriquePage from "./livret/LivretNumeriquePage.jsx";
 import { RDVPERMIS_OAUTH_MESSAGE } from "./rdvpermis/oauthPopup.js";
 
 
@@ -892,6 +893,7 @@ const handleLogout=async()=>{
                 {/* ── Exams ── */}
                 <Route path="/exams" element={<Exam title="Examens" />} />
                 <Route path="/rdvpermis" element={<RdvPermisPage />} />
+                <Route path="/livret-numerique" element={<LivretNumeriquePage />} />
 
                 {/* ── Online site ── */}
                 <Route path="/site-en-ligne" element={<Online title="Site en ligne" />} />
