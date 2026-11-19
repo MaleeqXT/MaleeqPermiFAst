@@ -11,6 +11,8 @@ import {
 } from "./slotSelection.js";
 import { localCalendarDate } from "./localCalendarDate.js";
 import { isTrustedRdvPermisOAuthOrigin, RDVPERMIS_OAUTH_MESSAGE } from "./oauthPopup.js";
+import { mandatePayload, mandatePayloadErrors } from "./mandatePayload.js";
+import MandatePayloadDebug from "./MandatePayloadDebug.jsx";
 import "./RdvPermisPage.css";
 
 const STEPS = ["Centre", "Créneau", "Créer le panier", "Ajouter le créneau", "Éligibilité", "Affecter", "Valider", "Confirmation"];
@@ -286,6 +288,10 @@ export default function RdvPermisPage() {
     () => studentProfiles.find((student) => student.id === localStudentId) ?? null,
     [localStudentId, studentProfiles],
   );
+  // Provider-facing mandate body (surname only in `nom`), mirrored from Laravel.
+  const mandateBody = useMemo(() => (selectedStudent ? mandatePayload(selectedStudent) : null), [selectedStudent]);
+  const mandateErrors = useMemo(() => (mandateBody ? mandatePayloadErrors(mandateBody) : []), [mandateBody]);
+
   const matchingStudents = useMemo(() => {
     const query = studentSearch.trim().toLocaleLowerCase();
     if (!query) return studentProfiles;
@@ -529,14 +535,14 @@ export default function RdvPermisPage() {
   };
 
   const searchMandatesForSelectedStudent = () => {
-    if (!selectedStudent?.neph) {
+    if (!mandateBody?.numeroDossier) {
       setError("Le NEPH de l’élève est requis pour rechercher ses mandats.");
       return;
     }
     runRead("mandates", () => rdvPermisApi.searchMandatedCandidates({
       filtre: {
-        groupePermis: "B",
-        numeroDossier: { query: selectedStudent.neph, match: "EXACT" },
+        groupePermis: mandateBody.groupePermis,
+        numeroDossier: { query: mandateBody.numeroDossier, match: "EXACT" },
       },
       page: 1,
       parPage: 25,
@@ -686,7 +692,11 @@ export default function RdvPermisPage() {
       setError("Sélectionnez un élève local avant de créer un mandat.");
       return;
     }
-    requestMutation("create-mandate", `Créer un mandat RdvPermis pour ${selectedStudent?.firstName ?? ""} ${selectedStudent?.lastName ?? ""}.`, async () => {
+    if (mandateErrors.length) {
+      setError(mandateErrors.join(" "));
+      return;
+    }
+    requestMutation("create-mandate", `Créer un mandat RdvPermis (nom : ${mandateBody?.nom ?? ""}, NEPH : ${mandateBody?.numeroDossier ?? ""}, groupe ${mandateBody?.groupePermis ?? ""}).`, async () => {
       await rdvPermisApi.createMandate(localStudentId);
       return { notice: "Le mandat a été transmis à RdvPermis. Actualisez la recherche de candidats mandatés pour le vérifier." };
     });
@@ -909,8 +919,9 @@ export default function RdvPermisPage() {
 
       <section className="rdv-card">
         <div className="rdv-card-heading"><div><h2>Mandat candidat</h2><p>Créez un mandat uniquement après avoir vérifié les informations de l’élève.</p></div><button type="button" className="rdv-button rdv-button--secondary" onClick={loadStudents} disabled={loading.students}>{loading.students ? "Chargement…" : "Charger les élèves"}</button></div>
-        {localStudents !== null && <div className="rdv-mutation-panel"><Field label="Rechercher un élève"><input type="search" value={studentSearch} onChange={(event) => setStudentSearch(event.target.value)} placeholder="Nom, prénom, email ou NEPH" /></Field><Field label="Élève local"><select value={localStudentId} onChange={(event) => { setLocalStudentId(event.target.value); setMandates(null); setError(""); }}><option value="">Sélectionnez un élève</option>{visibleStudents.map((student, index) => <option key={student.id || index} value={student.id}>{student.firstName || "Élève"} {student.lastName}</option>)}</select></Field>{studentItems.length > 0 && <p className="rdv-empty">{matchingStudents.length} élève{matchingStudents.length === 1 ? "" : "s"} trouvé{matchingStudents.length === 1 ? "" : "s"}</p>}{studentItems.length > 0 && !matchingStudents.length && <EmptyState>Aucun élève trouvé</EmptyState>}<button type="button" className="rdv-button rdv-button--danger" onClick={createMandate} disabled={!selectedStudent?.id}>Créer le mandat</button></div>}
-        {selectedStudent && <div className="rdv-student-preview" aria-live="polite"><strong>Informations qui seront envoyées après confirmation</strong><span>{selectedStudent.firstName} {selectedStudent.lastName || "—"}</span><span>NEPH : {selectedStudent.neph || "À compléter"}</span><span>Email : {selectedStudent.email || "Non renseigné"}</span><span>Groupe permis : B</span><button type="button" className="rdv-text-button" onClick={searchMandatesForSelectedStudent} disabled={!selectedStudent.neph || loading.mandates}>{loading.mandates ? "Vérification…" : "Vérifier les mandats existants"}</button></div>}
+        {localStudents !== null && <div className="rdv-mutation-panel"><Field label="Rechercher un élève"><input type="search" value={studentSearch} onChange={(event) => setStudentSearch(event.target.value)} placeholder="Nom, prénom, email ou NEPH" /></Field><Field label="Élève local"><select value={localStudentId} onChange={(event) => { setLocalStudentId(event.target.value); setMandates(null); setError(""); }}><option value="">Sélectionnez un élève</option>{visibleStudents.map((student, index) => <option key={student.id || index} value={student.id}>{student.firstName || "Élève"} {student.lastName}</option>)}</select></Field>{studentItems.length > 0 && <p className="rdv-empty">{matchingStudents.length} élève{matchingStudents.length === 1 ? "" : "s"} trouvé{matchingStudents.length === 1 ? "" : "s"}</p>}{studentItems.length > 0 && !matchingStudents.length && <EmptyState>Aucun élève trouvé</EmptyState>}<button type="button" className="rdv-button rdv-button--danger" onClick={createMandate} disabled={!selectedStudent?.id || mandateErrors.length > 0} title={mandateErrors.join(" ") || undefined}>Créer le mandat</button></div>}
+        {selectedStudent && mandateBody && <div className="rdv-student-preview" aria-live="polite"><strong>Informations qui seront envoyées après confirmation</strong><span>Élève : {[selectedStudent.firstName, selectedStudent.lastName].filter(Boolean).join(" ") || "—"}</span><dl className="rdv-mandate-fields"><div><dt>Nom (RdvPermis)</dt><dd data-field="nom">{mandateBody.nom || "À compléter"}</dd></div><div><dt>NEPH / numéro de dossier</dt><dd data-field="numeroDossier">{mandateBody.numeroDossier || "À compléter"}</dd></div><div><dt>Email</dt><dd data-field="email">{mandateBody.email || "Non renseigné"}</dd></div><div><dt>Groupe permis</dt><dd data-field="groupePermis">{mandateBody.groupePermis}</dd></div></dl>{mandateErrors.length > 0 && <ul className="rdv-mandate-errors" role="status">{mandateErrors.map((message) => <li key={message}>{message}</li>)}</ul>}<button type="button" className="rdv-text-button" onClick={searchMandatesForSelectedStudent} disabled={!selectedStudent.neph || loading.mandates}>{loading.mandates ? "Vérification…" : "Vérifier les mandats existants"}</button></div>}
+        {import.meta.env.DEV && selectedStudent && <MandatePayloadDebug key={selectedStudent.id} studentId={selectedStudent.id} payload={mandateBody} />}
         {mandates !== null && (asList(mandates, ["candidats", "items", "content", "data"]).length ? <div className="rdv-result-list">{asList(mandates, ["candidats", "items", "content", "data"]).map((candidate, index) => <article className="rdv-result-row" key={itemId(candidate?.candidat ?? candidate) || index}><div><strong>{itemTitle(candidate?.candidat ?? candidate, "Candidat mandaté")}</strong><span>{candidate?.mandat?.groupePermis ?? candidate?.groupePermis ?? "Mandat trouvé"}</span></div></article>)}</div> : <EmptyState>Aucun mandat correspondant n’a été trouvé.</EmptyState>)}
         {localStudents !== null && !studentItems.length && <EmptyState>Aucun élève local actif n’est disponible.</EmptyState>}
       </section>

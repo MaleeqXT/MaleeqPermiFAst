@@ -8,6 +8,8 @@ const rdvPermisApi = {
   currentSchool: () => http.get("/rdvpermis/current-school"),
   employees: () => http.get("/rdvpermis/employees"),
   trainerAssignments: () => http.get("/rdvpermis/trainer-assignments"),
+  // params: { date: "yyyy-MM-dd", codeDepartement, groupePermis: "A" | "B" }
+  trainerThreshold: (params) => http.get("/rdvpermis/seuil-formateur", { params }),
 
   searchCentres: (payload) => http.post("/rdvpermis/centres/recherche", payload),
   centreDetails: (centreId) => http.get(`/rdvpermis/centres/${encodeURIComponent(centreId)}`),
@@ -23,6 +25,10 @@ const rdvPermisApi = {
   replacementAllowance: (params) => http.get("/rdvpermis/examens/nombre-de-remplacement", { params }),
   replaceExamCandidate: (payload) => http.post("/rdvpermis/examens/remplacement", payload),
   permuteExams: (payload) => http.post("/rdvpermis/examens/permutation", payload),
+  // Group A only: registers a candidate on an already-reserved exam (no body).
+  registerExamCandidate: (examId, candidatId) => http.put(
+    `/rdvpermis/examens/${encodeURIComponent(examId)}/candidat/${encodeURIComponent(candidatId)}/validation`,
+  ),
 
   listPaniers: (params = {}) => http.get("/rdvpermis/paniers", { params }),
   panierDetails: (panierId) => http.get(`/rdvpermis/paniers/${encodeURIComponent(panierId)}`),

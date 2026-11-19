@@ -44,6 +44,7 @@ function defaultResponse(call) {
   if (path.endsWith("/paniers") && method === "GET") return response([]);
   if (path.endsWith(`/paniers/${basketId}`) && method === "GET") return response({ id: basketId, elementsDuPanier: [{ creneauId: slotId, candidatId: "candidate-1" }] });
   if (path.endsWith("/creneaux") && method === "POST") return response({ id: basketId, elementsDuPanier: [{ creneauId: slotId }] }, 201);
+  if (path.endsWith("/rdvpermis/mandate/preview")) return response({ payload: { nom: "Fixture", numeroDossier: "001234567890", email: "fixture@example.test", groupePermis: "B" } });
   if (method !== "GET") return response(null, 204);
   throw new Error(`Unmocked test read: ${method} ${path}`);
 }
@@ -167,6 +168,52 @@ test("mandate needs explicit confirmation, can be cancelled, and uses the select
   await confirm();
   assert.equal(writes("/students/student-1/rdvpermis/mandate").length, 1);
   await page.getByText("Le mandat a été transmis à RdvPermis.", { exact: false }).waitFor();
+});
+
+test("mandate form shows surname-only nom for LUCIE SIMON and the local payload preview matches Laravel", async () => {
+  const lucie = { nom: "SIMON", numeroDossier: "8710857 7602", email: "simon.lucie.83@exemple.fr", groupePermis: "B" };
+  overrides.set("GET /api/admin/users/students", () => response({ data: { data: [
+    { id: 42, first_name: "LUCIE", last_name: "SIMON", name: "LUCIE SIMON", email: lucie.email, student: { id: "student-lucie", neph: lucie.numeroDossier, boite_type: 1 } },
+  ], last_page: 1 } }));
+  overrides.set("GET /api/admin/students/student-lucie/rdvpermis/mandate/preview", () => response({ payload: lucie }));
+  await page.getByRole("button", { name: "Charger les élèves", exact: true }).click();
+  const selector = page.getByRole("combobox", { name: /^Élève local/ });
+  assert.equal((await selector.locator("option[value='student-lucie']").textContent()).trim(), "LUCIE SIMON");
+  await selector.selectOption("student-lucie");
+
+  const preview = page.locator(".rdv-student-preview");
+  assert.equal(await preview.locator("[data-field='nom']").textContent(), "SIMON");
+  assert.equal(await preview.locator("[data-field='numeroDossier']").textContent(), "8710857 7602");
+  assert.equal(await preview.locator("[data-field='email']").textContent(), "simon.lucie.83@exemple.fr");
+  assert.equal(await preview.locator("[data-field='groupePermis']").textContent(), "B");
+
+  const debug = page.getByTestId("rdvpermis-payload-debug");
+  await debug.getByRole("heading", { name: "Payload RdvPermis", exact: true }).waitFor();
+  assert.deepEqual(JSON.parse(await debug.getByTestId("rdvpermis-payload-client").textContent()), lucie);
+  await debug.getByTestId("rdvpermis-payload-match").waitFor();
+  assert.equal(await debug.getByTestId("rdvpermis-payload-server").count(), 0);
+  assert.ok(!(await debug.textContent()).includes("LUCIE SIMON"));
+
+  await page.getByRole("button", { name: "Créer le mandat", exact: true }).click();
+  await page.getByRole("dialog").getByText("nom : SIMON", { exact: false }).waitFor();
+  await confirm();
+  const [mandateCall] = writes("/students/student-lucie/rdvpermis/mandate");
+  assert.ok(mandateCall, "the mandate is sent for the selected local student");
+  // Laravel builds the provider body from the database; the browser sends no local fields.
+  assert.equal(mandateCall.body ?? null, null);
+});
+
+test("mandate stays disabled while the provider payload is incomplete", async () => {
+  overrides.set("GET /api/admin/users/students", () => response({ data: { data: [
+    { id: 43, first_name: "SANS", last_name: "NEPH", email: "sans.neph@example.test", student: { id: "student-no-neph", neph: "" } },
+  ], last_page: 1 } }));
+  overrides.set("GET /api/admin/students/student-no-neph/rdvpermis/mandate/preview", () => response({ message: "Le numéro de dossier NEPH est requis avant la synchronisation RdvPermis." }, 422));
+  await page.getByRole("button", { name: "Charger les élèves", exact: true }).click();
+  await page.getByRole("combobox", { name: /^Élève local/ }).selectOption("student-no-neph");
+  await page.getByText("Le NEPH / numéro de dossier est requis.", { exact: true }).waitFor();
+  assert.equal(await page.getByRole("button", { name: "Créer le mandat", exact: true }).isDisabled(), true);
+  await page.getByText("Laravel refuse ce payload", { exact: false }).waitFor();
+  assert.equal(writes("/mandate").length, 0);
 });
 
 test("local student selector loads every local pagination page, not just the first page", async () => {
@@ -337,8 +384,8 @@ test("mandate refusal is shown without a successful mandate notice", async () =>
 
 test("changing the selected local student clears a stale mandate error", async () => {
   overrides.set("GET /api/admin/users/students", () => response({ data: { data: [
-    { id: 9, first_name: "Élève", last_name: "Premier", student: { id: "student-1", neph: "001234567890" } },
-    { id: 10, first_name: "Élève", last_name: "Second", student: { id: "student-2", neph: "001234567891" } },
+    { id: 9, first_name: "Élève", last_name: "Premier", email: "premier@example.test", student: { id: "student-1", neph: "001234567890" } },
+    { id: 10, first_name: "Élève", last_name: "Second", email: "second@example.test", student: { id: "student-2", neph: "001234567891" } },
   ], last_page: 1 } }));
   overrides.set("POST /api/admin/students/student-1/rdvpermis/mandate", () => response({ message: "Candidat inconnu (fixture)" }, 400));
   await page.getByRole("button", { name: "Charger les élèves", exact: true }).click();
