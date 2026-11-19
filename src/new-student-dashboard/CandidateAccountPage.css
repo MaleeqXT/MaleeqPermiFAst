@@ -1075,6 +1075,81 @@ button.nsa-security-row:focus-visible {
   line-height: 15px;
 }
 
+.nsa-form-success {
+  margin: 0 19px 12px;
+  border-radius: 7px;
+  background: #ecf8f1;
+  padding: 8px 10px;
+  color: #1f7a4d;
+  font-size: 10.5px;
+  line-height: 15px;
+}
+
+button.nsa-security-row:not(.nsa-security-row--danger):hover,
+button.nsa-security-row:not(.nsa-security-row--danger):focus-visible {
+  background: #f7f9fa;
+}
+
+.nsa-modal-hint {
+  margin: 0 19px 12px;
+  color: #5f6a6e;
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.nsa-session-list {
+  display: grid;
+  gap: 0;
+  margin: 0 19px 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.nsa-session-list li {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid #eaedef;
+}
+
+.nsa-session-list li:last-child { border-bottom: 0; }
+
+.nsa-session-list li > span:nth-child(2) {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nsa-session-list strong { color: #303a3e; font-size: 11px; }
+.nsa-session-list small { color: #7b8488; font-size: 10px; line-height: 14px; }
+
+.nsa-session-list em {
+  padding: 3px 8px;
+  border-radius: 20px;
+  background: #ecf8f1;
+  color: #1f7a4d;
+  font-size: 9.5px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.nsa-session-list button {
+  border: 1px solid #e3e7e9;
+  border-radius: 7px;
+  background: #fff;
+  padding: 6px 10px;
+  color: #b8414b;
+  font: inherit;
+  font-size: 10.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.nsa-session-list button:disabled { opacity: 0.5; cursor: not-allowed; }
+
 .nsa-delete-content {
   display: grid;
   grid-template-columns: 42px minmax(0, 1fr);

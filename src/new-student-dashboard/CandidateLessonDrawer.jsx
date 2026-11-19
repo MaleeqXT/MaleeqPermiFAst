@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import http from "../helpers/http.jsx";
+import BilanCompetences from "../bilans/BilanCompetences.jsx";
 import "./CandidateLessonDrawer.css";
 
 const CloseIcon = () => (
@@ -23,6 +24,8 @@ function EvaluationStatus({ label, value }) {
 
 export default function CandidateLessonDrawer({ lessonId, onClose }) {
   const [lesson, setLesson] = useState(null);
+  const [bilan, setBilan] = useState(null);
+  const [bilanLoading, setBilanLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -43,6 +46,7 @@ export default function CandidateLessonDrawer({ lessonId, onClose }) {
   useEffect(() => {
     if (!lessonId) {
       setLesson(null);
+      setBilan(null);
       setError("");
       return undefined;
     }
@@ -51,6 +55,8 @@ export default function CandidateLessonDrawer({ lessonId, onClose }) {
     setLoading(true);
     setError("");
     setLesson(null);
+    setBilan(null);
+    setBilanLoading(true);
 
     http.get(`/student/progress/lessons/${lessonId}`)
       .then((response) => {
@@ -62,6 +68,11 @@ export default function CandidateLessonDrawer({ lessonId, onClose }) {
       .finally(() => {
         if (active) setLoading(false);
       });
+
+    http.get("/student/bilans")
+      .then(({ data }) => { if (active) setBilan(data?.data ?? null); })
+      .catch(() => { if (active) setBilan(null); })
+      .finally(() => { if (active) setBilanLoading(false); });
 
     return () => { active = false; };
   }, [lessonId]);
@@ -110,6 +121,13 @@ export default function CandidateLessonDrawer({ lessonId, onClose }) {
           <section className="nld-section">
             <h3>Observations visibles de tous</h3>
             <div className="nld-observation">{lesson.publicObservation || "Aucune observation renseignée."}</div>
+          </section>
+
+          <section className="nld-section nld-bilan-section">
+            <h3>Bilan de compétences</h3>
+            {bilanLoading && <p className="nld-empty">Chargement du bilan…</p>}
+            {!bilanLoading && !bilan?.id && <p className="nld-empty">Aucun bilan de compétences enregistré.</p>}
+            {!bilanLoading && bilan?.id && <BilanCompetences data={bilan.evaluation} readOnly studentName={bilan.student_name || "Élève"} monitorName={bilan.monitor_name || "—"} totalHours={bilan.total_hours ?? "0"} />}
           </section>
 
         </>}

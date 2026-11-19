@@ -8,6 +8,7 @@ import {
     FaLaptop, FaIdCard, FaUniversity,FaClipboardCheck,FaUserCircle,FaBookOpen
 } from "react-icons/fa";
 import { useCart } from "../../context/CartContext";
+import usePublicEvaluationQuestionnaire from "./usePublicEvaluationQuestionnaire.jsx";
 
 import purpleClipboard from "../../assets/purple-clipboard.jpeg";
 import redClipboard from "../../assets/red-clipboard.jpeg";
@@ -386,8 +387,15 @@ const Services = () => {
     const sectionRef = useRef(null);
     const [visible, setVisible] = useState(false);
     const { addItem } = useCart();
+    const { openQuestionnaire, questionnaire } = usePublicEvaluationQuestionnaire();
 
     const handleAddToCart = (svc) => {
+        // "Pass Évaluation": the questionnaire decides between Évaluation de
+        // conduite and Bilan, then adds the real offer of that service.
+        if (svc.id === "simulateur") {
+            openQuestionnaire();
+            return;
+        }
         addItem({
             id: svc.id,
             title: `PASS ${svc.passLine2}`,
@@ -440,6 +448,7 @@ const Services = () => {
             </div>
         </section>
         </div>
+        {questionnaire}
         </>
     );
 };

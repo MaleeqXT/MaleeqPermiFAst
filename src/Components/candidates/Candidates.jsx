@@ -238,9 +238,18 @@ useEffect(() => {
       await startStudentDashboardPreview(
         studentId,
         isSecretaryDashboard ? "/secretary-dashboard" : "/candidates",
+        candidate,
       );
       await dispatch(fetchCurrentUser()).unwrap();
-      navigate("/new-student-dashboard", { state: { studentPreview: true } });
+      navigate("/new-student-dashboard", {
+        state: {
+          studentPreview: true,
+          fromCandidateProfile: !isSecretaryDashboard,
+          fromSecretaryDashboard: isSecretaryDashboard,
+          candidate,
+          returnTo: isSecretaryDashboard ? "/secretary-dashboard" : "/candidates",
+        },
+      });
     } catch (error) {
       await stopStudentDashboardPreview().catch(() => undefined);
       setConnectError(error?.response?.data?.message || error?.message || "Impossible d’ouvrir l’espace élève.");

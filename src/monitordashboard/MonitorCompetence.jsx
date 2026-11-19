@@ -510,14 +510,16 @@ function formatMinutes(minutes = 0) {
 
 function getQuestionTone(status) {
   if (status === "acquired" || status === "completed") return "green";
-  if (status === "in_progress" || status === "partial") return "blue";
+  if (status === "in_progress" || status === "partial") return "orange";
+  if (status === "failed") return "red";
   return "neutral";
 }
 
 function getQuestionStatus(status) {
-  if (status === "acquired" || status === "completed") return "Acquis";
-  if (status === "in_progress" || status === "partial") return "En cours";
-  return "À travailler";
+  if (status === "acquired" || status === "completed") return "Maîtrisé";
+  if (status === "in_progress" || status === "partial") return "À améliorer";
+  if (status === "failed") return "Échec";
+  return "À évaluer";
 }
 
 function ProgressRing({ progress }) {
@@ -534,18 +536,21 @@ function ProgressRing({ progress }) {
   );
 }
 
-function LevelSquares({ status, level, total = 5, onChange, disabled = false }) {
-  const filled = typeof level === "number"
-    ? Math.min(total, Math.max(0, level))
-    : status === "acquired" || status === "completed" ? total : status === "in_progress" || status === "partial" ? Math.ceil(total * 0.6) : 0;
-  const tone = getQuestionTone(status);
+function LevelSquares({ status, level, onChange, disabled = false }) {
+  const fallbackLevel = status === "acquired" || status === "completed" ? 3 : status === "in_progress" || status === "partial" ? 2 : status === "failed" ? 1 : 0;
+  const selectedLevel = Math.min(3, Math.max(0, typeof level === "number" ? level : fallbackLevel));
+  const levels = [
+    { value: 1, tone: "red", label: "Échec" },
+    { value: 2, tone: "orange", label: "À améliorer" },
+    { value: 3, tone: "green", label: "Maîtrisé" },
+  ];
   const isInteractive = typeof onChange === "function";
 
-  return <span className={`mc-new-level-squares ${isInteractive ? "interactive" : ""}`} aria-label={`${filled} niveaux sur ${total}`}>{Array.from({ length: total }, (_, index) => isInteractive ? <button key={index} type="button" disabled={disabled} aria-label={`Attribuer le niveau ${index + 1} sur ${total}`} aria-pressed={index < filled} className={index < filled ? `filled ${tone}` : ""} onClick={(event) => { event.stopPropagation(); onChange(index + 1 === filled ? 0 : index + 1); }} /> : <i key={index} className={index < filled ? `filled ${tone}` : ""} />)}</span>;
+  return <span className={`mc-new-level-squares ${isInteractive ? "interactive" : ""}`} aria-label={selectedLevel ? levels[selectedLevel - 1].label : "Non évalué"}>{levels.map(({ value, tone, label }) => isInteractive ? <button key={value} type="button" disabled={disabled} title={label} aria-label={label} aria-pressed={selectedLevel === value} className={`level-${tone} ${selectedLevel === value ? "selected" : ""}`} onClick={(event) => { event.stopPropagation(); onChange(value === selectedLevel ? 0 : value); }} /> : <i key={value} title={label} className={`level-${tone} ${selectedLevel === value ? "selected" : ""}`} />)}</span>;
 }
 
 function MonitorHistoryTable({ lessons }) {
-  return <table className="mc-new-history-table"><thead><tr><th>Date</th><th>Type</th><th>Durée</th><th>Compétences travaillées</th><th>Bilan du moniteur</th><th>Niveau atteint</th></tr></thead><tbody>{lessons.length ? lessons.map((lesson) => <tr key={lesson.id}><td><div className="mc-new-lesson-date"><div><span>{lesson.weekday}</span><strong>{lesson.day}</strong><small>{lesson.month}</small></div><p><b>{lesson.date}</b><span>{lesson.time}</span></p></div></td><td><span className={`mc-new-lesson-type ${lesson.type === "Code en ligne" ? "blue" : "green"}`}>{lesson.type}</span></td><td><strong>{lesson.duration}</strong></td><td>{lesson.skills.length ? <span className="mc-new-lesson-skills">{lesson.skills.map((skill, index) => <i key={skill} className={COMPETENCE_TONES[index]}>{skill}</i>)}</span> : "—"}</td><td><p className="mc-new-lesson-report">{lesson.report || "—"}</p></td><td><span className="mc-new-lesson-level"><LevelSquares status={lesson.level >= 5 ? "acquired" : "in_progress"} level={lesson.level} total={5} /><small>{lesson.level}/5</small></span></td></tr>) : <tr><td colSpan="6" className="mc-new-history-empty">Aucune leçon associée à ce moniteur.</td></tr>}</tbody></table>;
+  return <table className="mc-new-history-table"><thead><tr><th>Date</th><th>Type</th><th>Durée</th><th>Compétences travaillées</th><th>Bilan du moniteur</th><th>Niveau atteint</th></tr></thead><tbody>{lessons.length ? lessons.map((lesson) => <tr key={lesson.id}><td><div className="mc-new-lesson-date"><div><span>{lesson.weekday}</span><strong>{lesson.day}</strong><small>{lesson.month}</small></div><p><b>{lesson.date}</b><span>{lesson.time}</span></p></div></td><td><span className={`mc-new-lesson-type ${lesson.type === "Code en ligne" ? "blue" : "green"}`}>{lesson.type}</span></td><td><strong>{lesson.duration}</strong></td><td>{lesson.skills.length ? <span className="mc-new-lesson-skills">{lesson.skills.map((skill, index) => <i key={skill} className={COMPETENCE_TONES[index]}>{skill}</i>)}</span> : "—"}</td><td><p className="mc-new-lesson-report">{lesson.report || "—"}</p></td><td><span className="mc-new-lesson-level"><LevelSquares level={lesson.level} /><small>{Math.min(3, Math.max(0, Number(lesson.level) || 0))}/3</small></span></td></tr>) : <tr><td colSpan="6" className="mc-new-history-empty">Aucune leçon associée à ce moniteur.</td></tr>}</tbody></table>;
 }
 
 export default function MonitorCompetence({
@@ -555,6 +560,7 @@ export default function MonitorCompetence({
   onBack,
 }) {
   const [activeCompetenceId, setActiveCompetenceId] = useState("c1");
+  const [mobileOpenCompetenceId, setMobileOpenCompetenceId] = useState(null);
   const [openQuestionId, setOpenQuestionId] = useState(null);
   const [students, setStudents] = useState([]);
   const [selectedStudentId, setSelectedStudentId] = useState(() => getStudentId(candidate));
@@ -611,6 +617,7 @@ export default function MonitorCompetence({
           const data = response.data?.data ?? null;
           setProgressData(data);
           setActiveCompetenceId(data?.competencies?.[0]?.id ?? "c1");
+          setMobileOpenCompetenceId(null);
           setOpenQuestionId(null);
         }
       })
@@ -664,7 +671,7 @@ export default function MonitorCompetence({
   };
 
   const activeCompetence = competencesData.find((competence) => competence.id === activeCompetenceId) ?? competencesData[0] ?? null;
-  const completedSkills = competencesData.flatMap((competence) => competence.questions).filter((question) => question.level >= 5 || question.status === "acquired" || question.status === "completed").length;
+  const completedSkills = competencesData.flatMap((competence) => competence.questions).filter((question) => question.level >= 3 || question.status === "acquired" || question.status === "completed").length;
   const totalSkills = competencesData.reduce((total, competence) => total + competence.questions.length, 0);
   const overallPercentage = progressData?.overallPercentage ?? (totalSkills ? Math.round((completedSkills / totalSkills) * 100) : 0);
   const hours = progressData?.hours ?? { plannedMinutes: 0, completedMinutes: 0, remainingMinutes: 0 };
@@ -725,7 +732,13 @@ export default function MonitorCompetence({
             </div>
           </div>
           <div className="mc-new-section-title"><h2>Répartition par compétence (REMC)</h2><span title="Référentiel pour l'éducation à une mobilité citoyenne">i</span></div>
-          <div className="mc-new-competency-list">{competencesData.map((competence, index) => <button type="button" key={competence.id} className={`mc-new-competency-row mc-new-tone-${COMPETENCE_TONES[index]} ${activeCompetenceId === competence.id ? "active" : ""}`} onClick={() => { setActiveCompetenceId(competence.id); setOpenQuestionId(null); }}><span className="mc-new-competency-icon"><IconTarget /></span><span className="mc-new-competency-copy"><span className="mc-new-competency-title"><strong>{competence.code}</strong><span>{competence.title}</span></span><span className="mc-new-competency-progress"><i style={{ width: `${competence.progress}%` }} /></span><small>{competence.questions.length} sous-compétences</small></span><strong className="mc-new-competency-percent">{competence.progress}%</strong><span className="mc-new-competency-status">{competence.progress >= 80 ? "Acquis" : competence.progress >= 50 ? "En cours" : "À travailler"}</span></button>)}</div>
+          <div className="mc-new-competency-list">{competencesData.map((competence, index) => {
+            const isMobileOpen = mobileOpenCompetenceId === competence.id;
+            return <div className="mc-new-competency-group" key={competence.id}>
+              <button type="button" className={`mc-new-competency-row mc-new-tone-${COMPETENCE_TONES[index]} ${activeCompetenceId === competence.id ? "active" : ""}`} onClick={() => { setActiveCompetenceId(competence.id); setOpenQuestionId(null); setMobileOpenCompetenceId((current) => current === competence.id ? null : competence.id); }}><span className="mc-new-competency-icon"><IconTarget /></span><span className="mc-new-competency-copy"><span className="mc-new-competency-title"><strong>{competence.code}</strong><span>{competence.title}</span></span><span className="mc-new-competency-progress"><i style={{ width: `${competence.progress}%` }} /></span><small>{competence.questions.length} sous-compétences</small></span><strong className="mc-new-competency-percent">{competence.progress}%</strong><span className="mc-new-competency-status">{competence.progress >= 80 ? "Acquis" : competence.progress >= 50 ? "En cours" : "À travailler"}</span></button>
+              {isMobileOpen && <div className="mc-new-mobile-series-details">{competence.questions.map((question) => <div className="mc-new-mobile-question" key={question.id}><span><b>{question.letter}</b>{question.title}</span><LevelSquares status={question.status} level={question.level} disabled={savingQuestionId === question.id} onChange={(level) => saveQuestionEvaluation(question, { rating: level })} /><small className={getQuestionTone(question.status)}>{savingQuestionId === question.id ? "Enregistrement…" : getQuestionStatus(question.status)}</small></div>)}</div>}
+            </div>;
+          })}</div>
           <div className="mc-new-legend"><span><i className="green" />Acquis</span><span><i className="blue" />En cours</span><span><i className="amber" />En progression</span><span><i className="neutral" />À travailler</span></div>
         </article>
 

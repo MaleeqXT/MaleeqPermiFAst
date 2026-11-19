@@ -66,7 +66,6 @@ const STUDENT_NAV = [
   { path: "/student-progress",      label: "Ma progression",  icon: <ProgressIcon />  },
   { path: "/student-bilans",        label: "Bilans",          icon: <BilansIcon />    },
   { path: "/student-formation",     label: "Formation",       icon: <FormationIcon /> },
-  { path: "/student-exams",         label: "Mes examens",     icon: <ExamsIcon />     },
   { path: "/student-code-route",    label: "Code de la route", icon: <ExamsIcon />, requiresCodeAccess: true },
   { path: "/student-documents",     label: "Documents",   icon: <DocumentsIcon /> },
   { path: "/student-messages",      label: "Messagerie",  icon: <MessagesIcon /> },

@@ -1,29 +1,10 @@
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import "./MonitorDashboard.css";
-import BookingDrawer from "./BookingDrawer.jsx";
-import MonitorSessions, { SuccessModal } from "./MonitorSessions.jsx";
-import ProposeSession from "./ProposeSession.jsx";
-import MonitorCompetence from "./MonitorCompetence.jsx";
-import BilansPage from "./BilansPage.jsx";
-import FormationPage from "./formation/FormationPage.jsx";
 import { GraduationCap } from "lucide-react";
-import AllSessions from "./AllSessions.jsx";
-import NoticeDrawer from "./NoticeDrawer.jsx";
-import SessionList from "./SessionList.jsx";
-import SettingsPage from "./SettingsPage.jsx";
-import ProfilePage from "./ProfilePage.jsx";
-import CandidatesPage from "./CandidatesPage.jsx";
-import CandidateProfileDrawer from "./CandidateProflileDrawer.jsx";
-import ProposedSessionsList from "./ProposedSessionsList.jsx";
-import ProposeCancelDrawer from "./ProposeCancelDrawer.jsx";
-import LocationsPage from "./LocationsPage.jsx";
-import InvoicesPage from "./InvoicesPage.jsx";
-import CancelledSessionsPage from "./CancelledSessionsPage.jsx";
-import VehiclesAndDocumentsPage from "./VehiclesAndDocumentsPage.jsx";
-import MonitorChatPage from "./MonitorChatPage.jsx";
 import ChatUnreadBadge from '../chat/ChatUnreadBadge.jsx';
+import MessageNotificationBell from '../chat/MessageNotificationBell.jsx';
 import { useLocation, useNavigate } from "react-router-dom";
 import { logoutUser } from "../redux/reducers/authReducer.jsx";
 import {
@@ -38,6 +19,33 @@ import { fetchMonitorProfile, selectMonitorProfile } from "../redux/reducers/mon
 import { profileImageUrl } from "../new-student-dashboard/StudentHeader.jsx";
 import http from "../helpers/http.jsx";
 import { apiAssetUrl } from "../config/api.js";
+import { studentIdFrom } from "../helpers/studentIdentity.js";
+
+// Each sidebar screen is a separate chunk. The monitor dashboard now renders
+// immediately instead of downloading every settings, session and formation
+// screen before the first navigation is possible.
+const BookingDrawer = lazy(() => import("./BookingDrawer.jsx"));
+const MonitorSessions = lazy(() => import("./MonitorSessions.jsx"));
+const SuccessModal = lazy(() => import("./MonitorSessions.jsx").then((module) => ({ default: module.SuccessModal })));
+const ProposeSession = lazy(() => import("./ProposeSession.jsx"));
+const MonitorCompetence = lazy(() => import("./MonitorCompetence.jsx"));
+const BilansPage = lazy(() => import("./BilansPage.jsx"));
+const ExamReadyStudentsPage = lazy(() => import("./ExamReadyStudentsPage.jsx"));
+const FormationPage = lazy(() => import("./formation/FormationPage.jsx"));
+const AllSessions = lazy(() => import("./AllSessions.jsx"));
+const NoticeDrawer = lazy(() => import("./NoticeDrawer.jsx"));
+const SessionList = lazy(() => import("./SessionList.jsx"));
+const SettingsPage = lazy(() => import("./SettingsPage.jsx"));
+const ProfilePage = lazy(() => import("./ProfilePage.jsx"));
+const CandidatesPage = lazy(() => import("./CandidatesPage.jsx"));
+const CandidateProfileDrawer = lazy(() => import("./CandidateProflileDrawer.jsx"));
+const ProposedSessionsList = lazy(() => import("./ProposedSessionsList.jsx"));
+const ProposeCancelDrawer = lazy(() => import("./ProposeCancelDrawer.jsx"));
+const LocationsPage = lazy(() => import("./LocationsPage.jsx"));
+const InvoicesPage = lazy(() => import("./InvoicesPage.jsx"));
+const CancelledSessionsPage = lazy(() => import("./CancelledSessionsPage.jsx"));
+const VehiclesAndDocumentsPage = lazy(() => import("./VehiclesAndDocumentsPage.jsx"));
+const MonitorChatPage = lazy(() => import("./MonitorChatPage.jsx"));
 
 const resolveDisplayName = (user) => {
   if (!user) return "Moniteur";
@@ -55,6 +63,8 @@ const resolveMonitorUser = (target) => {
   }
   return target;
 };
+
+const getCandidateStudentId = studentIdFrom;
 
 const WEEKDAY_LABELS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
@@ -120,12 +130,20 @@ const IconBilans = () => (
   </svg>
 );
 
+const IconExamReady = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="9" />
+    <path d="m8.5 12.5 2.5 2.5 4.5-5" />
+  </svg>
+);
+
 const NAV_ITEMS = [
   { id: "accueil",   label: "Accueil",     icon: <IconHome />    },
   { id: "sessions",  label: "Séances",     icon: <IconCalendar /> },
   { id: "formation", label: "Formation", icon: <GraduationCap size={18} /> },
   { id: "progress",  label: "Progression", icon: <IconProgress /> },
   { id: "bilans",    label: "Bilans",      icon: <IconBilans /> },
+  { id: "exam-ready", label: "Prêts examen", icon: <IconExamReady /> },
   { id: "messages",  label: "Messages",    icon: <IconMessage />  },
   { id: "settings",  label: "Paramètres",  icon: <IconSettings /> },
 ];
@@ -753,22 +771,37 @@ export default function MonitorDashboard({ onClose }) {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
+  const storedPreview = useMemo(() => {
+    try {
+      const preview = JSON.parse(window.sessionStorage.getItem("permiFastMonitorPreview") || "null");
+      return preview?.fromMonitorProfile && (preview?.monitor?.id || preview?.monitor_id) ? preview : null;
+    } catch {
+      return null;
+    }
+  }, []);
+  const dashboardState = location.state?.fromMonitorProfile
+    ? location.state
+    : storedPreview ?? location.state ?? {};
+  const routeCompetenceStudentId = /^\/monitor\/competences\/([^/]+)$/.exec(location.pathname)?.[1] ?? null;
+  const routeNotificationConversationId = new URLSearchParams(location.search).get("conversation");
   const currentUser = useSelector((state) => state.auth.user);
   // Admin preview opens this dashboard with the selected monitor in route state.
   // A direct monitor login has no target and therefore uses its own account.
-  const viewedMonitorId = location.state?.monitor?.monitor?.id
-    ?? (location.state?.monitor?.user_id ? location.state.monitor.id : null)
-    ?? location.state?.monitor_id
+  const viewedMonitorId = dashboardState?.monitor?.monitor?.id
+    ?? (dashboardState?.monitor?.user_id ? dashboardState.monitor.id : null)
+    ?? dashboardState?.monitor_id
     ?? null;
-  const viewedMonitor = location.state?.monitor?.monitor
-    ?? (location.state?.monitor?.user_id ? location.state.monitor : null);
+  const viewedMonitor = dashboardState?.monitor?.monitor
+    ?? (dashboardState?.monitor?.user_id ? dashboardState.monitor : null);
 
   const fetchedMonitorProfile = useSelector(selectMonitorProfile);
   const scheduleGroups = useSelector(selectMonitorScheduleGroups);
   const scheduleLoading = useSelector(selectMonitorScheduleLoading);
   const scheduleError = useSelector(selectMonitorScheduleError);
   const proposalItems = useSelector(selectMonitorProposalsItems);
-  const [activeTab, setActiveTab] = useState(() => location.pathname === "/monitor/formation" ? "formation" : location.pathname === "/monitor/bilans" ? "bilans" : "sessions");
+  const [activeTab, setActiveTab] = useState(() => routeCompetenceStudentId
+    ? "competences"
+    : routeNotificationConversationId ? "messages" : location.pathname === "/monitor/formation" ? "formation" : location.pathname === "/monitor/bilans" ? "bilans" : "sessions");
   const [formationDirty, setFormationDirty] = useState(false);
   const [formationBusy, setFormationBusy] = useState(false);
   const mayLeaveFormation = () => !formationBusy && (!formationDirty || window.confirm("Quitter sans sauvegarder les modifications de la leçon ?"));
@@ -789,7 +822,9 @@ export default function MonitorDashboard({ onClose }) {
   const [successMessage, setSuccessMessage] = useState("");
   const [proposeCandidate, setProposeCandidate] = useState(null);
   const [proposeSelection, setProposeSelection] = useState({ preselectedAvailabilityIds: [] });
-  const [competenceCandidate, setCompetenceCandidate] = useState(null);
+  const [competenceCandidate, setCompetenceCandidate] = useState(() => routeCompetenceStudentId
+    ? (dashboardState?.competenceCandidate ?? { id: routeCompetenceStudentId, studentId: routeCompetenceStudentId })
+    : null);
   const [allSessionsCandidate, setAllSessionsCandidate] = useState(null);
   const [sessionEvents, setSessionEvents] = useState([]);
   const [settingsView, setSettingsView] = useState("settings");
@@ -800,8 +835,48 @@ export default function MonitorDashboard({ onClose }) {
   const [bilanData, setBilanData] = useState(null);
   const [bilanLoading, setBilanLoading] = useState(false);
   const [bilanError, setBilanError] = useState("");
+  const [notificationConversationId, setNotificationConversationId] = useState(routeNotificationConversationId);
 
-  const isMonitorPreview = Boolean(location.state?.monitor || viewedMonitorId);
+  useEffect(() => {
+    if (!routeNotificationConversationId) return;
+    setNotificationConversationId(routeNotificationConversationId);
+    setActiveTab("messages");
+  }, [routeNotificationConversationId]);
+
+  useEffect(() => {
+    if (!location.state?.fromMonitorProfile) return;
+    window.sessionStorage.setItem("permiFastMonitorPreview", JSON.stringify({
+      fromMonitorProfile: true,
+      monitor: location.state.monitor,
+      monitor_id: location.state.monitor_id,
+      returnTo: location.state.returnTo || "/monitors",
+    }));
+  }, [location.state]);
+
+  useEffect(() => {
+    if (location.state?.fromMonitorProfile || !storedPreview) return;
+    navigate(location.pathname, {
+      replace: true,
+      state: { ...storedPreview, ...(location.state ?? {}) },
+    });
+  }, [location.pathname, location.state, navigate, storedPreview]);
+
+  useEffect(() => {
+    if (!routeCompetenceStudentId) return;
+
+    setCompetenceCandidate(dashboardState?.competenceCandidate ?? {
+      id: routeCompetenceStudentId,
+      studentId: routeCompetenceStudentId,
+    });
+    setActiveTab("competences");
+    setProposeCandidate(null);
+    setAllSessionsCandidate(null);
+    setSelectedBooking(null);
+    setSelectedCandidate(null);
+    setReviewListBooking(null);
+  }, [routeCompetenceStudentId, dashboardState?.competenceCandidate]);
+
+  const isMonitorPreview = Boolean(dashboardState?.monitor || viewedMonitorId);
   const authenticatedRole = String(currentUser?.role ?? "").toLowerCase();
   const loggedInMonitor = authenticatedRole === "monitor" || authenticatedRole === "moniteur"
     ? currentUser
@@ -811,7 +886,7 @@ export default function MonitorDashboard({ onClose }) {
   // arrive later and must never delay the visible identity.
   const rawTargetMonitor = isMonitorPreview
     ? fetchedMonitorProfile ??
-      (location.state?.monitor ? resolveMonitorUser(location.state.monitor) : null) ??
+      (dashboardState?.monitor ? resolveMonitorUser(dashboardState.monitor) : null) ??
       (viewedMonitor ? resolveMonitorUser(viewedMonitor) : null) ??
       currentUser
     : loggedInMonitor
@@ -837,10 +912,14 @@ export default function MonitorDashboard({ onClose }) {
   }, [dispatch, viewedMonitorId]);
 
   useEffect(() => {
+    // Progression, bilans, messages and settings do not render the calendar.
+    // Avoid competing with their own API calls for a schedule they cannot use.
+    if (!["accueil", "sessions", "formation"].includes(activeTab)) return;
+
     const date_1 = formatIsoDate(selectedWeekStart);
     const date_2 = formatIsoDate(getEndOfWeek(selectedWeekStart));
     dispatch(fetchMonitorSchedule({ date_1, date_2, all: true, monitor_id: viewedMonitorId }));
-  }, [dispatch, selectedWeekStart, viewedMonitorId]);
+  }, [activeTab, dispatch, selectedWeekStart, viewedMonitorId]);
 
   useEffect(() => {
     if (activeTab !== "bilans") return undefined;
@@ -881,20 +960,18 @@ export default function MonitorDashboard({ onClose }) {
     setBilanError("");
   };
 
-  const saveBilan = (changes) => {
-    if (!selectedBilanStudentId) return;
-
-    const nextBilan = {
-      evaluations: bilanData?.evaluations ?? {},
-      hours: bilanData?.hours ?? { bilan1: "0", bilan2: "0" },
-      ...changes,
-    };
-    setBilanData(nextBilan);
+  const saveBilan = async (evaluation) => {
+    if (!selectedBilanStudentId) return null;
     setBilanError("");
-
-    http.put(`/monitor/bilans/${selectedBilanStudentId}`, nextBilan, { params: viewedMonitorId ? { monitor_id: viewedMonitorId } : undefined })
-      .then(({ data }) => setBilanData(data?.data ?? nextBilan))
-      .catch(() => setBilanError("Impossible d’enregistrer le bilan. Réessayez."));
+    try {
+      const { data } = await http.put(`/monitor/bilans/${selectedBilanStudentId}`, evaluation, { params: viewedMonitorId ? { monitor_id: viewedMonitorId } : undefined });
+      const saved = data?.data ?? null;
+      setBilanData(saved);
+      return saved;
+    } catch (requestError) {
+      setBilanError("Impossible d’enregistrer le bilan. Réessayez.");
+      throw requestError;
+    }
   };
 
   // Keep sessionEvents (used by ProposeSession & AllSessions) in sync with Redux
@@ -920,11 +997,20 @@ export default function MonitorDashboard({ onClose }) {
   };
 
   const handleOpenCompetence = (candidate) => {
+    const studentId = getCandidateStudentId(candidate);
+
+    if (studentId) {
+      navigate(`/monitor/competences/${studentId}`, {
+        state: { ...location.state, competenceCandidate: candidate },
+      });
+      return;
+    }
+
     setCompetenceCandidate(candidate);
     setProposeCandidate(null);
     setProposeSelection({ preselectedAvailabilityIds: [] });
     setAllSessionsCandidate(null);
-    setActiveTab("accueil");
+    setActiveTab("competences");
     setIsCalendrierOpen(false);
     setSelectedBooking(null);
     setReviewListBooking(null);
@@ -1132,7 +1218,7 @@ export default function MonitorDashboard({ onClose }) {
               title={collapsed ? item.label : ""}
             >
               <span className="md-nav-icon">{item.icon}</span>
-              {!collapsed && <span className="md-nav-label">{item.label}</span>}
+              <span className="md-nav-label">{item.label}</span>
               {item.id === 'messages' && <ChatUnreadBadge monitorId={viewedMonitorId} collapsed={collapsed} />}
             </button>
           ))}
@@ -1142,6 +1228,14 @@ export default function MonitorDashboard({ onClose }) {
       <div className="md-main">
         <header className="md-header">
           <div className="md-header-right">
+            <MessageNotificationBell
+              monitorId={viewedMonitorId}
+              buttonClassName="md-notification-bell"
+              onOpenConversation={(conversationId) => {
+                setNotificationConversationId(conversationId);
+                setActiveTab("messages");
+              }}
+            />
             <div className="md-superadmin-pill" role="button" tabIndex={0}>
               <div className="md-superadmin-avatar">
                 {monitorAvatar && !imgFailed ? (
@@ -1166,6 +1260,7 @@ export default function MonitorDashboard({ onClose }) {
         </header>
 
         <main className="md-content">
+          <Suspense fallback={<div className="md-screen-loading" role="status">Chargement…</div>}>
           {activeTab === "formation" && (
             <FormationPage
               monitorId={viewedMonitorId}
@@ -1225,12 +1320,20 @@ export default function MonitorDashboard({ onClose }) {
               monitorId={viewedMonitorId}
             />
           )}
-          {activeTab === "accueil" && competenceCandidate && (
+          {activeTab === "competences" && competenceCandidate && (
             <MonitorCompetence
               candidate={competenceCandidate}
               monitorName={monitorName}
               monitorId={activeMonitorUser?.monitor?.id ?? activeMonitorUser?.monitor_id ?? viewedMonitorId}
-              onBack={() => setCompetenceCandidate(null)}
+              onBack={() => {
+                setCompetenceCandidate(null);
+                setActiveTab("accueil");
+                if (routeCompetenceStudentId) {
+                  const dashboardState = { ...(location.state ?? {}) };
+                  delete dashboardState.competenceCandidate;
+                  navigate("/monitor-dashboard", { state: dashboardState });
+                }
+              }}
             />
           )}
           {activeTab === "progress" && (
@@ -1247,13 +1350,14 @@ export default function MonitorDashboard({ onClose }) {
               students={bilanStudents}
               selectedStudentId={selectedBilanStudentId}
               onStudentChange={selectBilanStudent}
-              initialEvaluations={bilanData?.evaluations ?? {}}
-              initialHours={bilanData?.hours ?? { bilan1: "0", bilan2: "0" }}
-              onEvaluationsChange={(evaluations) => saveBilan({ evaluations })}
-              onHoursChange={(hours) => saveBilan({ hours })}
+              initialBilan={bilanData}
+              onSave={saveBilan}
               loading={bilanLoading}
               error={bilanError}
             />
+          )}
+          {activeTab === "exam-ready" && (
+            <ExamReadyStudentsPage monitorId={viewedMonitorId} />
           )}
           {activeTab === "accueil" && allSessionsCandidate && (
             <AllSessions
@@ -1279,7 +1383,7 @@ export default function MonitorDashboard({ onClose }) {
           )}
           {activeTab === "messages" && (
             <div style={{ height: "100%", minHeight: 0, display: "flex", flexDirection: "column" }}>
-              <MonitorChatPage key={viewedMonitorId || currentUser?.id} monitorId={viewedMonitorId} onNavigate={setActiveTab} />
+              <MonitorChatPage key={viewedMonitorId || currentUser?.id} monitorId={viewedMonitorId} initialConversationId={notificationConversationId} onNavigate={setActiveTab} />
             </div>
           )}
           {activeTab === "settings" && (
@@ -1295,9 +1399,11 @@ export default function MonitorDashboard({ onClose }) {
               monitorId={viewedMonitorId}
             />
           )}
+          </Suspense>
         </main>
       </div>
 
+      <Suspense fallback={null}>
       {selectedBooking && (
         <BookingDrawer
           booking={selectedBooking}
@@ -1357,6 +1463,10 @@ export default function MonitorDashboard({ onClose }) {
             setSelectedCandidate(null);
             handleOpenCompetence(candidate);
           }}
+          onOpenPedagogicalComments={(candidate) => {
+            setSelectedCandidate(null);
+            handleOpenCompetence(candidate);
+          }}
           onOpenAllSessions={(candidate) => {
             setSelectedCandidate(null);
             handleOpenAllSessions(candidate);
@@ -1383,6 +1493,7 @@ export default function MonitorDashboard({ onClose }) {
           onCancel={() => handleCancelProposedSession(selectedProposal.id)}
         />
       )}
+      </Suspense>
     </div>
   );
 }

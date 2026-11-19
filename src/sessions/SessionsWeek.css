@@ -212,6 +212,10 @@
   background: #f3f4f6;
 }
 
+.cal-week-mobile-days {
+  display: none;
+}
+
 .cal-week-hover-time {
   position: absolute;
   top: 4px;
@@ -254,6 +258,98 @@
   background: transparent;
   padding: 0;
   text-align: left;
+}
+
+@media (max-width: 560px) {
+  .cal-week-wrap--single-day-mobile .cal-week-nav-row {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
+  .cal-week-wrap--single-day-mobile .cal-week-nav-btn {
+    min-width: 36px;
+    min-height: 36px;
+    justify-content: center;
+    padding: 8px;
+  }
+
+  .cal-week-wrap--single-day-mobile .cal-week-nav-text {
+    display: none;
+  }
+
+  .cal-week-wrap--single-day-mobile .cal-week-nav-current {
+    font-size: 13px;
+  }
+
+  .cal-week-wrap--single-day-mobile .cal-week-header {
+    display: none;
+  }
+
+  .cal-week-wrap--single-day-mobile .cal-week-mobile-days {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    padding: 6px 8px;
+    border-bottom: 1px solid #e5e7eb;
+    background: #fbfcfe;
+  }
+
+  .cal-week-mobile-day {
+    min-height: 46px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: #64748b;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    font-family: "Inter", sans-serif;
+  }
+
+  .cal-week-mobile-day span {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  .cal-week-mobile-day strong {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-size: 13px;
+  }
+
+  .cal-week-mobile-day--active {
+    color: #1f2937;
+    background: #eef5f0;
+  }
+
+  .cal-week-mobile-day--active strong {
+    background: #333;
+    color: #fff;
+  }
+
+  .cal-week-wrap--single-day-mobile .cal-week-row {
+    grid-template-columns: 54px minmax(0, 1fr);
+    min-height: 102px;
+  }
+
+  .cal-week-wrap--single-day-mobile .cal-week-time-label {
+    padding: 8px 7px 0 0;
+    font-size: 11px;
+  }
+
+  .cal-week-wrap--single-day-mobile .cal-week-cell {
+    min-height: 102px;
+  }
+
+  .cal-week-wrap--single-day-mobile .cal-week-cell--mobile-hidden {
+    display: none;
+  }
 }
 
 .cal-week-event-trigger .cal-week-event,

@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, CalendarDays, Mail, MapPin, MoreVertical, UserRound } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, CalendarDays, Info, Mail, MapPin, MoreVertical, PenLine, UserRound } from "lucide-react";
 import StudentHeader from "./StudentHeader.jsx";
 import StudentSidebar from "./StudentSidebar.jsx";
 import http from "../helpers/http.jsx";
-import { LessonHistory, LessonStatus } from "../monitordashboard/formation/FormationComponents.jsx";
+import { LessonHistory, LessonStatus, PermitEvaluation, Toggle, TransmissionSwitch } from "../monitordashboard/formation/FormationComponents.jsx";
 import { SavedManeuvers } from "../monitordashboard/formation/FormationManeuvers.jsx";
+import { maneuverLabel, RATING_LABELS } from "../monitordashboard/formation/FormationManeuverCatalog.js";
 import FormationSchemaEditor from "../monitordashboard/formation/FormationSchemaEditor.jsx";
 import LessonDistributionCalendar from "../monitordashboard/formation/LessonDistributionCalendar.jsx";
 import { displayDate, formatDuration } from "../monitordashboard/formation/formationUtils.js";
@@ -12,6 +13,28 @@ import "../monitordashboard/formation/FormationPage.css";
 import "./StudentFormationPage.css";
 
 const errorMessage = (error) => error.response?.data?.message || "Impossible de charger votre formation pour le moment.";
+const noop = () => {};
+
+// Every manœuvre passage of the student, newest lesson first, with the level
+// the monitor gave each passage (same data as the monitor's history panel).
+function buildManeuverHistory(lessons) {
+  const totals = {};
+  const history = [];
+  [...lessons]
+    .filter((lesson) => lesson.status !== "cancelled")
+    .sort((a, b) => `${b.date} ${b.start_at}`.localeCompare(`${a.date} ${a.start_at}`))
+    .forEach((lesson) => {
+      Object.entries(lesson.maneuver_counts || {}).forEach(([id, rawCount]) => {
+        const count = Math.max(0, Number(rawCount) || 0);
+        const ratings = Array.isArray(lesson.maneuver_ratings?.[id]) ? lesson.maneuver_ratings[id] : [];
+        totals[id] = (totals[id] || 0) + count;
+        for (let index = 0; index < count; index += 1) {
+          history.push({ key: `${lesson.id}-${id}-${index}`, id, date: lesson.date, rating: Number(ratings[index]) || null });
+        }
+      });
+    });
+  return { totals, history };
+}
 
 function ReadOnlyField({ label, value, icon: Icon = CalendarDays }) {
   return <label className="mf-field"><span>{label}</span><div><Icon size={19} /><input readOnly value={value || "—"} /></div></label>;
@@ -30,6 +53,7 @@ export default function StudentFormationPage() {
   const [schemaOpen, setSchemaOpen] = useState(false);
   const [distributionOpen, setDistributionOpen] = useState(false);
   const menuRef = useRef(null);
+  const { totals: maneuverTotals, history: maneuverHistory } = useMemo(() => buildManeuverHistory(lessons), [lessons]);
 
   useEffect(() => {
     let active = true;
@@ -102,10 +126,20 @@ export default function StudentFormationPage() {
                 <ReadOnlyField label="Forfait" value={selected.offer_name} />
                 <ReadOnlyField label="Lieu" value={selected.place_name} icon={MapPin} />
               </div>
-              <div className="mf-toggles sf-toggles"><span>Boîte auto <b>{selected.boite_auto ? "Oui" : "Non"}</b></span><span>Évaluation initiale <b>{selected.evaluation_initiale ? "Oui" : "Non"}</b></span><span>Évaluation permis <b>{selected.evaluation_permis ? "Oui" : "Non"}</b></span></div>
-              <section className="sf-section"><header><h3>Manœuvres effectuées lors de la leçon</h3>{selected.has_schema && <button type="button" onClick={() => setSchemaOpen(true)}>Voir le schéma</button>}</header><SavedManeuvers counts={selected.maneuver_counts} /></section>
-              <section className="sf-section"><h3>Observations (visibles de tous)</h3><p className="sf-observation">{selected.public_observation || "Aucune observation publique pour cette leçon."}</p></section>
-              <section className="sf-section"><h3>Compétences évaluées</h3>{selected.competencies?.length ? <div className="sf-competencies">{selected.competencies.map((competency) => <article key={competency.id}><span>{competency.title}</span><strong>{competency.rating}/5</strong>{competency.observations && <p>{competency.observations}</p>}</article>)}</div> : <p className="mf-muted">Aucune compétence évaluée pour cette leçon.</p>}</section>
+              {/* Same controls as the monitor's Formation page, shown read-only. */}
+              <div className="mf-toggles"><TransmissionSwitch automatic={Boolean(selected.boite_auto)} onChange={noop} disabled /><Toggle label="Evaluation Initiale" checked={Boolean(selected.evaluation_initiale)} onChange={noop} disabled /><Toggle label="Evaluation Permis" checked={Boolean(selected.evaluation_permis)} onChange={noop} disabled /></div>
+              {selected.evaluation_permis && <PermitEvaluation scores={selected.evaluation_permis_scores || {}} onChange={noop} disabled />}
+              <section className="mf-edit-section"><header><h3>Manœuvres effectuées lors de la leçon <Info size={15} /></h3>{selected.has_schema && <button type="button" onClick={() => setSchemaOpen(true)}><PenLine size={15} />Voir le schéma</button>}</header><div className="mf-section-content mf-saved-section"><SavedManeuvers counts={selected.maneuver_counts || {}} ratings={selected.maneuver_ratings || {}} maneuvers={null} /></div></section>
+              <section className="mf-maneuver-history" aria-label="Historique des manœuvres">
+                <header><h3>Historique des manœuvres</h3><span>{`${maneuverHistory.length} passage${maneuverHistory.length > 1 ? "s" : ""}`}</span></header>
+                {Object.keys(maneuverTotals).length > 0 && <div className="mf-maneuver-history-totals">{Object.entries(maneuverTotals).map(([id, count]) => <span key={id}><b>{count}</b>{maneuverLabel(id, null)}</span>)}</div>}
+                {!maneuverHistory.length && <p className="mf-muted">Aucun passage de manœuvre enregistré.</p>}
+                {maneuverHistory.map((item) => <article key={item.key} className="mf-maneuver-history-row"><time>{displayDate(item.date)}</time><strong>{maneuverLabel(item.id, null)}</strong>{item.rating ? <span className={`mf-maneuver-rating-badge rating-${item.rating}`}>Niv. {item.rating} · {RATING_LABELS[item.rating]?.split(" — ")[0] || "Niveau renseigné"}</span> : <span className="mf-muted">Niveau non renseigné</span>}</article>)}
+              </section>
+              <div className="mf-observations sf-observations"><label>Observations (visibles de tous)<textarea rows={3} readOnly value={selected.public_observation || ""} placeholder="Aucune observation publique pour cette leçon." /></label></div>
+              <label className="mf-absence"><input type="checkbox" checked={Boolean(selected.is_absent)} disabled readOnly />Élève absent</label>
+              <section className="mf-edit-section"><header><h3>Compétences évaluées <Info size={15} /></h3></header>{selected.competencies?.length ? <div className="mf-section-content"><div className="sf-competencies">{selected.competencies.map((competency) => <article key={competency.id}><span>{competency.title}</span><strong>{competency.rating}/5</strong>{competency.observations && <p>{competency.observations}</p>}</article>)}</div></div> : <div className="mf-section-content"><p className="mf-muted">Aucune compétence évaluée pour cette leçon.</p></div>}</section>
+              {selected.signature && <p className="mf-signed-note">{selected.signature.signed_at ? `Signée le ${new Date(selected.signature.signed_at).toLocaleString("fr-FR")}. ` : "Leçon signée. "}Cette leçon est verrouillée.</p>}
             </>}
           </section>
         </div>

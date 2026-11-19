@@ -81,10 +81,12 @@ import ActiveAgency from "./Components/activeagency/ActiveAgency.jsx";
 
 // ── Exams
 import Exam from "./Components/exams/Exam.jsx";
+import ExamReadyStudents from "./Components/exams/ExamReadyStudents.jsx";
 
 // ── Sessions
 import Sessions from "./sessions/Sessions.jsx";
 import Cancellations from "./sessions/Cancellations.jsx";
+import StudentAbsences from "./sessions/StudentAbsences.jsx";
 import Propositions from "./Components/propositions/Propositions.jsx";
 
 // ── Online site
@@ -223,6 +225,18 @@ const PUBLIC_ROUTES = new Set([
 ]);
 
 const SECRETARY_DASHBOARD_SESSION_KEY = "permiFastSecretaryDashboardActive";
+const MONITOR_PREVIEW_SESSION_KEY = "permiFastMonitorPreview";
+
+function getMonitorPreviewSession() {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const preview = JSON.parse(window.sessionStorage.getItem(MONITOR_PREVIEW_SESSION_KEY) || "null");
+    return preview?.fromMonitorProfile && (preview?.monitor?.id || preview?.monitor_id) ? preview : null;
+  } catch {
+    return null;
+  }
+}
 
 const SECRETARY_DASHBOARD_PATHS = new Set([
   "/dashboard", "/dashboard/general", "/dashboard/current",
@@ -279,6 +293,11 @@ const NEW_STUDENT_DASHBOARD_PATHS = new Set([
   "/student-code-route",
 ]);
 
+const isMonitorDashboardPath = (pathname) => pathname === "/monitor-dashboard"
+  || pathname === "/monitor/bilans"
+  || pathname === "/monitor/formation"
+  || /^\/monitor\/competences\/[^/]+$/.test(pathname);
+
 function normalizeRole(role) {
   const normalized = String(role ?? "").trim().toLowerCase();
   return ["super-admin", "super_admin", "superadmin"].includes(normalized)
@@ -304,7 +323,7 @@ function canAccessPath(role, pathname, state) {
   }
 
   if (currentRole === "monitor") {
-    return pathname === "/monitor-dashboard" || pathname === "/monitor/bilans" || pathname === "/monitor/formation";
+    return isMonitorDashboardPath(pathname);
   }
 
   // Staff users share the same Components and routes. The secretary has a
@@ -319,13 +338,13 @@ function canAccessPath(role, pathname, state) {
     // candidate/monitor "Connecter" actions.
     if (pathname === "/student-dashboard" || NEW_STUDENT_DASHBOARD_PATHS.has(pathname)) {
       return currentRole === "secretary"
-        ? Boolean(state?.fromSecretaryDashboard)
-        : Boolean(state?.fromCandidateProfile);
+        ? Boolean(state?.fromSecretaryDashboard || isStudentDashboardPreview())
+        : Boolean(state?.fromCandidateProfile || isStudentDashboardPreview());
     }
-    if (pathname === "/monitor-dashboard" || pathname === "/monitor/bilans" || pathname === "/monitor/formation") {
+    if (isMonitorDashboardPath(pathname)) {
       return currentRole === "secretary"
         ? Boolean(state?.fromSecretaryDashboard)
-        : Boolean(state?.fromMonitorProfile);
+        : Boolean(state?.fromMonitorProfile || getMonitorPreviewSession());
     }
     return !PRIVATE_ROLE_DASHBOARD_PATHS.has(pathname) && pathname !== "/login-page";
   }
@@ -449,6 +468,13 @@ const handleLogout=async()=>{
       }
       navigate("/login-page", { replace: true });
       return;
+    }
+
+    // An admin monitor preview survives normal in-dashboard navigation so a
+    // manually entered /monitor-dashboard URL can restore the same monitor.
+    // It must end as soon as the user explicitly leaves that preview.
+    if (!isSecretaryReturn) {
+      window.sessionStorage.removeItem(MONITOR_PREVIEW_SESSION_KEY);
     }
 
     navigate(returnTo, {
@@ -627,8 +653,8 @@ const handleLogout=async()=>{
     return <SatisfactionPage />;
   }
 
-  if (location.pathname === "/monitor-dashboard" || location.pathname === "/monitor/bilans" || location.pathname === "/monitor/formation") {
-    const returnTo = location.state?.returnTo || "/dashboard/general";
+  if (isMonitorDashboardPath(location.pathname)) {
+    const returnTo = location.state?.returnTo || getMonitorPreviewSession()?.returnTo || "/dashboard/general";
     const isSecretaryReturn = Boolean(location.state?.fromSecretaryDashboard);
     const DashboardComponent = MonitorDashboard;
     return (
@@ -865,6 +891,7 @@ const handleLogout=async()=>{
                 <Route path="/sessions"               element={<Sessions title="Sessions" />} />
                 <Route path="/sessions/cancellations" element={<Cancellations title="Annulations" />} />
                 <Route path="/sessions/propositions"  element={<Propositions />} />
+                <Route path="/sessions/absences"      element={<StudentAbsences />} />
 
                 {/* ── Preferences ── */}
                 <Route path="/skills"    element={<Skills title="Compétences" />} />
@@ -892,6 +919,7 @@ const handleLogout=async()=>{
 
                 {/* ── Exams ── */}
                 <Route path="/exams" element={<Exam title="Examens" />} />
+                <Route path="/exams/ready-students" element={<ExamReadyStudents />} />
                 <Route path="/rdvpermis" element={<RdvPermisPage />} />
                 <Route path="/livret-numerique" element={<LivretNumeriquePage />} />
 

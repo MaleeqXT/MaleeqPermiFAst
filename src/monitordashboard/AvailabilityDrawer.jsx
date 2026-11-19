@@ -114,6 +114,7 @@ export default function AvailabilityDrawer({
   walletsError = "",
   selectedOfferId,
   onSelectOffer,
+  monitorId = null,
 }) {
   const [showMapModal, setShowMapModal] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -281,6 +282,7 @@ export default function AvailabilityDrawer({
         <SelectCandidateDrawer
           onClose={() => setShowSelectCandidateDrawer(false)}
           onSelect={handleSelectCandidate}
+          monitorId={monitorId}
         />
       )}
     </>

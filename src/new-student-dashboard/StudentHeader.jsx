@@ -3,7 +3,8 @@ import { useDispatch, useSelector } from "react-redux";
 import { useLocation, useNavigate } from "react-router-dom";
 import { fetchCurrentUser, logoutUser } from "../redux/reducers/authReducer.jsx";
 import http from "../helpers/http.jsx";
-import { isStudentDashboardPreview, stopStudentDashboardPreview } from "../helpers/studentDashboardPreview.js";
+import { getStudentDashboardPreview, isStudentDashboardPreview, stopStudentDashboardPreview } from "../helpers/studentDashboardPreview.js";
+import MessageNotificationBell from "../chat/MessageNotificationBell.jsx";
 
 const HamburgerIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -69,7 +70,8 @@ export function StudentUserMenu({ user: previewUser, onLogout }) {
   const [imgFailed, setImgFailed] = useState(false);
   const authenticatedUser = useSelector((state) => state.auth?.user);
   const connectedCandidate = location.state?.fromCandidateProfile ? location.state.candidate : null;
-  const user = previewUser || connectedCandidate || authenticatedUser;
+  const previewCandidate = getStudentDashboardPreview()?.profile ?? null;
+  const user = previewUser || connectedCandidate || previewCandidate || authenticatedUser;
   const name = fullName(user);
   const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
   const photo = profileImageUrl(user);
@@ -135,16 +137,9 @@ export function StudentUserMenu({ user: previewUser, onLogout }) {
 
 function StudentNotifications() {
   const navigate = useNavigate();
-  const wrapperRef = useRef(null);
   const [open, setOpen] = useState(false);
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    const close = (event) => { if (wrapperRef.current && !wrapperRef.current.contains(event.target)) setOpen(false); };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -155,33 +150,26 @@ function StudentNotifications() {
       .finally(() => setLoading(false));
   }, [open]);
 
-  const notificationCount = appointments.length;
   const formatDate = (value) => {
     if (!value) return "Date à confirmer";
     const date = new Date(`${value}T12:00:00`);
     return Number.isNaN(date.getTime()) ? "Date à confirmer" : new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long" }).format(date);
   };
 
-  return (
-    <div className="nsd-notification-menu" ref={wrapperRef}>
-      <button type="button" className="nsd-bell" aria-label="Notifications" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
-        <BellIcon />
-        {notificationCount > 0 && <span className="nsd-bell-badge">{notificationCount}</span>}
-      </button>
-      {open && (
-        <div className="nsd-notification-dropdown" role="menu">
-          <div className="nsd-notification-title">Notifications</div>
-          {loading ? <p className="nsd-notification-empty">Chargement…</p>
-            : appointments.length ? appointments.map((appointment) => (
-              <button key={appointment.id} type="button" className="nsd-notification-item" role="menuitem" onClick={() => { setOpen(false); navigate("/student-courses"); }}>
-                <span className="nsd-notification-dot" />
-                <span><strong>Réservation confirmée</strong><small>{appointment.title || "Leçon de conduite"} · {formatDate(appointment.date)}{appointment.start_at ? ` à ${String(appointment.start_at).slice(0, 5).replace(":", "h")}` : ""}</small></span>
-              </button>
-            )) : <p className="nsd-notification-empty">Aucune réservation à venir.</p>}
-        </div>
-      )}
-    </div>
-  );
+  const appointmentNotifications = appointments.map((appointment) => ({
+    id: `appointment-${appointment.id}`,
+    title: "Réservation confirmée",
+    preview: `${appointment.title || "Leçon de conduite"} · ${formatDate(appointment.date)}${appointment.start_at ? ` à ${String(appointment.start_at).slice(0, 5).replace(":", "h")}` : ""}`,
+  }));
+
+  return <MessageNotificationBell
+    buttonClassName="nsd-bell"
+    panelClassName="nsd-notification-dropdown"
+    extraItems={appointmentNotifications}
+    onOpenChange={setOpen}
+    onExtraOpen={() => navigate("/student-courses")}
+    onOpenConversation={(conversationId) => navigate("/student-messages", { state: { notificationConversationId: conversationId } })}
+  />;
 }
 
 export default function StudentHeader({

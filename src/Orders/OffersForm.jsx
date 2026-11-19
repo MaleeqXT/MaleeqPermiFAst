@@ -394,6 +394,13 @@ const TYPE_OF_OFFER_OPTIONS = [                     // -> form.type_offre
   { value: 3, label: "Code en ligne" },
 ];
 
+// Standalone pre-training service sold after the registration questionnaire.
+// Distinct from is_evaluation, which marks formulas that include an evaluation hour.
+const EVALUATION_SERVICE_OPTIONS = [            // -> form.evaluation_service
+  { value: "conduite", label: "Évaluation de conduite" },
+  { value: "bilan", label: "Bilan de compétences" },
+];
+
 /* ─── Main Component ─── */
 export default function ModifyOffer({ onBack }) {
   const dispatch = useDispatch();
@@ -412,6 +419,7 @@ export default function ModifyOffer({ onBack }) {
     is_auto: false,        // required boolean (new toggle, not in original UI)
     is_cpf: true,          // was: cpfOffer
     is_evaluation: false,  // was incorrectly bound to cpfOffer, now its own field
+    evaluation_service: "", // "" | "conduite" | "bilan"
     is_offer_cart: true,   // was: isPannierOffer
     status: true,          // was: activated
   
@@ -496,6 +504,7 @@ const tranchePreview = useMemo(() => {
     formData.append("is_auto", form.is_auto ? 1 : 0);
     formData.append("is_cpf", form.is_cpf ? 1 : 0);
     formData.append("is_evaluation", form.is_evaluation ? 1 : 0);
+    formData.append("evaluation_service", form.evaluation_service || "");
     formData.append("is_offer_cart", form.is_offer_cart ? 1 : 0);
     formData.append("status", form.status ? 1 : 0);
     formData.append("type", form.type);
@@ -636,6 +645,19 @@ const tranchePreview = useMemo(() => {
           <div style={S.rightRow}>
             <span style={S.label}>Heure de l'évaluation</span>
             <Toggle checked={form.is_evaluation} onChange={v => set("is_evaluation", v)} />
+          </div>
+
+          {/* Service d'évaluation -> evaluation_service */}
+          <div style={S.field}>
+            <SelectField
+              label="Service d'évaluation (questionnaire)"
+              value={form.evaluation_service}
+              onChange={v => set("evaluation_service", v)}
+              options={EVALUATION_SERVICE_OPTIONS}
+              placeholder="Aucun : formule classique"
+              error={errors.evaluation_service}
+            />
+            {errors.evaluation_service && <div style={S.errorText}>{errors.evaluation_service}</div>}
           </div>
         </div>
 

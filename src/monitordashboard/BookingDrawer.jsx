@@ -637,9 +637,10 @@ export default function BookingDrawer({
           candidate={{ id: booking.studentId, name: booking.candidate, email: booking.email, phone: booking.phone }}
           onClose={() => setIsCandidateOpen(false)}
           onPropose={handleOpenProposeSession}
-          onOpenPedagogicalComments={() => {
+          onOpenPedagogicalComments={(candidateData) => {
             setIsCandidateOpen(false);
-            setIsPedagogicalOpen(true);
+            onClose();
+            onOpenCompetence?.(candidateData);
           }}
           onOpenAllSessions={(candidateData) => {
             setIsCandidateOpen(false);

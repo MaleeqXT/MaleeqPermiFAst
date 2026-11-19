@@ -94,7 +94,7 @@ export default function QuestionDetail({
             aria-label="Evaluation par l'élève"
           >
             {evalChecked && (
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="3.2">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#239a68" strokeWidth="3.2">
                 <polyline points="20 6 9 17 4 12" />
               </svg>
             )}

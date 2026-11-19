@@ -1,4 +1,5 @@
 .rdv-page { color: #172033; max-width: 1280px; margin: 0 auto; padding-bottom: 28px; }
+.rdv-provider-fieldset { border: 0; margin: 0; min-inline-size: 0; padding: 0; }
 .rdv-page-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
 .rdv-eyebrow { color: #64748b; font-size: 12px; font-weight: 700; letter-spacing: .08em; margin: 0 0 6px; text-transform: uppercase; }
 .rdv-page h1 { font-family: Inter, sans-serif; font-size: clamp(28px, 4vw, 38px); line-height: 1.12; margin: 0; }
@@ -52,6 +53,7 @@
 .rdv-error, .rdv-notice { align-items: flex-start; border-radius: 10px; display: flex; font-size: 14px; justify-content: space-between; line-height: 1.45; margin: 0 0 16px; padding: 13px 14px; }
 .rdv-error { background: #fff0f0; border: 1px solid #f9c5c5; color: #9f1c1c; }
 .rdv-notice { background: #ecfdf3; border: 1px solid #a7e7bf; color: #116a3b; }
+.rdv-notice--configuration { background: #eff6ff; border-color: #bfdbfe; color: #1e40af; }
 .rdv-notice button { background: transparent; border: 0; color: inherit; cursor: pointer; font-size: 22px; line-height: 1; margin-left: 12px; }
 .rdv-mutation-panel { align-items: end; display: flex; gap: 14px; max-width: 680px; }
 .rdv-mutation-panel .rdv-field { flex: 1; }
@@ -76,6 +78,9 @@
 .rdv-table { border-collapse: collapse; min-width: 520px; width: 100%; }
 .rdv-table th, .rdv-table td { border-bottom: 1px solid #e2e8f0; padding: 10px; text-align: left; }
 .rdv-table th { color: #475569; font-size: 12px; }
+.rdv-slot-details { color: #526071; display: grid; font-size: 13px; gap: 3px; margin-top: 5px; }
+.rdv-slot-details b { color: #2a3647; }
+.rdv-slot-details small, .rdv-table small, .rdv-result-row small { color: #6d7888; display: block; font-size: 11px; margin-top: 4px; }
 .rdv-pagination { align-items: center; color: #64748b; display: flex; font-size: 13px; justify-content: space-between; margin-top: 16px; }
 .rdv-stepper { display: grid; gap: 8px; grid-template-columns: repeat(8, minmax(100px, 1fr)); list-style: none; margin: 0 0 22px; overflow-x: auto; padding: 0 0 4px; }
 .rdv-stepper li { align-items: center; color: #64748b; display: flex; font-size: 12px; font-weight: 600; gap: 7px; min-width: 105px; }

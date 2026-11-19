@@ -116,8 +116,16 @@ function ProgressRing({ progress = 0 }) {
   );
 }
 
-function LevelSquares({ filled, tone = "green", total = 5 }) {
-  return <span className="nsp-level-squares" aria-label={`${filled} niveaux sur ${total}`}>{Array.from({ length: total }, (_, index) => <i key={index} className={index < filled ? `filled ${tone}` : ""} />)}</span>;
+function LevelSquares({ filled, status }) {
+  const fallbackLevel = status === "acquired" || status === "completed" ? 3 : status === "in_progress" || status === "partial" ? 2 : status === "failed" ? 1 : 0;
+  const selectedLevel = Math.min(3, Math.max(0, Number.isFinite(Number(filled)) ? Number(filled) : fallbackLevel));
+  const levels = [
+    { value: 1, tone: "red", label: "Échec" },
+    { value: 2, tone: "orange", label: "À améliorer" },
+    { value: 3, tone: "green", label: "Maîtrisé" },
+  ];
+
+  return <span className="nsp-level-squares" aria-label={selectedLevel ? levels[selectedLevel - 1].label : "Non évalué"}>{levels.map(({ value, tone, label }) => <i key={value} title={label} className={`level-${tone} ${selectedLevel === value ? "selected" : ""}`} />)}</span>;
 }
 
 function toneForIndex(index) {
@@ -126,14 +134,16 @@ function toneForIndex(index) {
 
 function toneForStatus(status) {
   if (status === "acquired") return "green";
-  if (status === "in_progress") return "blue";
+  if (status === "in_progress") return "orange";
+  if (status === "failed") return "red";
   return "neutral";
 }
 
 function labelForStatus(status) {
-  if (status === "acquired") return "Acquis";
-  if (status === "in_progress") return "En cours";
-  return "À travailler";
+  if (status === "acquired") return "Maîtrisé";
+  if (status === "in_progress") return "À améliorer";
+  if (status === "failed") return "Échec";
+  return "À évaluer";
 }
 
 function formatMinutes(minutes = 0) {
@@ -172,14 +182,17 @@ function toStudentCompetencies(data) {
   });
 }
 
-function CompetencySummary({ competency }) {
+function CompetencySummary({ competency, isMobileOpen, onMobileToggle }) {
   return (
-    <article className={`nsp-competency-row nsp-tone-${competency.tone}`}>
-      <span className="nsp-competency-icon"><TargetIcon /></span>
-      <div className="nsp-competency-copy"><div className="nsp-competency-title"><strong>{competency.id}</strong><span>{competency.title}</span></div><div className="nsp-competency-progress"><span style={{ width: `${competency.progress}%` }} /></div><small>{competency.hours}</small></div>
-      <strong className="nsp-competency-percent">{competency.progress}%</strong>
-      <span className="nsp-competency-status">{competency.status}</span>
-    </article>
+    <div className={`nsp-competency-group nsp-tone-${competency.tone}`}>
+      <button type="button" className="nsp-competency-row" aria-expanded={isMobileOpen} onClick={onMobileToggle}>
+        <span className="nsp-competency-icon"><TargetIcon /></span>
+        <span className="nsp-competency-copy"><span className="nsp-competency-title"><strong>{competency.id}</strong><span>{competency.title}</span></span><span className="nsp-competency-progress"><span style={{ width: `${competency.progress}%` }} /></span><small>{competency.hours}</small></span>
+        <strong className="nsp-competency-percent">{competency.progress}%</strong>
+        <span className="nsp-competency-status">{competency.status}</span>
+      </button>
+      {isMobileOpen && <div className="nsp-mobile-series-details">{competency.details.map(([code, description, level, status, tone]) => <div className="nsp-mobile-question" key={`${competency.id}-${code}`}><span><b>{code}</b>{description}</span><LevelSquares filled={level} status={tone === "green" ? "acquired" : tone === "orange" ? "in_progress" : tone === "red" ? "failed" : undefined} /><small className={tone}>{status}</small></div>)}</div>}
+    </div>
   );
 }
 
@@ -193,13 +206,14 @@ function LessonDate({ lesson }) {
 }
 
 function StudentHistoryTable({ lessons, onLessonOpen }) {
-  return <table className="nsp-history-table"><thead><tr><th>Date</th><th>Type</th><th>Durée</th><th>Moniteur</th><th>Compétences travaillées</th><th>Bilan du moniteur</th><th>Niveau atteint</th><th aria-label="Action" /></tr></thead><tbody>{lessons.length ? lessons.map((lesson) => <tr key={lesson.id}><td><LessonDate lesson={lesson} /></td><td><span className={`nsp-type-badge ${lesson.typeTone || (lesson.type === "Code en ligne" ? "blue" : "green")}`}>{lesson.type}</span></td><td><strong>{lesson.duration}</strong></td><td>{lesson.instructor === "—" ? "—" : <span className="nsp-history-instructor"><i>{lesson.initials}</i>{lesson.instructor}</span>}</td><td>{lesson.competencies.length ? <span className="nsp-history-competencies">{lesson.competencies.map(([code, tone]) => <i key={code} className={tone}>{code}</i>)}</span> : "—"}</td><td><p>{lesson.assessment || "—"}</p></td><td><span className="nsp-history-level"><LevelSquares filled={lesson.level} total={5} /><small>{lesson.level}/5</small></span></td><td><button type="button" className="nsp-row-action" onClick={() => onLessonOpen(lesson)} aria-label={`Voir la leçon du ${lesson.date}`}><ChevronRightIcon /></button></td></tr>) : <tr><td colSpan="8" className="nsp-history-empty">Aucune leçon disponible.</td></tr>}</tbody></table>;
+  return <table className="nsp-history-table"><thead><tr><th>Date</th><th>Type</th><th>Durée</th><th>Moniteur</th><th>Compétences travaillées</th><th>Bilan du moniteur</th><th>Niveau atteint</th><th aria-label="Action" /></tr></thead><tbody>{lessons.length ? lessons.map((lesson) => <tr key={lesson.id}><td><LessonDate lesson={lesson} /></td><td><span className={`nsp-type-badge ${lesson.typeTone || (lesson.type === "Code en ligne" ? "blue" : "green")}`}>{lesson.type}</span></td><td><strong>{lesson.duration}</strong></td><td>{lesson.instructor === "—" ? "—" : <span className="nsp-history-instructor"><i>{lesson.initials}</i>{lesson.instructor}</span>}</td><td>{lesson.competencies.length ? <span className="nsp-history-competencies">{lesson.competencies.map(([code, tone]) => <i key={code} className={tone}>{code}</i>)}</span> : "—"}</td><td><p>{lesson.assessment || "—"}</p></td><td><span className="nsp-history-level"><LevelSquares filled={lesson.level} /><small>{Math.min(3, Math.max(0, Number(lesson.level) || 0))}/3</small></span></td><td><button type="button" className="nsp-row-action" onClick={() => onLessonOpen(lesson)} aria-label={`Voir la leçon du ${lesson.date}`}><ChevronRightIcon /></button></td></tr>) : <tr><td colSpan="8" className="nsp-history-empty">Aucune leçon disponible.</td></tr>}</tbody></table>;
 }
 
 export default function CandidateProgressPage() {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeCompetencyId, setActiveCompetencyId] = useState("C1");
+  const [mobileOpenCompetencyId, setMobileOpenCompetencyId] = useState(null);
   const [progressData, setProgressData] = useState(null);
   const [progressLoading, setProgressLoading] = useState(true);
   const [openQuestionKey, setOpenQuestionKey] = useState(null);
@@ -219,7 +233,10 @@ export default function CandidateProgressPage() {
         if (cancelled) return;
         const data = response.data?.data ?? null;
         setProgressData(data);
-        if (data?.competencies?.[0]?.code) setActiveCompetencyId(data.competencies[0].code);
+        if (data?.competencies?.[0]?.code) {
+          setActiveCompetencyId(data.competencies[0].code);
+          setMobileOpenCompetencyId(null);
+        }
       })
       .catch(() => {
         if (!cancelled) setProgressData(null);
@@ -365,13 +382,13 @@ export default function CandidateProgressPage() {
         </section>
 
         <section className="nsp-competency-grid">
-          <article className="nsp-panel nsp-breakdown-card"><div className="nsp-manoeuvres-card" aria-label="Manœuvres effectuées lors des leçons"><h3>Manœuvres effectuées lors des leçons</h3><div className="nsp-manoeuvres-grid">{maneuvers.map((manoeuvre) => <div className="nsp-manoeuvre-item" key={manoeuvre.id} title={manoeuvre.label}><span className="nsp-manoeuvre-icon"><ManeuverGlyph variant={manoeuvre.icon} /></span><strong>{Number(maneuverCounts[manoeuvre.id] || 0)}</strong><span>{manoeuvre.label}</span></div>)}</div></div><div className="nsp-section-title"><h2>Répartition par compétence (REMC)</h2><span className="nsp-info" title="Référentiel pour l'éducation à une mobilité citoyenne">i</span></div><div className="nsp-competency-list">{competencies.map((competency) => <CompetencySummary key={competency.id} competency={competency} />)}</div><div className="nsp-legend" aria-label="Légende des statuts"><span><i className="green" />Acquis</span><span><i className="blue" />En cours d'acquisition</span><span><i className="amber" />En progression</span><span><i className="neutral" />À travailler</span></div></article>
+          <article className="nsp-panel nsp-breakdown-card"><div className="nsp-manoeuvres-card" aria-label="Manœuvres effectuées lors des leçons"><h3>Manœuvres effectuées lors des leçons</h3><div className="nsp-manoeuvres-grid">{maneuvers.map((manoeuvre) => <div className="nsp-manoeuvre-item" key={manoeuvre.id} title={manoeuvre.label}><span className="nsp-manoeuvre-icon"><ManeuverGlyph variant={manoeuvre.icon} /></span><strong>{Number(maneuverCounts[manoeuvre.id] || 0)}</strong><span>{manoeuvre.label}</span></div>)}</div></div><div className="nsp-section-title"><h2>Répartition par compétence (REMC)</h2><span className="nsp-info" title="Référentiel pour l'éducation à une mobilité citoyenne">i</span></div><div className="nsp-competency-list">{competencies.map((competency) => <CompetencySummary key={competency.id} competency={competency} isMobileOpen={mobileOpenCompetencyId === competency.id} onMobileToggle={() => setMobileOpenCompetencyId((current) => current === competency.id ? null : competency.id)} />)}</div><div className="nsp-legend" aria-label="Légende des statuts"><span><i className="green" />Acquis</span><span><i className="blue" />En cours d'acquisition</span><span><i className="amber" />En progression</span><span><i className="neutral" />À travailler</span></div></article>
 
           <article className="nsp-panel nsp-detail-card">
             <h2>Détail de la compétence sélectionnée</h2>
             <div className="nsp-competency-tabs" role="tablist" aria-label="Choisir une compétence">{competencies.map((competency) => <button key={competency.id} type="button" role="tab" aria-selected={activeCompetencyId === competency.id} className={activeCompetencyId === competency.id ? "active" : ""} onClick={() => { setActiveCompetencyId(competency.id); setOpenQuestionKey(null); }}><strong>{competency.id}</strong><span>{competency.shortTitle}</span></button>)}</div>
             <div className={`nsp-detail-summary nsp-tone-${activeCompetency.tone}`}><div><h3>{activeCompetency.id} - {activeCompetency.title}</h3><p>{activeCompetency.description}</p></div><span><strong>{activeCompetency.progress}%</strong><small>Niveau atteint</small></span></div>
-            <div className="nsp-detail-table" role="table" aria-label={`Détails de la compétence ${activeCompetency.id}`}><div className="nsp-detail-row nsp-detail-row--head" role="row"><span>Compétence</span><span>Niveau atteint</span><span>Statut</span><span aria-hidden="true" /></div>{activeCompetency.details.map(([code, description, level, status, tone, observations, questionId, savedStudentResponse, savedStudentEvaluation, savedActiveTab]) => { const questionKey = `${activeCompetency.id}-${code}`; const detail = studentQuestionDetails[questionKey] ?? { studentResponse: savedStudentResponse, studentEvaluation: savedStudentEvaluation, activeTab: savedActiveTab }; const isOpen = openQuestionKey === questionKey; return <div className="nsp-question-wrap" key={questionKey}><div className={`nsp-detail-row nsp-detail-row--interactive ${isOpen ? "active" : ""}`}><span><b>{code}</b>{description}</span><LevelSquares filled={level} tone={tone} total={5} /><span className={`nsp-detail-status ${tone}`}>{status}</span><button type="button" className={`nsp-question-toggle ${isOpen ? "open" : ""}`} aria-label={`${isOpen ? "Fermer" : "Ouvrir"} les commentaires de ${description}`} aria-expanded={isOpen} onClick={() => setOpenQuestionKey((current) => current === questionKey ? null : questionKey)}><ChevronDownIcon /></button></div>{isOpen && <div className="nsp-question-detail"><QuestionDetail role="student" observations={observations} studentResponse={detail.studentResponse ?? ""} studentEvaluation={detail.studentEvaluation ?? false} activeTab={detail.activeTab ?? "pourquoi"} onSave={(nextDetail) => saveStudentQuestionDetail(questionKey, questionId, nextDetail)} /></div>}</div>; })}</div>
+            <div className="nsp-detail-table" role="table" aria-label={`Détails de la compétence ${activeCompetency.id}`}><div className="nsp-detail-row nsp-detail-row--head" role="row"><span>Compétence</span><span>Niveau atteint</span><span>Statut</span><span aria-hidden="true" /></div>{activeCompetency.details.map(([code, description, level, status, tone, observations, questionId, savedStudentResponse, savedStudentEvaluation, savedActiveTab]) => { const questionKey = `${activeCompetency.id}-${code}`; const detail = studentQuestionDetails[questionKey] ?? { studentResponse: savedStudentResponse, studentEvaluation: savedStudentEvaluation, activeTab: savedActiveTab }; const isOpen = openQuestionKey === questionKey; return <div className="nsp-question-wrap" key={questionKey}><div className={`nsp-detail-row nsp-detail-row--interactive ${isOpen ? "active" : ""}`}><span><b>{code}</b>{description}</span><LevelSquares filled={level} status={tone === "green" ? "acquired" : tone === "orange" ? "in_progress" : tone === "red" ? "failed" : undefined} /><span className={`nsp-detail-status ${tone}`}>{status}</span><button type="button" className={`nsp-question-toggle ${isOpen ? "open" : ""}`} aria-label={`${isOpen ? "Fermer" : "Ouvrir"} les commentaires de ${description}`} aria-expanded={isOpen} onClick={() => setOpenQuestionKey((current) => current === questionKey ? null : questionKey)}><ChevronDownIcon /></button></div>{isOpen && <div className="nsp-question-detail"><QuestionDetail role="student" observations={observations} studentResponse={detail.studentResponse ?? ""} studentEvaluation={detail.studentEvaluation ?? false} activeTab={detail.activeTab ?? "pourquoi"} onSave={(nextDetail) => saveStudentQuestionDetail(questionKey, questionId, nextDetail)} /></div>}</div>; })}</div>
             <button type="button" className="nsp-advice-button" onClick={() => { const firstCode = activeCompetency.details[0]?.[0]; if (firstCode) setOpenQuestionKey(`${activeCompetency.id}-${firstCode}`); }}><ChatIcon />Voir les conseils de moniteur pour cette compétence</button>
           </article>
         </section>

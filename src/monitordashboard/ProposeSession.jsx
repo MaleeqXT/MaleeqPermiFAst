@@ -8,6 +8,7 @@ import {
   selectStudentStatsLoadingById,
   selectStudentStatsErrorById,
 } from "../redux/reducers/studentStatsSlice.jsx";
+import { studentIdFrom } from "../helpers/studentIdentity.js";
 
 const IconArrowLeft = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -135,7 +136,8 @@ export default function ProposeSession({
   monitorId = null,
 }) {
   const dispatch   = useDispatch();
-  const studentId  = candidate?.studentId ?? null;
+  const studentId = studentIdFrom(candidate);
+  const studentCandidate = studentId ? { ...candidate, id: studentId, studentId, student_id: studentId } : candidate;
 
   const stats   = useSelector((state) => selectStudentStatsById(state, studentId));
   const loading = useSelector((state) => selectStudentStatsLoadingById(state, studentId));
@@ -161,7 +163,7 @@ export default function ProposeSession({
       </div>
 
       <div className="ps-root">
-        <CandidateCard candidate={candidate} stats={stats} loading={loading && !stats} />
+        <CandidateCard candidate={studentCandidate} stats={stats} loading={loading && !stats} />
 
         {error && !stats && (
           <p className="ps-error-text">
@@ -172,7 +174,7 @@ export default function ProposeSession({
         <MonitorSessions
           variant="monitor"
           mode="proposal"
-          candidate={candidate}
+          candidate={studentCandidate}
           events={events}
           onEventsChange={onEventsChange}
           onOpenProposeSession={onOpenProposeSession}

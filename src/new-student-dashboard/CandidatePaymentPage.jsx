@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import StudentSidebar from "./StudentSidebar.jsx";
 import StudentHeader from "./StudentHeader.jsx";
 import http from "../helpers/http.jsx";
+import { getStudentDashboardPreview } from "../helpers/studentDashboardPreview.js";
 import "./CandidateDashboard.css";
 import "./CandidatePaymentPage.css";
 
@@ -75,14 +76,16 @@ export default function CandidatePaymentPage() {
   const [paymentSummary, setPaymentSummary] = useState(null);
   const [paymentError, setPaymentError] = useState("");
   const [invoiceError, setInvoiceError] = useState("");
+  const previewStudentId = getStudentDashboardPreview()?.studentId ?? null;
+  const previewParams = previewStudentId ? { student_id: previewStudentId } : undefined;
 
   useEffect(() => {
     let active = true;
-    http.get("/student/payment-summary")
+    http.get("/student/payment-summary", { params: previewParams })
       .then(({ data }) => active && setPaymentSummary(data))
       .catch(() => active && setPaymentError("Impossible de charger vos informations de paiement pour le moment."));
     return () => { active = false; };
-  }, []);
+  }, [previewStudentId]);
 
   useEffect(() => {
     if (!activeModal) return undefined;
@@ -105,7 +108,7 @@ export default function CandidatePaymentPage() {
     setInvoiceError("");
     const invoiceWindow = window.open("", "_blank");
     try {
-      const response = await http.get(`/student/payments/${saleId}/invoice`, { responseType: "blob" });
+      const response = await http.get(`/student/payments/${saleId}/invoice`, { params: previewParams, responseType: "blob" });
       const pdfUrl = URL.createObjectURL(new Blob([response.data], { type: "application/pdf" }));
       if (invoiceWindow) invoiceWindow.location.href = pdfUrl;
       else window.location.assign(pdfUrl);

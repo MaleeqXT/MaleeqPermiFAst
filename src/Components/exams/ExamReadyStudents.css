@@ -1,0 +1,37 @@
+.exam-ready-page {
+  font-family: inherit;
+  color: #333;
+  padding: 30px 42px;
+}
+
+.exam-ready-page__heading { margin-bottom: 22px; }
+.exam-ready-page__heading p { margin: 0 0 4px; color: #239a68; font-size: 14px; font-weight: 600; }
+.exam-ready-page__heading h1 { margin: 0; color: #333; font-size: 28px; font-weight: 650; letter-spacing: -.02em; }
+
+.exam-ready-card { background: #fff; border: 1px solid #e4e7eb; border-radius: 14px; overflow: hidden; box-shadow: 0 2px 10px rgba(51, 51, 51, .04); }
+.exam-ready-card__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 19px 20px; border-bottom: 1px solid #e9ecef; background: #fff; }
+.exam-ready-card__header h2 { margin: 0; color: #333; font-size: 18px; font-weight: 650; }
+.exam-ready-card__header p { margin: 5px 0 0; color: #6b7280; font-size: 13px; line-height: 1.45; }
+.exam-ready-card__count { display: grid; place-items: center; flex: 0 0 auto; min-width: 34px; height: 34px; border-radius: 50%; background: #239a68; color: #fff; font-size: 14px; font-weight: 700; }
+.exam-ready-card__table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.exam-ready-card__table { width: 100%; min-width: 920px; border-collapse: collapse; }
+.exam-ready-card__table th { padding: 11px 14px; background: #f8f9fa; color: #687385; font-size: 11px; font-weight: 650; letter-spacing: .03em; text-align: left; text-transform: uppercase; white-space: nowrap; }
+.exam-ready-card__table td { padding: 13px 14px; border-top: 1px solid #edf0f2; color: #4b5563; font-size: 13px; vertical-align: middle; }
+.exam-ready-card__table td strong { display: block; color: #333; font-weight: 650; }
+.exam-ready-card__table td small { display: block; margin-top: 3px; color: #7b8492; font-size: 11px; }
+.exam-ready-card__observation { max-width: 230px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.exam-ready-card__action { border: 0; border-radius: 8px; background: #333; color: #fff; cursor: pointer; font: inherit; font-size: 12px; font-weight: 600; padding: 9px 13px; white-space: nowrap; }
+.exam-ready-card__action:hover, .exam-ready-card__action:focus-visible { background: #239a68; }
+.exam-ready-card__notice { margin: 14px 20px 0; padding: 10px 12px; border-radius: 8px; font-size: 13px; }
+.exam-ready-card__notice--error { background: #fff4f4; color: #b42318; }
+.exam-ready-card__empty { color: #6b7280; padding: 28px !important; text-align: center; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+@media (max-width: 768px) {
+  .exam-ready-page { padding: 20px 16px 90px; }
+  .exam-ready-page__heading h1 { font-size: 23px; }
+  .exam-ready-card__header { padding: 16px; }
+  .exam-ready-card__header h2 { font-size: 16px; }
+  .exam-ready-card__header p { font-size: 12px; }
+  .exam-ready-card__table { min-width: 820px; }
+}

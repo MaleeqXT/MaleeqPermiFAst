@@ -542,6 +542,7 @@
 }
 
 .nsp-competency-row {
+  width: 100%;
   min-height: 57px;
   display: grid;
   grid-template-columns: 35px minmax(0, 1fr) 34px 65px;
@@ -549,8 +550,16 @@
   align-items: center;
   column-gap: 8px;
   padding: 7px 0;
+  border: 0;
   border-bottom: 1px solid #eef0f1;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
 }
+
+.nsp-mobile-series-details { display: none; }
 
 .nsp-competency-icon {
   grid-row: 1 / 3;
@@ -864,6 +873,24 @@
   margin-top: 4px;
 }
 
+/* Keep the expanded student detail at the same compact type scale as the
+   surrounding progression rows. */
+.nsp-question-detail .mc-question-detail-container,
+.nsp-question-detail .mc-detail-textarea,
+.nsp-question-detail .mc-pov-tab,
+.nsp-question-detail .mc-modify-btn { font-family: Inter, "DM Sans", sans-serif; }
+.nsp-question-detail .mc-question-detail-container { font-size: 11.5px; font-weight: 400; }
+.nsp-question-detail .mc-detail-label { font-size: 11.5px; font-weight: 600; }
+.nsp-question-detail .mc-detail-textarea,
+.nsp-question-detail .mc-detail-textarea::placeholder { font-size: 11.5px; font-weight: 400; line-height: 1.4; }
+.nsp-question-detail .mc-detail-lessons { font-size: 11.5px; font-weight: 500; }
+.nsp-question-detail .mc-student-pov-title { font-size: 12px; font-weight: 600; }
+.nsp-question-detail .mc-student-eval-row,
+.nsp-question-detail .mc-student-eval-label { font-size: 11.5px; font-weight: 400; }
+.nsp-question-detail .mc-pov-tab { padding: 5px 11px; font-size: 11.5px; font-weight: 400; }
+.nsp-question-detail .mc-pov-tab--active { font-weight: 600; }
+.nsp-question-detail .mc-modify-btn { min-width: 150px; padding: 9px 28px; font-size: 12px; font-weight: 600; }
+
 .nsp-level-squares {
   display: inline-flex;
   align-items: center;
@@ -878,15 +905,12 @@
   background: #ffffff;
 }
 
-.nsp-level-squares i.filled {
-  border-color: transparent;
-}
-
-.nsp-level-squares i.green { background: var(--nsp-green); }
-.nsp-level-squares i.blue { background: var(--nsp-blue); }
-.nsp-level-squares i.purple { background: var(--nsp-purple); }
-.nsp-level-squares i.amber { background: var(--nsp-amber); }
-.nsp-level-squares i.neutral { background: #c5cbce; }
+.nsp-level-squares i.level-red { border-color: #ef4444; }
+.nsp-level-squares i.level-orange { border-color: #f59e0b; }
+.nsp-level-squares i.level-green { border-color: var(--nsp-green); }
+.nsp-level-squares i.level-red.selected { background: #ef4444; }
+.nsp-level-squares i.level-orange.selected { background: #f59e0b; }
+.nsp-level-squares i.level-green.selected { background: var(--nsp-green); }
 
 .nsp-detail-status {
   font-size: 10px;
@@ -897,7 +921,11 @@
 .nsp-detail-status.blue { color: var(--nsp-blue); }
 .nsp-detail-status.purple { color: var(--nsp-purple); }
 .nsp-detail-status.amber { color: #b7781f; }
+.nsp-detail-status.orange { color: #c87900; }
+.nsp-detail-status.red { color: #dc2626; }
 .nsp-detail-status.neutral { color: #7a8286; }
+
+.nsp-mobile-competency-accordion { display: none; }
 
 .nsp-advice-button {
   min-height: 27px;
@@ -1241,7 +1269,10 @@
   }
 }
 
-@media (max-width: 760px) {
+/* Match the dashboard's mobile navigation breakpoint.  At this width the
+   full detail table no longer has enough room, so show a series accordion
+   directly below the selected C1/C2/C3/C4 row instead. */
+@media (max-width: 768px) {
   .nsp-header { min-height: 44px; margin-bottom: 14px; }
 
   .nsp-actions {
@@ -1257,25 +1288,16 @@
     grid-column: auto;
   }
 
-  .nsp-detail-card {
-    overflow: hidden;
-  }
-
-  .nsp-competency-tabs {
-    overflow-x: auto;
-    grid-template-columns: repeat(4, minmax(130px, 1fr));
-  }
-
-  .nsp-detail-table {
-    width: 100%;
-    min-width: 0;
-    overflow-x: auto;
-  }
-
-  .nsp-detail-row {
-    min-width: 620px;
-    grid-template-columns: minmax(300px, 1fr) 112px 78px 32px;
-  }
+  .nsp-detail-card { display: none; }
+  .nsp-mobile-series-details { display: grid; margin: 6px 0 10px; overflow: hidden; border: 1px solid #e1e8e4; border-radius: 9px; background: #fff; }
+  .nsp-mobile-question { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px 12px; align-items: center; padding: 11px 12px; border-bottom: 1px solid #edf1ef; }
+  .nsp-mobile-question:last-child { border-bottom: 0; }
+  .nsp-mobile-question > span { min-width: 0; color: #4d5559; font-size: 11px; line-height: 16px; }
+  .nsp-mobile-question > span b { margin-right: 8px; color: #7d878c; font-weight: 600; }
+  .nsp-mobile-question small { grid-column: 2; color: #7a8286; font-size: 10px; font-weight: 700; text-align: right; }
+  .nsp-mobile-question small.green { color: var(--nsp-green-dark); }
+  .nsp-mobile-question small.orange { color: #c87900; }
+  .nsp-mobile-question small.red { color: #dc2626; }
 }
 
 @media (max-width: 560px) {

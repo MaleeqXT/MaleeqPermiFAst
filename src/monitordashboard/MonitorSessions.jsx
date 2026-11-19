@@ -36,6 +36,7 @@ import {
 import { deleteMonitorProposal } from "../redux/reducers/monitorProposalsSlice.jsx";
 import { requestReservationCancellation, storeMonitorReservations } from "../redux/reducers/reservationSlice.jsx";
 import { deleteMonitorReservation } from "../redux/reducers/reservationSlice.jsx";
+import { studentIdFrom } from "../helpers/studentIdentity.js";
 
 const WEEKDAY_LABELS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
@@ -481,7 +482,8 @@ function EventCard({ event, isSelected = false, selectedCandidatName = "", slotS
   const showProposalPreview = isAvailability && isSelected && Boolean(selectedCandidatName);
   const fallbackIndex = String(event.id ?? "").split("").reduce((sum, ch) => sum + ch.charCodeAt(0), 0) || 0;
   const accent = safeHexColor(isSelected ? "#2563eb" : event.accentColor, fallbackIndex);
-  const readableColor = getReadableTextColor(accent);
+  // Planning colours are pastel; dark text keeps every card readable.
+  const readableColor = "#17352a";
   const softAccent = mixWithWhite(accent, 0.84);
   const background = isSelected
     ? "linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)"
@@ -505,13 +507,26 @@ function EventCard({ event, isSelected = false, selectedCandidatName = "", slotS
     !isLeadVisibleSlot ? "ms-event-card--compact" : "",
   ].filter(Boolean).join(" ");
 
-  const candidateLabel = normalizeLabel(event.candidate) || "Séance";
+  const candidateLabel = normalizeLabel(event.candidate);
   const placeLabel = normalizeLabel(event.place) || normalizeLabel(event.mapLocation);
   const monitorLabel = normalizeLabel(event.monitor) || normalizeLabel(event.monitorName);
   const offerLabel = normalizeLabel(event.offer);
+  const displayStatus = showProposalPreview
+    ? "Proposition sélectionnée"
+    : event.status === "available"
+      ? "Disponible"
+      : event.status === "passed"
+        ? "Terminée"
+        : event.status === "upcoming"
+          ? "À venir"
+          : event.status === "cancelled"
+            ? "Annulée"
+            : event.status;
   const title = showProposalPreview
     ? `Séance pour ${selectedCandidatName}`
-    : candidateLabel || placeLabel || getEventLabel(event);
+    : isAvailability
+      ? "Disponibilité"
+      : candidateLabel || event.title || placeLabel || getEventLabel(event);
   const timeLabel = event.startTime && event.endTime ? `${event.startTime} - ${event.endTime}` : event.startTime || "";
 
   return (
@@ -526,7 +541,7 @@ function EventCard({ event, isSelected = false, selectedCandidatName = "", slotS
     >
       <div className="ms-event-head">
         <span className="ms-event-status">
-          {showProposalPreview ? "Proposition sélectionnée" : event.status}
+          {displayStatus}
         </span>
         {timeLabel && <span className="ms-event-time">{timeLabel}</span>}
       </div>
@@ -965,7 +980,10 @@ const handleConfirmSessionCancellation = async ({ justification }) => {
     }
 
     try {
-      const studentId = candidate?.studentId ?? candidate?.id ?? candidate?.student_id ?? candidate?.user?.student?.id ?? null;
+      const studentId = studentIdFrom(candidate);
+      if (!studentId) {
+        throw new Error("Sélectionnez un élève valide avant de proposer une séance.");
+      }
       const payload = {
         data: selectedProposalAvailabilities.map((availability) => ({
           reservation_id: availability.id,
@@ -1298,14 +1316,17 @@ const handleConfirmSessionCancellation = async ({ justification }) => {
               )}
             </div>
           )}
-          <button
-            type="button"
-            className="ms-icon-btn"
-            aria-label="Ouvrir les paramètres de planification"
-            onClick={() => setShowSchedulingDrawer(true)}
-          >
-            <IconSettings />
-          </button>
+          {allowAvailabilityCreation && (
+            <button
+              type="button"
+              className="ms-icon-btn"
+              aria-label="Planifier des disponibilités récurrentes"
+              title="Planifier des disponibilités récurrentes"
+              onClick={() => setShowSchedulingDrawer(true)}
+            >
+              <IconSettings />
+            </button>
+          )}
           <button type="button" className="ms-nav-btn" onClick={() => handleSelectWeek(new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() - 7))} aria-label="Semaine précédente">
             <IconArrowLeft />
           </button>
@@ -1397,6 +1418,7 @@ const handleConfirmSessionCancellation = async ({ justification }) => {
           </div>
         )}
 
+        <p className="ms-mobile-calendar-hint" aria-hidden="true">← Faites glisser le planning pour voir les autres jours →</p>
         <CalWeekView
           weekDates={weekDates}
           events={events}
@@ -1407,6 +1429,7 @@ const handleConfirmSessionCancellation = async ({ justification }) => {
           onEventClick={handleOpenEvent}
           isSlotSelected={(date, hour) => selectedSlots.some((slot) => slot.date === formatIsoDate(date) && slot.startTime === `${`${hour}`.padStart(2, "0")}:00`)}
           getSlotClassName={(_date, _hour, slotEvents) => (slotEvents.length === 0 ? "ms-calendar-slot" : "")}
+          mobileSingleDay
           renderEvent={(event, _date, _hour, slotState, meta = {}) => (
             <EventCard
               event={event}
@@ -1435,7 +1458,7 @@ const handleConfirmSessionCancellation = async ({ justification }) => {
                 Effacer
               </button>
               <button type="button" className="ms-success-btn" onClick={() => setShowZoneModal(true)}>
-                Disponible for sessions
+                {selectedSlots.length === 1 ? "Rendre disponible" : `Rendre disponibles (${selectedSlots.length})`}
               </button>
             </div>
           </div>
@@ -1613,6 +1636,7 @@ const handleConfirmSessionCancellation = async ({ justification }) => {
           onClose={() => setActiveAvailability(null)}
           onCancelAvailability={() => handleCancelAvailability(activeAvailability.id)}
           onOpenProposeSession={handleOpenAvailabilityProposalFlow}
+          monitorId={monitorId}
         />
       )}
 

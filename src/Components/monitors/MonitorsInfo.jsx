@@ -392,7 +392,11 @@ useEffect(() => {
               onBack();
               return;
             }
-            navigate(-1);
+            // The monitor preview is placed after this page in browser
+            // history. Returning with navigate(-1) therefore re-opened the
+            // preview after the user had clicked Quitter. Go to the monitor
+            // list explicitly instead.
+            navigate("/monitors");
           }}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">

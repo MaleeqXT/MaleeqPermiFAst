@@ -137,8 +137,10 @@ export default function CalWeekView({
   renderSlotOverlay,
   isSlotSelected,
   getSlotClassName,
+  mobileSingleDay = false,
 }) {
   const [hoverCell, setHoverCell] = useState(null);
+  const [activeMobileDayIndex, setActiveMobileDayIndex] = useState(0);
   const bodyRef = useRef(null);
   const today = new Date();
   const hourStart = HOURS[0];
@@ -148,6 +150,11 @@ export default function CalWeekView({
     if (!bodyRef.current) return;
     bodyRef.current.scrollTop = 0;
   }, []);
+
+  useEffect(() => {
+    const todayIndex = weekDates.findIndex((date) => isToday(date));
+    setActiveMobileDayIndex(todayIndex >= 0 ? todayIndex : 0);
+  }, [weekDates]);
 
   function getEventsForSlot(date, hour) {
     return events.filter((e) => {
@@ -185,7 +192,7 @@ export default function CalWeekView({
 
   return (
    
-   <div className="cal-week-wrap">
+   <div className={`cal-week-wrap ${mobileSingleDay ? "cal-week-wrap--single-day-mobile" : ""}`}>
       <div className="cal-week-nav-row">
         <button className="cal-week-nav-btn" onClick={onPrevWeek}>
           <IconChevL />
@@ -218,6 +225,23 @@ export default function CalWeekView({
         ))}
       </div>
 
+      {mobileSingleDay && (
+        <div className="cal-week-mobile-days" aria-label="Choisir un jour">
+          {weekDates.map((date, index) => (
+            <button
+              key={`${date.toISOString()}-mobile`}
+              type="button"
+              className={`cal-week-mobile-day ${index === activeMobileDayIndex ? "cal-week-mobile-day--active" : ""}`}
+              onClick={() => setActiveMobileDayIndex(index)}
+              aria-pressed={index === activeMobileDayIndex}
+            >
+              <span>{DAYS_WEEK[index]}</span>
+              <strong>{date.getDate()}</strong>
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="cal-week-body" ref={bodyRef}>
         {HOURS.map((hour) => (
           <div key={hour} className="cal-week-row">
@@ -234,7 +258,7 @@ export default function CalWeekView({
               return (
                 <div
                   key={col}
-                  className={`cal-week-cell ${isToday(date) ? "cal-week-cell--today" : ""}${isClickable ? "" : " cal-week-cell--readonly"}${isPast ? " cal-week-cell--past" : ""}${selected ? " cal-week-cell--selected" : ""}${extraSlotClassName ? ` ${extraSlotClassName}` : ""}`}
+                  className={`cal-week-cell ${mobileSingleDay && col !== activeMobileDayIndex ? "cal-week-cell--mobile-hidden" : ""}${isToday(date) ? " cal-week-cell--today" : ""}${isClickable ? "" : " cal-week-cell--readonly"}${isPast ? " cal-week-cell--past" : ""}${selected ? " cal-week-cell--selected" : ""}${extraSlotClassName ? ` ${extraSlotClassName}` : ""}`}
                   onClick={isClickable ? () => onSlotClick(date, hour) : undefined}
                   onMouseMove={isClickable ? (e) => handleMouseMove(e, col, hour) : undefined}
                   onMouseLeave={isClickable ? () => setHoverCell(null) : undefined}

@@ -41,6 +41,7 @@ const COURSE_TABS = [
   { id: "past", label: "Passés" },
   { id: "cancelled", label: "Annulés" },
 ];
+const COURSES_PAGE_SIZE = 8;
 
 const FRENCH_MONTHS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
 
@@ -156,26 +157,40 @@ export default function CandidateCoursePage() {
   const [activityDates, setActivityDates] = useState(new Set());
   const [coursesLoading, setCoursesLoading] = useState(true);
   const [selectedCourse, setSelectedCourse] = useState(null);
+  const [visibleCourseCount, setVisibleCourseCount] = useState(COURSES_PAGE_SIZE);
 
   const calendarYear = calendarMonth.getFullYear();
   const calendarMonthIndex = calendarMonth.getMonth();
   const calendarDays = useMemo(() => createCalendarDays(calendarYear, calendarMonthIndex, activityDates), [calendarYear, calendarMonthIndex, activityDates]);
-  const selectedDateKey = selectedDate ? toDateKey(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate()) : null;
-  const visibleCourses = courses.filter((course) => course.status === activeTab).map(formatCourse);
+  const visibleCourses = useMemo(() => courses
+    .filter((course) => course.status === activeTab)
+    .sort((firstCourse, secondCourse) => {
+      const firstDate = new Date(`${firstCourse.date}T${firstCourse.start_at || "00:00"}`);
+      const secondDate = new Date(`${secondCourse.date}T${secondCourse.start_at || "00:00"}`);
+      const difference = firstDate.getTime() - secondDate.getTime();
+
+      // Upcoming lessons are easiest to scan chronologically, while the most
+      // recent completed or cancelled lessons should appear first.
+      return activeTab === "upcoming" ? difference : -difference;
+    })
+    .map(formatCourse), [courses, activeTab]);
+  const displayedCourses = visibleCourses.slice(0, visibleCourseCount);
+  const hasMoreCourses = visibleCourseCount < visibleCourses.length;
 
   useEffect(() => {
     let active = true;
     setCoursesLoading(true);
-    http.get("/student/reservations/courses", { params: { date: selectedDateKey, month: `${calendarYear}-${String(calendarMonthIndex + 1).padStart(2, "0")}` } })
+    http.get("/student/reservations/courses", { params: { month: `${calendarYear}-${String(calendarMonthIndex + 1).padStart(2, "0")}` } })
       .then(({ data }) => {
         if (!active) return;
         setCourses(Array.isArray(data?.courses) ? data.courses : []);
         setActivityDates(new Set(Array.isArray(data?.activity_dates) ? data.activity_dates : []));
+        setVisibleCourseCount(COURSES_PAGE_SIZE);
       })
       .catch(() => { if (active) { setCourses([]); setActivityDates(new Set()); } })
       .finally(() => { if (active) setCoursesLoading(false); });
     return () => { active = false; };
-  }, [selectedDateKey, calendarYear, calendarMonthIndex]);
+  }, [calendarYear, calendarMonthIndex]);
 
   const changeCalendarMonth = (offset) => {
     const nextMonth = new Date(calendarYear, calendarMonthIndex + offset, 1);
@@ -186,6 +201,15 @@ export default function CandidateCoursePage() {
   const handleSidebarNavigate = (path) => {
     setSidebarOpen(false);
     navigate(path);
+  };
+
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    setVisibleCourseCount(COURSES_PAGE_SIZE);
+  };
+
+  const toggleCourseList = () => {
+    setVisibleCourseCount((count) => hasMoreCourses ? count + COURSES_PAGE_SIZE : COURSES_PAGE_SIZE);
   };
 
   return (
@@ -207,15 +231,17 @@ export default function CandidateCoursePage() {
             <div className="ncp-course-panel-head">
               <h2>Liste de mes cours</h2>
               <div className="ncp-tabs" role="tablist" aria-label="Filtrer les cours">
-                {COURSE_TABS.map((tab) => <button key={tab.id} type="button" role="tab" aria-selected={activeTab === tab.id} className={activeTab === tab.id ? "active" : ""} onClick={() => setActiveTab(tab.id)}>{tab.label}</button>)}
+                {COURSE_TABS.map((tab) => <button key={tab.id} type="button" role="tab" aria-selected={activeTab === tab.id} className={activeTab === tab.id ? "active" : ""} onClick={() => handleTabChange(tab.id)}>{tab.label}</button>)}
               </div>
             </div>
             <div className="ncp-course-list" role="tabpanel">
               {coursesLoading ? <p className="ncp-empty-state">Chargement des cours…</p>
-                : visibleCourses.length ? visibleCourses.map((course) => <CourseRow key={course.id} course={course} onSelectCourse={setSelectedCourse} />)
-                  : <p className="ncp-empty-state">Aucun cours pour cette date.</p>}
+                : visibleCourses.length ? displayedCourses.map((course) => <CourseRow key={course.id} course={course} onSelectCourse={setSelectedCourse} />)
+                  : <p className="ncp-empty-state">Aucun cours dans cette catégorie.</p>}
             </div>
-            <button type="button" className="ncp-more-btn">Voir plus de cours<ChevronDownIcon /></button>
+            {visibleCourses.length > COURSES_PAGE_SIZE && <button type="button" className="ncp-more-btn" aria-expanded={!hasMoreCourses} onClick={toggleCourseList}>
+              {hasMoreCourses ? "Voir plus de cours" : "Voir moins de cours"}<ChevronDownIcon />
+            </button>}
           </section>
 
           <aside className="ncp-right-column">

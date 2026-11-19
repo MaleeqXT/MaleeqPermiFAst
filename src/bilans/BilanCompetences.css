@@ -1,0 +1,132 @@
+.bc-sheet {
+  --bc-green: #58752b;
+  --bc-green-soft: #f5f7f6;
+  --bc-border: #dbe3e8;
+  --bc-text: #17233d;
+  --bc-muted: #697586;
+  color: var(--bc-text);
+  font-family: Inter, "DM Sans", sans-serif;
+}
+
+.bc-sheet * { box-sizing: border-box; }
+
+.bc-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px 20px;
+  background: #fff;
+  border: 1px solid var(--bc-border);
+  border-radius: 14px;
+  box-shadow: 0 5px 16px #0f172a08;
+}
+
+.bc-title h2 { margin: 0; color: var(--bc-text); font-size: 23px; letter-spacing: .02em; }
+
+.bc-observed {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: #303030;
+  font-size: 13px;
+}
+
+.bc-observed strong { font-weight: 850; }
+.bc-observed label, .bc-agreement label { display: inline-flex; align-items: center; gap: 5px; color: var(--bc-text); font-weight: 750; }
+
+.bc-observed input, .bc-observations input {
+  appearance: none;
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  flex: 0 0 auto;
+  background: #fff;
+  border: 2px solid #333;
+  border-radius: 0;
+}
+
+.bc-observed input:checked, .bc-observations input:checked {
+  border-color: #333;
+  background-color: #fff;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m3 8 3 3 7-7' fill='none' stroke='%23000' stroke-width='2.3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 14px;
+}
+
+.bc-meta { display: grid; grid-template-columns: 1fr 1fr minmax(150px, .5fr); gap: 12px; margin: 14px 0; }
+.bc-meta p, .bc-meta label { display: flex; flex-direction: column; gap: 6px; min-width: 0; margin: 0; padding: 12px 14px; background: #fff; border: 1px solid var(--bc-border); border-radius: 11px; box-shadow: 0 5px 16px #0f172a08; }
+.bc-meta span { color: var(--bc-muted); font-size: 11px; font-weight: 800; letter-spacing: .04em; }
+.bc-meta strong { overflow-wrap: anywhere; font-size: 14px; }
+.bc-meta input { min-width: 0; border: 0; outline: 0; background: transparent; color: var(--bc-text); font: inherit; font-size: 14px; font-weight: 700; }
+
+.bc-rating-legend { display: grid; grid-template-columns: repeat(4, minmax(72px, 1fr)); gap: 6px; margin-bottom: 10px; text-align: center; font-size: 12px; font-weight: 800; }
+.bc-rating-legend span { padding: 8px; background: #fff; border: 1px solid var(--bc-border); border-radius: 8px; color: #465466; }
+
+.bc-competencies { display: grid; gap: 10px; }
+.bc-card { overflow: hidden; background: #fff; border: 1px solid var(--bc-border); border-radius: 12px; box-shadow: 0 5px 16px #0f172a08; }
+.bc-card h3 { display: flex; align-items: center; gap: 9px; margin: 0; padding: 12px 14px; background: #303030; color: #fff; font-size: 14px; letter-spacing: .01em; }
+.bc-card h3 i { display: grid; place-items: center; width: 28px; height: 28px; background: #fff; border-radius: 8px; color: #000; }
+.bc-card h3 span { min-width: 0; }
+.bc-card-content { display: grid; grid-template-columns: minmax(0, 1fr) minmax(330px, .72fr); gap: 14px; padding: 12px 14px; }
+
+.bc-observations { display: flex; flex-wrap: wrap; align-content: start; gap: 8px 15px; }
+.bc-observations label { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; color: #344253; font-size: 12px; line-height: 1.35; }
+.bc-no-observations { margin: 0; color: var(--bc-muted); font-size: 12px; }
+
+.bc-ratings { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.bc-ratings button { min-height: 50px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; cursor: pointer; background: #fff; border: 1px solid var(--bc-border); border-radius: 8px; color: #526172; font: inherit; font-size: 11px; font-weight: 750; }
+.bc-ratings button span, .bc-ratings button small { display: block; }
+.bc-ratings button small { margin-top: 3px; font-size: 15px; }
+.bc-rating-checkbox { width: 17px; height: 17px; flex: 0 0 17px; border: 2px solid currentColor; border-radius: 0; }
+.bc-ratings button.selected .bc-rating-checkbox { position: relative; }
+.bc-ratings button.selected .bc-rating-checkbox::after { content: ""; position: absolute; width: 7px; height: 3px; border-left: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); left: 3px; top: 4px; }
+.bc-ratings button:hover:not(:disabled) { background: #f6faf6; border-color: var(--bc-green); }
+.bc-ratings button.faible.selected { background: #fee2e2; border-color: #d84646; color: #b91c1c; }
+.bc-ratings button.moyen.selected { background: #ffedd5; border-color: #e98517; color: #b45309; }
+.bc-ratings button.bon.selected { background: #dcfce7; border-color: #2c9f59; color: #18713e; }
+.bc-ratings button.pas_vu.selected { background: #eef1f3; border-color: #85919b; color: #34404a; }
+.bc-ratings button:disabled { cursor: default; }
+.bc-ratings button:focus-visible, .bc-meta input:focus-visible { outline: 3px solid #93c5fd; outline-offset: 2px; }
+
+.bc-total { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-top: 14px; padding: 14px 17px; background: #fff; border: 2px solid #303030; border-radius: 12px; color: var(--bc-text); box-shadow: 0 5px 16px #0f172a08; }
+.bc-total span { font-size: 18px; font-weight: 850; }
+.bc-total strong { padding: 8px 13px; background: #303030; border-radius: 8px; color: #fff; font-size: 21px; }
+
+.bc-agreements { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+.bc-agreement { padding: 14px; background: #fff; border: 1px solid var(--bc-border); border-top: 3px solid; border-radius: 12px; box-shadow: 0 5px 16px #0f172a08; }
+.bc-agreement h3 { margin: 0 0 10px; color: #303030; font-size: 14px; }
+.bc-agreement > div { display: flex; gap: 18px; }
+.bc-agreement input { appearance: none; width: 17px; height: 17px; margin: 0; background: #fff; border: 2px solid #333; border-radius: 0; }
+.bc-agreement input:checked { border-color: #333; background-color: #fff; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m3 8 3 3 7-7' fill='none' stroke='%23333' stroke-width='2.3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: center; background-size: 14px; }
+.bc-agreement-choice, .bc-agreement-choice input { cursor: pointer; }
+.bc-agreement-choice input:hover, .bc-agreement-choice input:focus-visible { border-color: #2563eb; outline: none; box-shadow: 0 0 0 3px #2563eb22; }
+.bc-agreement input:disabled { cursor: not-allowed; opacity: 0.55; }
+.bc-agreement p { margin: 12px 0 0; color: var(--bc-muted); font-size: 12px; }
+.bc-agreement p strong { color: #344253; font-weight: 600; }
+.bc-decision{display:grid;gap:8px;margin-top:12px;padding:10px;border-radius:9px;background:#f8fafc;color:#475569;font-size:12px}.bc-decision--accepted{background:#ecfdf5;color:#166534}.bc-decision--rejected{background:#fff1f2;color:#b91c1c}.bc-decision-actions{display:flex;gap:8px;flex-wrap:wrap}.bc-decision button{min-height:34px;border-radius:7px;padding:7px 10px;font:700 12px inherit;cursor:pointer}.bc-decision button:disabled{cursor:not-allowed;opacity:.55}.bc-decision small{color:#64748b;line-height:1.35}.bc-decision-accept{border:0;background:#168a5b;color:#fff}.bc-decision-reject{border:1px solid #f3b8bd;background:#fff;color:#b42318}.bc-decision button:focus-visible{outline:3px solid #93c5fd;outline-offset:2px}
+
+@media (max-width: 720px) {
+  .bc-title { align-items: flex-start; flex-direction: column; }
+  .bc-title h2 { font-size: 19px; }
+  .bc-meta { grid-template-columns: 1fr; }
+  .bc-card-content { grid-template-columns: 1fr; }
+  .bc-ratings { order: -1; }
+  .bc-agreements { grid-template-columns: 1fr; }
+  .bc-total span { font-size: 15px; }
+  .bc-total strong { font-size: 18px; }
+}
+
+@media (max-width: 420px) {
+  .bc-title { padding: 14px; }
+  .bc-observed { font-size: 12px; }
+  .bc-rating-legend { display: none; }
+  .bc-card h3 { font-size: 13px; }
+  .bc-card-content { padding: 10px; }
+  .bc-ratings button { min-height: 47px; font-size: 10px; }
+  .bc-ratings button small { font-size: 13px; }
+  .bc-observations { gap: 7px 10px; }
+  .bc-observations label { font-size: 11px; }
+}

@@ -187,6 +187,12 @@ const TYPE_OFFRE_OPTIONS = [
   { value: 3, label: "Code en ligne" },
 ];
 
+// Standalone pre-training service sold after the registration questionnaire.
+const EVALUATION_SERVICE_OPTIONS = [
+  { value: "conduite", label: "Évaluation de conduite" },
+  { value: "bilan", label: "Bilan de compétences" },
+];
+
 function unwrapOfferPayload(payload) {
   if (!payload) return null;
   return payload.data ?? payload;
@@ -291,6 +297,7 @@ useEffect(() => {
         is_auto:          toBool(sourceOffer.is_auto),
         is_cpf:           toBool(sourceOffer.is_cpf),
         is_evaluation:    toBool(sourceOffer.is_evaluation),
+        evaluation_service: ["conduite", "bilan"].includes(sourceOffer.evaluation_service) ? sourceOffer.evaluation_service : "",
         is_offer_cart:    toBool(sourceOffer.is_offer_cart),
         status:           toBool(sourceOffer.status),
         displayOrder:     sourceOffer.order            ?? "",
@@ -347,6 +354,7 @@ useEffect(() => {
     formData.append("is_auto",          form.is_auto      ? 1 : 0);
     formData.append("is_cpf",           form.is_cpf       ? 1 : 0);
     formData.append("is_evaluation",    form.is_evaluation ? 1 : 0);
+    formData.append("evaluation_service", form.evaluation_service || "");
     formData.append("is_offer_cart",    form.is_offer_cart ? 1 : 0);
     formData.append("status",           form.status       ? 1 : 0);
     formData.append("type",             form.type);
@@ -471,6 +479,13 @@ formData.append("final_price", agencyPricing.final_price ?? "");
             <span style={S.label}>Heure d'évaluation</span>
             <Toggle checked={form.is_evaluation} onChange={v => set("is_evaluation", v)} />
           </div>
+          <SelectField
+            label="Service d'évaluation (questionnaire)"
+            value={form.evaluation_service}
+            onChange={v => set("evaluation_service", v)}
+            options={EVALUATION_SERVICE_OPTIONS}
+            placeholder="Aucun : formule classique"
+          />
         </div>
 
         {/* ── Card 2: Prix (agency_pricing) ── */}

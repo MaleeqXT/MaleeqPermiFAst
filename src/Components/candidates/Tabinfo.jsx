@@ -655,9 +655,19 @@ useEffect(() => {
       // This is an admin preview, not a student login.  Keep the admin's
       // session return point so "Retour à l’administration" does not behave
       // like a student logout.
-      await startStudentDashboardPreview(studentId, "/dashboard/general");
+      await startStudentDashboardPreview(studentId, "/dashboard/general", user);
       await dispatch(fetchCurrentUser()).unwrap();
-      navigate("/new-student-dashboard", { state: { studentPreview: true } });
+      // Preserve the candidate context while Redux refreshes the temporary
+      // student identity. Otherwise the route guard can see the previous
+      // admin role for one render and send the user back to the admin home.
+      navigate("/new-student-dashboard", {
+        state: {
+          studentPreview: true,
+          fromCandidateProfile: true,
+          candidate: user,
+          returnTo: "/dashboard/general",
+        },
+      });
     } catch (error) {
       await stopStudentDashboardPreview().catch(() => undefined);
       setToastMessage(error?.response?.data?.message || error?.message || "Impossible d’ouvrir l’espace élève.");

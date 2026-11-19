@@ -114,6 +114,7 @@ const NAV_STRUCTURE = [
     children: [
       { path: "/sessions/cancellations", label: "Annulations" },
       { path: "/sessions/propositions",  label: "Propositions" },
+      { path: "/sessions/absences",      label: "Absences" },
     ],
   },
   {
@@ -128,7 +129,16 @@ const NAV_STRUCTURE = [
     ],
   },
   { type: "item", path: "/vehicles",        label: "Véhicules",                 icon: <VehiclesIcon />,       alwaysEnabled: true },
-  { type: "item", path: "/exams",           label: "Examens",                   icon: <ExamsIcon />,          alwaysEnabled: true },
+  {
+    type: "parent",
+    path: "/exams",
+    label: "Examens",
+    icon: <ExamsIcon />,
+    alwaysEnabled: true,
+    children: [
+      { path: "/exams/ready-students", label: "Élèves prêts" },
+    ],
+  },
 
   { type: "item", path: "/theory-questions", label: "Code de la Route Questions", icon: <ExamsIcon />,          alwaysEnabled: true },
   { type: "item", path: "/theory-series", label: "Séries Code de la Route", icon: <ExamsIcon />,          alwaysEnabled: true },

@@ -4,7 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import StudentSidebar from "./StudentSidebar.jsx";
 import StudentHeader from "./StudentHeader.jsx";
 import { fetchCurrentUser, logoutUser } from "../redux/reducers/authReducer.jsx";
-import { isStudentDashboardPreview, stopStudentDashboardPreview } from "../helpers/studentDashboardPreview.js";
+import { getStudentDashboardPreview, isStudentDashboardPreview, stopStudentDashboardPreview } from "../helpers/studentDashboardPreview.js";
 import http from "../helpers/http.jsx";
 import { satisfactionStageLabel, uniquePendingSurveys } from "../satisfaction/satisfactionState.js";
 import "./CandidateDashboard.css";
@@ -154,7 +154,8 @@ export default function CandidateDashboard() {
   const location = useLocation();
   const dispatch = useDispatch();
   const currentUser = useSelector((state) => state.auth.user);
-  const connectedCandidate = location.state?.fromCandidateProfile ? location.state.candidate : null;
+  const previewProfile = getStudentDashboardPreview()?.profile ?? null;
+  const connectedCandidate = location.state?.fromCandidateProfile ? location.state.candidate : previewProfile;
   const displayUser = connectedCandidate || currentUser;
   const firstName = displayUser?.first_name || displayUser?.name?.split(" ")[0] || "";
   const fullName = [displayUser?.first_name, displayUser?.last_name].filter(Boolean).join(" ") || displayUser?.name || "Élève";

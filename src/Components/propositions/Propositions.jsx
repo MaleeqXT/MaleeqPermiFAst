@@ -48,7 +48,16 @@ function normaliseProposals(payload) {
   const grouped = payload && !Array.isArray(payload) && typeof payload === "object" ? Object.values(payload) : [payload];
   const rows = grouped.flatMap((group) => Array.isArray(group) ? group : []);
 
-  return rows.map((proposal) => {
+  const proposalsBySlot = new Map();
+  rows.forEach((proposal) => {
+    const key = `${proposal.reservation_id ?? proposal.reservation?.id ?? ""}:${proposal.student_id ?? proposal.student?.id ?? ""}`;
+    const existing = proposalsBySlot.get(key);
+    if (!existing || new Date(proposal.created_at || 0) > new Date(existing.created_at || 0)) {
+      proposalsBySlot.set(key, proposal);
+    }
+  });
+
+  return [...proposalsBySlot.values()].map((proposal) => {
     const reservation = proposal.reservation ?? {};
     const monitor = reservation.monitor?.user ?? {};
     const student = proposal.student?.user ?? {};
@@ -56,6 +65,17 @@ function normaliseProposals(payload) {
     const candidateName = student.name || "Candidat non attribué";
     const status = Number(proposal.status) === 3 ? "reserve" : Number(proposal.status) === 2 ? "denied" : "on-hold";
     const location = [reservation.lieu?.name, reservation.lieu?.zone?.name].filter(Boolean).join(", ") || "Lieu non défini";
+    const requiredMinutes = Number(reservation.duration_minutes ?? Number(reservation.hour || 0) * 60);
+    const products = (proposal.student?.wallets ?? []).map((wallet) => {
+      const balanceMinutes = Number(wallet.balance_minutes ?? Number(wallet.balance || 0) * 60);
+      return {
+        id: wallet.offer_id,
+        name: wallet.offer?.name || "Forfait sans nom",
+        balanceMinutes,
+        available: balanceMinutes >= requiredMinutes,
+        selected: String(reservation.training?.offer_id ?? "") === String(wallet.offer_id),
+      };
+    });
 
     return {
       id: proposal.id,
@@ -74,7 +94,7 @@ function normaliseProposals(payload) {
       comment: proposal.comment ?? "",
       proposalDate: formatDate(proposal.created_at, { day: "numeric", month: "long", year: "numeric" }),
       dateReservation: formatDate(reservation.date, { day: "numeric", month: "long", year: "numeric" }),
-      products: [],
+      products,
     };
   });
 }
@@ -83,7 +103,25 @@ function ProposalDrawer({ proposal, onClose, onSave }) {
   const drawerTabs = ["En attente", "Refusé", "Réservé"];
   const [tab, setTab] = useState(STATUS_META[proposal.status]?.label || "En attente");
   const [comment, setComment] = useState(proposal.comment || "");
-  const isDirty = comment !== (proposal.comment || "");
+  const [offerId, setOfferId] = useState(() => proposal.products.find((product) => product.selected)?.id ?? proposal.products.find((product) => product.available)?.id ?? "");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const selectedOffer = proposal.products.find((product) => String(product.id) === String(offerId));
+  const isReserve = tab === "Réservé";
+  const isDirty = comment !== (proposal.comment || "") || tab !== (STATUS_META[proposal.status]?.label || "En attente") || (isReserve && String(offerId) !== String(proposal.products.find((product) => product.selected)?.id ?? ""));
+
+  const save = async () => {
+    setSaving(true);
+    setSaveError("");
+    try {
+      await onSave({ id: proposal.id, comment, tab, offerId: isReserve ? offerId : null });
+      onClose();
+    } catch (error) {
+      setSaveError(error.response?.data?.message || error.message || "Impossible d’enregistrer la proposition.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <>
@@ -92,7 +130,7 @@ function ProposalDrawer({ proposal, onClose, onSave }) {
         <div className="prop-drawer-header">
           <button className="prop-drawer-close" onClick={onClose}>Fermer</button>
           <span className="prop-drawer-title">Détails de la proposition</span>
-          <button className="prop-drawer-register">Enregistrer</button>
+          <button className="prop-drawer-register" disabled={!isDirty || saving} onClick={save}>{saving ? "Enregistrement…" : "Enregistrer"}</button>
         </div>
 
         <div className="prop-drawer-tabs-wrap">
@@ -141,20 +179,20 @@ function ProposalDrawer({ proposal, onClose, onSave }) {
             </div>
           </div>
 
-          {tab === "Réservé" && proposal.products.length > 0 && (
+          {tab === "Réservé" && (
             <div className="prop-products">
-              <p className="prop-products-title">Liste des produits</p>
-              <div className="prop-products-list">
-                {proposal.products.map((product, index) => (
-                  <div key={index} className="prop-product-row">
-                    <span className="prop-product-icon">Voiture</span>
-                    <span className="prop-product-name">{product.name}</span>
+              <p className="prop-products-title">Forfaits actifs du candidat</p>
+              {proposal.products.length === 0 ? <p className="prop-products-empty">Aucun forfait actif n’est disponible pour ce candidat.</p> : <div className="prop-products-list">
+                {proposal.products.map((product) => (
+                  <button key={product.id} type="button" disabled={!product.available || saving} onClick={() => setOfferId(product.id)} className={`prop-product-row prop-product-choice${String(offerId) === String(product.id) ? " prop-product-choice--selected" : ""}`}>
+                    <span className="prop-product-icon">Forfait</span>
+                    <span className="prop-product-name">{product.name}<small>Solde : {Math.floor(product.balanceMinutes / 60)} h{product.balanceMinutes % 60 ? ` ${product.balanceMinutes % 60} min` : ""}</small></span>
                     <span className={`prop-product-avail${product.available ? " prop-product-avail--yes" : ""}`}>
-                      {product.available ? "Disponible" : "Indisponible"}
+                      {product.available ? "Disponible" : "Solde insuffisant"}
                     </span>
-                  </div>
+                  </button>
                 ))}
-              </div>
+              </div>}
             </div>
           )}
 
@@ -171,15 +209,13 @@ function ProposalDrawer({ proposal, onClose, onSave }) {
         </div>
 
         <div className="prop-drawer-footer">
+          {saveError && <p className="prop-save-error" role="alert">{saveError}</p>}
           <button
             className={`prop-apply-btn${isDirty ? " prop-apply-btn--active" : ""}`}
-            disabled={!isDirty}
-            onClick={() => {
-              onSave(proposal.id, comment, tab);
-              onClose();
-            }}
+            disabled={!isDirty || saving || (isReserve && (!selectedOffer || !selectedOffer.available))}
+            onClick={save}
           >
-            Appliquer la modification
+            {saving ? "Enregistrement…" : "Appliquer la modification"}
           </button>
         </div>
       </aside>
@@ -260,16 +296,24 @@ export default function ProposalsPage() {
     return acc;
   }, {});
 
-  function handleSave(id, comment, tab) {
-    setProposals((current) =>
-      current.map((p) => {
-        if (p.id !== id) return p;
-        const nextStatus =
-          tab === "En attente" ? "on-hold" :
-          tab === "Refusé"     ? "denied"  : "reserve";
-        return { ...p, comment, status: nextStatus };
-      })
-    );
+  async function handleSave({ id, comment, tab, offerId }) {
+    const status = tab === "En attente" ? 1 : tab === "Refusé" ? 2 : 3;
+    await http.post(`/admin/proposals/${id}`, {
+      status,
+      comment,
+      ...(status === 3 ? { offer_id: offerId } : {}),
+    });
+
+    const nextStatus = status === 1 ? "on-hold" : status === 2 ? "denied" : "reserve";
+    setProposals((current) => current.map((proposal) => proposal.id === id
+      ? {
+          ...proposal,
+          comment,
+          status: nextStatus,
+          validation: nextStatus === "reserve" ? "Cette proposition est réservée." : nextStatus === "denied" ? "Cette proposition a été refusée." : "Cette proposition est en attente de validation.",
+          products: proposal.products.map((product) => ({ ...product, selected: String(product.id) === String(offerId) })),
+        }
+      : proposal));
   }
 
   return (

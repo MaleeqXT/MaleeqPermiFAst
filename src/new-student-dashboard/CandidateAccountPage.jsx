@@ -48,6 +48,8 @@ const INITIAL_PERSONAL_INFO = {
   school: "Non renseignée",
   registrationDate: "",
   license: "Non renseigné",
+  neph: "Non renseigné",
+  codeValidUntil: "",
 };
 
 const PERSONAL_FIELDS = [
@@ -59,19 +61,29 @@ const PERSONAL_FIELDS = [
   { key: "school", label: "Auto-école", icon: <BuildingIcon />, type: "text", readOnly: true },
   { key: "registrationDate", label: "Date d'inscription", icon: <CalendarIcon />, type: "text", readOnly: true },
   { key: "license", label: "Permis préparé", icon: <CarIcon />, type: "text", readOnly: true },
+  { key: "neph", label: "NEPH", icon: <ExamIcon />, type: "text", readOnly: true },
+  { key: "codeValidUntil", label: "Validité du code", icon: <CalendarIcon />, type: "text", readOnly: true },
 ];
 
 const DAYS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
 
-const INITIAL_AVAILABILITY = {
-  Lundi: [{ id: "mon-1", start: "18:00", end: "20:00" }],
-  Mardi: [{ id: "tue-1", start: "12:00", end: "14:00" }, { id: "tue-2", start: "18:00", end: "20:00" }],
-  Mercredi: [{ id: "wed-1", start: "14:00", end: "20:00" }],
-  Jeudi: [{ id: "thu-1", start: "18:00", end: "20:00" }],
-  Vendredi: [{ id: "fri-1", start: "17:00", end: "20:00" }],
-  Samedi: [{ id: "sat-1", start: "09:00", end: "13:00" }],
-  Dimanche: [],
-};
+const INITIAL_AVAILABILITY = Object.fromEntries(DAYS.map((day) => [day, []]));
+
+// Saved weekly availability from the API → editor shape (each slot needs a local id).
+function availabilityFromApi(source) {
+  return Object.fromEntries(DAYS.map((day) => [day, (Array.isArray(source?.[day]) ? source[day] : [])
+    .map((slot, index) => ({ id: `${day}-${index}`, start: String(slot.start || "").slice(0, 5), end: String(slot.end || "").slice(0, 5) }))]));
+}
+
+const DEFAULT_NOTIFICATIONS = { courses: true, email: true, sms: true, news: false };
+
+function formatDateTime(value) {
+  if (!value) return "—";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "—" : new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(date);
+}
+
+const firstError = (error, fallback) => Object.values(error?.response?.data?.errors || {}).flat()[0] || error?.response?.data?.message || fallback;
 
 const INITIAL_PREFERENCES = {
   trainingType: "0",
@@ -158,7 +170,13 @@ export default function CandidateAccountPage() {
   const [availabilityFocusDay, setAvailabilityFocusDay] = useState(null);
   const [preferences, setPreferences] = useState(INITIAL_PREFERENCES);
   const [preferencesDraft, setPreferencesDraft] = useState(INITIAL_PREFERENCES);
-  const [notifications, setNotifications] = useState({ courses: true, email: true, sms: true, news: false });
+  const [notifications, setNotifications] = useState(DEFAULT_NOTIFICATIONS);
+  const [notificationSaving, setNotificationSaving] = useState(null);
+  const [notice, setNotice] = useState("");
+  const [security, setSecurity] = useState(null);
+  const [passwordDraft, setPasswordDraft] = useState({ current_password: "", password: "", password_confirmation: "" });
+  const [sessions, setSessions] = useState([]);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
   const [deleteAcknowledged, setDeleteAcknowledged] = useState(false);
   const [zones, setZones] = useState([]);
   const [monitors, setMonitors] = useState([]);
@@ -187,7 +205,14 @@ export default function CandidateAccountPage() {
       school: agency.name || "Non renseignée",
       registrationDate: formatDate(student.created_at),
       license: licenseLabel(boxType),
+      neph: student.neph || "Non renseigné",
+      codeValidUntil: String(student.code_valid_until || student.date_expiration_code || "").slice(0, 10),
     };
+    const savedAvailability = availabilityFromApi(student.weekly_availability);
+    setAvailability(savedAvailability);
+    setAvailabilityDraft(cloneAvailability(savedAvailability));
+    setNotifications({ ...DEFAULT_NOTIFICATIONS, ...(student.notification_preferences || {}) });
+    setSecurity(payload?.security ?? null);
 
     setPersonalInfo(nextPersonalInfo);
     setPersonalDraft(nextPersonalInfo);
@@ -337,6 +362,7 @@ export default function CandidateAccountPage() {
       await dispatch(fetchCurrentUser());
       setSelectedPhoto(null);
       if (photoInputRef.current) photoInputRef.current.value = "";
+      setNotice(data.message || "Vos informations personnelles ont été mises à jour.");
       setActiveModal(null);
     } catch (error) {
       setAccountError(error.response?.data?.message || "Impossible de mettre à jour vos informations.");
@@ -359,9 +385,10 @@ export default function CandidateAccountPage() {
       });
       applyAccountData(data.data);
       await dispatch(fetchCurrentUser());
+      setNotice(data.message || "Vos préférences ont été mises à jour.");
       setActiveModal(null);
     } catch (error) {
-      setAccountError(error.response?.data?.message || "Impossible de mettre à jour vos préférences.");
+      setAccountError(firstError(error, "Impossible de mettre à jour vos préférences."));
     } finally {
       setSaving(false);
     }
@@ -397,15 +424,105 @@ export default function CandidateAccountPage() {
     setAvailabilityError("");
   };
 
-  const saveAvailability = (event) => {
+  const saveAvailability = async (event) => {
     event.preventDefault();
     const invalidDay = DAYS.find((day) => availabilityDraft[day].some((slot) => slot.start >= slot.end));
     if (invalidDay) {
       setAvailabilityError(`L’heure de début doit précéder l’heure de fin pour ${invalidDay}.`);
       return;
     }
-    setAvailability(cloneAvailability(availabilityDraft));
-    setActiveModal(null);
+    setSaving(true);
+    setAvailabilityError("");
+    try {
+      const payload = Object.fromEntries(DAYS.map((day) => [day, availabilityDraft[day].map(({ start, end }) => ({ start, end }))]));
+      const { data } = await http.put("/student/profile/account/availability", { availability: payload });
+      applyAccountData(data.data);
+      setNotice(data.message || "Vos disponibilités ont été enregistrées.");
+      setActiveModal(null);
+    } catch (error) {
+      setAvailabilityError(firstError(error, "Impossible d’enregistrer vos disponibilités."));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleNotification = async (key) => {
+    if (notificationSaving) return;
+    const previous = notifications;
+    const next = { ...notifications, [key]: !notifications[key] };
+    setNotifications(next);
+    setNotificationSaving(key);
+    setAccountError("");
+    try {
+      await http.put("/student/profile/account/notifications", next);
+    } catch (error) {
+      setNotifications(previous);
+      setAccountError(firstError(error, "Impossible d’enregistrer vos préférences de notifications."));
+    } finally {
+      setNotificationSaving(null);
+    }
+  };
+
+  const openPasswordEditor = () => {
+    setPasswordDraft({ current_password: "", password: "", password_confirmation: "" });
+    setAccountError("");
+    setActiveModal("password");
+  };
+
+  const savePassword = async (event) => {
+    event.preventDefault();
+    if (passwordDraft.password !== passwordDraft.password_confirmation) {
+      setAccountError("La confirmation ne correspond pas au nouveau mot de passe.");
+      return;
+    }
+    setSaving(true);
+    setAccountError("");
+    try {
+      const { data } = await http.put("/student/profile/account/password", passwordDraft);
+      applyAccountData(data.data);
+      setPasswordDraft({ current_password: "", password: "", password_confirmation: "" });
+      setNotice(data.message || "Votre mot de passe a été modifié.");
+      setActiveModal(null);
+    } catch (error) {
+      setAccountError(firstError(error, "Impossible de modifier votre mot de passe."));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const loadSessions = async () => {
+    setSessionsLoading(true);
+    setAccountError("");
+    try {
+      const { data } = await http.get("/student/profile/account/sessions");
+      const rows = Array.isArray(data?.data) ? data.data : [];
+      setSessions(rows);
+      setSecurity((current) => (current ? { ...current, active_sessions: rows.length } : current));
+    } catch (error) {
+      setAccountError(firstError(error, "Impossible de charger vos sessions."));
+    } finally {
+      setSessionsLoading(false);
+    }
+  };
+
+  const openSessions = () => {
+    setSessions([]);
+    setActiveModal("sessions");
+    loadSessions();
+  };
+
+  const revokeSession = async (sessionId = null) => {
+    setSaving(true);
+    setAccountError("");
+    try {
+      const { data } = await http.delete(sessionId ? `/student/profile/account/sessions/${sessionId}` : "/student/profile/account/sessions");
+      setNotice(data?.message || "Session déconnectée.");
+      await loadSessions();
+    } catch (error) {
+      setAccountError(firstError(error, "Impossible de déconnecter cette session."));
+    } finally {
+      setSaving(false);
+    }
   };
 
   const toggleCommunication = (channel) => {
@@ -459,7 +576,7 @@ export default function CandidateAccountPage() {
                 </button>
               </div>
               <div className="nsa-personal-list">
-                {PERSONAL_FIELDS.map((field) => <div key={field.key} className="nsa-personal-row"><span className="nsa-row-icon">{field.icon}</span><strong>{field.label}</strong><span>{field.key === "birthDate" ? formatDate(personalInfo[field.key]) : personalInfo[field.key]}</span></div>)}
+                {PERSONAL_FIELDS.map((field) => <div key={field.key} className="nsa-personal-row"><span className="nsa-row-icon">{field.icon}</span><strong>{field.label}</strong><span>{["birthDate", "codeValidUntil"].includes(field.key) ? formatDate(personalInfo[field.key]) : personalInfo[field.key]}</span></div>)}
               </div>
             </div>
           </section>
@@ -513,22 +630,23 @@ export default function CandidateAccountPage() {
             <CardHeading title="5. Préférences de notifications" />
             <p className="nsa-card-description">Choisissez comment vous souhaitez être informé.</p>
             <div className="nsa-notification-list">
-              {NOTIFICATION_ROWS.map((row) => <div key={row.key} className="nsa-notification-row"><span className="nsa-row-icon">{row.icon}</span><span>{row.label}</span><button type="button" role="switch" aria-checked={notifications[row.key]} aria-label={row.label} className={`nsa-switch${notifications[row.key] ? " is-on" : ""}`} onClick={() => setNotifications((current) => ({ ...current, [row.key]: !current[row.key] }))}><i /></button></div>)}
+              {NOTIFICATION_ROWS.map((row) => <div key={row.key} className="nsa-notification-row"><span className="nsa-row-icon">{row.icon}</span><span>{row.label}</span><button type="button" role="switch" aria-checked={notifications[row.key]} aria-label={row.label} className={`nsa-switch${notifications[row.key] ? " is-on" : ""}`} disabled={Boolean(notificationSaving)} onClick={() => toggleNotification(row.key)}><i /></button></div>)}
             </div>
           </section>
 
           <section className="nsa-card nsa-security-card">
             <CardHeading title="6. Sécurité & gestion du compte" />
             <div className="nsa-security-list">
-              <div className="nsa-security-row"><span className="nsa-security-icon"><LockIcon /></span><span><strong>Mot de passe</strong><small>Dernière modification le 15/04/2025</small></span><ChevronRightIcon /></div>
-              <div className="nsa-security-row"><span className="nsa-security-icon"><ShieldIcon /></span><span><strong>Authentification à deux facteurs</strong><small>Sécurisez votre compte</small></span><em>Désactivée</em><ChevronRightIcon /></div>
-              <div className="nsa-security-row"><span className="nsa-security-icon"><MonitorIcon /></span><span><strong>Sessions actives</strong><small>3 sessions actives</small></span><ChevronRightIcon /></div>
+              <button type="button" className="nsa-security-row" onClick={openPasswordEditor}><span className="nsa-security-icon"><LockIcon /></span><span><strong>Mot de passe</strong><small>{security?.password_changed_at ? `Dernière modification le ${formatDate(security.password_changed_at)}` : "Modifiez votre mot de passe"}</small></span><ChevronRightIcon /></button>
+              <button type="button" className="nsa-security-row" onClick={() => setActiveModal("two-factor")}><span className="nsa-security-icon"><ShieldIcon /></span><span><strong>Authentification à deux facteurs</strong><small>Sécurisez votre compte</small></span><em>{security?.two_factor_enabled ? "Activée" : "Désactivée"}</em><ChevronRightIcon /></button>
+              <button type="button" className="nsa-security-row" onClick={openSessions}><span className="nsa-security-icon"><MonitorIcon /></span><span><strong>Sessions actives</strong><small>{security ? `${security.active_sessions} session${security.active_sessions > 1 ? "s" : ""} active${security.active_sessions > 1 ? "s" : ""}` : "Voir les appareils connectés"}</small></span><ChevronRightIcon /></button>
               <button type="button" className="nsa-security-row nsa-security-row--danger" onClick={() => { setDeleteAcknowledged(false); setActiveModal("delete"); }}><span className="nsa-security-icon"><TrashIcon /></span><span><strong>Supprimer mon compte</strong><small>Supprimez définitivement votre compte</small></span><ChevronRightIcon /></button>
             </div>
           </section>
         </div>
 
-        <section className="nsa-contact-strip"><span><InfoIcon /></span><p><strong>Une question ?</strong> Contactez votre équipe pédagogique, nous sommes là pour vous accompagner.</p><button type="button">Nous contacter</button></section>
+        <section className="nsa-contact-strip"><span><InfoIcon /></span><p><strong>Une question ?</strong> Contactez votre équipe pédagogique, nous sommes là pour vous accompagner.</p><button type="button" onClick={() => navigate("/student-messages")}>Nous contacter</button></section>
+        {notice && !activeModal && <p className="nsa-form-success" role="status">{notice}</p>}
         {accountError && !activeModal && <p className="nsa-form-error" role="alert">{accountError}</p>}
       </main>
 
@@ -549,8 +667,45 @@ export default function CandidateAccountPage() {
               {DAYS.map((day) => <section key={day} className={availabilityFocusDay === day ? "is-focused" : ""}><div className="nsa-editor-day"><label><input type="checkbox" checked={availabilityDraft[day].length > 0} onChange={(event) => toggleAvailabilityDay(day, event.target.checked)} /><i /><strong>{day}</strong></label><button type="button" onClick={() => addAvailabilitySlot(day)}><PlusIcon />Ajouter un créneau</button></div>{availabilityDraft[day].length ? <div className="nsa-editor-slots">{availabilityDraft[day].map((slot, index) => <div key={slot.id}><input type="time" aria-label={`Début ${day} créneau ${index + 1}`} value={slot.start} onChange={(event) => updateAvailabilitySlot(day, slot.id, "start", event.target.value)} autoFocus={availabilityFocusDay === day && index === 0} /><span>à</span><input type="time" aria-label={`Fin ${day} créneau ${index + 1}`} value={slot.end} onChange={(event) => updateAvailabilitySlot(day, slot.id, "end", event.target.value)} /><button type="button" onClick={() => removeAvailabilitySlot(day, slot.id)} title="Supprimer ce créneau" aria-label={`Supprimer le créneau ${index + 1} du ${day}`}><TrashIcon /></button></div>)}</div> : <p className="nsa-unavailable-editor">Indisponible</p>}</section>)}
             </div>
             {(availabilityError || availabilityHasError) && <p className="nsa-form-error" role="alert">{availabilityError || "Chaque heure de début doit précéder l’heure de fin."}</p>}
-            <footer className="nsa-modal-actions"><button type="button" onClick={() => setActiveModal(null)}>Annuler</button><button type="submit" className="primary">Enregistrer</button></footer>
+            <footer className="nsa-modal-actions"><button type="button" onClick={() => setActiveModal(null)}>Annuler</button><button type="submit" className="primary" disabled={saving || availabilityHasError}>{saving ? "Enregistrement…" : "Enregistrer"}</button></footer>
           </form>
+        </ModalShell>
+      )}
+
+      {activeModal === "password" && (
+        <ModalShell title="Modifier mon mot de passe" description="Vos autres appareils seront déconnectés après la modification." size="small" onClose={() => setActiveModal(null)}>
+          <form className="nsa-modal-form" onSubmit={savePassword}>
+            <div className="nsa-form-stack">
+              <label><span>Mot de passe actuel</span><input type="password" autoComplete="current-password" required value={passwordDraft.current_password} onChange={(event) => setPasswordDraft((current) => ({ ...current, current_password: event.target.value }))} /></label>
+              <label><span>Nouveau mot de passe</span><input type="password" autoComplete="new-password" required minLength={8} value={passwordDraft.password} onChange={(event) => setPasswordDraft((current) => ({ ...current, password: event.target.value }))} /></label>
+              <label><span>Confirmer le nouveau mot de passe</span><input type="password" autoComplete="new-password" required minLength={8} value={passwordDraft.password_confirmation} onChange={(event) => setPasswordDraft((current) => ({ ...current, password_confirmation: event.target.value }))} /></label>
+            </div>
+            <p className="nsa-modal-hint">8 caractères minimum.</p>
+            {accountError && <p className="nsa-form-error" role="alert">{accountError}</p>}
+            <footer className="nsa-modal-actions"><button type="button" onClick={() => setActiveModal(null)}>Annuler</button><button type="submit" className="primary" disabled={saving}>{saving ? "Enregistrement…" : "Modifier le mot de passe"}</button></footer>
+          </form>
+        </ModalShell>
+      )}
+
+      {activeModal === "sessions" && (
+        <ModalShell title="Sessions actives" description="Appareils actuellement connectés à votre compte." size="medium" onClose={() => setActiveModal(null)}>
+          <div className="nsa-modal-form">
+            {sessionsLoading && <p className="nsa-modal-hint" role="status">Chargement des sessions…</p>}
+            {!sessionsLoading && !sessions.length && !accountError && <p className="nsa-modal-hint">Aucune session active.</p>}
+            {!sessionsLoading && sessions.length > 0 && <ul className="nsa-session-list">{sessions.map((session) => <li key={session.id}><span className="nsa-security-icon"><MonitorIcon /></span><span><strong>{session.current ? "Cet appareil" : "Autre appareil"}</strong><small>Connexion le {formatDateTime(session.created_at)} · Dernière activité {formatDateTime(session.last_used_at)}</small></span>{session.current ? <em>Actuelle</em> : <button type="button" disabled={saving} onClick={() => revokeSession(session.id)}>Déconnecter</button>}</li>)}</ul>}
+            {accountError && <p className="nsa-form-error" role="alert">{accountError}</p>}
+            <footer className="nsa-modal-actions"><button type="button" onClick={() => setActiveModal(null)}>Fermer</button><button type="button" className="danger" disabled={saving || sessionsLoading || !sessions.some((session) => !session.current)} onClick={() => revokeSession()}>Déconnecter les autres appareils</button></footer>
+          </div>
+        </ModalShell>
+      )}
+
+      {activeModal === "two-factor" && (
+        <ModalShell title="Authentification à deux facteurs" description="Une protection supplémentaire à la connexion." size="small" onClose={() => setActiveModal(null)}>
+          <div className="nsa-modal-form">
+            <p className="nsa-modal-hint">Statut actuel : <strong>{security?.two_factor_enabled ? "activée" : "désactivée"}</strong>.</p>
+            <p className="nsa-modal-hint">L’activation de la double authentification n’est pas encore disponible depuis votre espace. Contactez votre auto-école si vous souhaitez la mettre en place.</p>
+            <footer className="nsa-modal-actions"><button type="button" onClick={() => setActiveModal(null)}>Fermer</button><button type="button" className="primary" onClick={() => navigate("/student-messages")}>Contacter l’auto-école</button></footer>
+          </div>
         </ModalShell>
       )}
 

@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import BilanCompetences, { normalizeBilanEvaluation } from "../bilans/BilanCompetences.jsx";
+import { Dialog, SignaturePad } from "./formation/FormationComponents.jsx";
 import "./BilansPage.css";
 
 const BILAN_SECTIONS = [
@@ -91,7 +93,7 @@ function EvaluationBox({ bilan, question, state, onChange, disabled }) {
   );
 }
 
-export default function BilansPage({
+function LegacyBilansPage({
   students = [],
   selectedStudentId = "",
   onStudentChange,
@@ -233,4 +235,71 @@ export default function BilansPage({
       </section>
     </section>
   );
+}
+
+const DECISION_LABELS = { pending: "En attente", accepted: "Accepté", rejected: "Refusé" };
+
+function decisionDate(value) {
+  return value ? new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : null;
+}
+
+function BilanDecision({ bilan, onDecision }) {
+  const [confirmation, setConfirmation] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const status = bilan?.decision_status || "pending";
+  const canDecide = Boolean(onDecision && bilan?.can_student_decide && status === "pending");
+  const submit = async () => {
+    if (!confirmation || saving) return;
+    setSaving(true); setError("");
+    try { await onDecision(confirmation); setConfirmation(null); }
+    catch (requestError) { setError(requestError?.response?.data?.message || "Impossible d’enregistrer votre décision. Réessayez."); }
+    finally { setSaving(false); }
+  };
+
+  if (!bilan?.id) return null;
+  return <><section className={`mb-decision mb-decision--${status}`} aria-live="polite"><div><span>Décision de l’élève</span><strong>{DECISION_LABELS[status]}</strong>{bilan.decision_at && <small>Décision enregistrée le {decisionDate(bilan.decision_at)}</small>}{Array.isArray(bilan.decision_history) && bilan.decision_history.length > 0 && <small>Décision modifiée par l’élève ({bilan.decision_history.length} changement{bilan.decision_history.length > 1 ? "s" : ""}) · précédente : {DECISION_LABELS[bilan.decision_history[bilan.decision_history.length - 1]?.decision] || "—"}</small>}{!bilan.shared_at && <small>Ce bilan n’a pas encore été partagé avec l’élève.</small>}</div>{canDecide && <div className="mb-decision-actions"><button type="button" className="mb-decision-accept" onClick={() => setConfirmation("accepted")}>Accepter le bilan</button><button type="button" className="mb-decision-reject" onClick={() => setConfirmation("rejected")}>Refuser le bilan</button></div>}</section>{error && <p className="mb-data-message" role="alert">{error}</p>}{confirmation && <div className="mb-decision-dialog-backdrop" role="presentation"><section className="mb-decision-dialog" role="dialog" aria-modal="true" aria-labelledby="bilan-decision-title"><h2 id="bilan-decision-title">{confirmation === "accepted" ? "Accepter ce bilan ?" : "Refuser ce bilan ?"}</h2><p>{confirmation === "accepted" ? "Votre acceptation sera enregistrée. Vous pourrez la modifier plus tard." : "Votre refus sera enregistré et le moniteur pourra le consulter. Vous pourrez le modifier plus tard."}</p><div><button type="button" disabled={saving} onClick={() => setConfirmation(null)}>Annuler</button><button type="button" className={confirmation === "accepted" ? "mb-decision-accept" : "mb-decision-reject"} disabled={saving} onClick={submit}>{saving ? "Enregistrement…" : "Confirmer"}</button></div></section></div>}</>;
+}
+
+export default function BilansPage({ students = [], selectedStudentId = "", onStudentChange, initialBilan = null, onSave, onDecision, readOnly = false, loading = false, error = "" }) {
+  const [draft, setDraft] = useState(() => normalizeBilanEvaluation(initialBilan?.evaluation ?? initialBilan));
+  const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [saveError, setSaveError] = useState("");
+  const [decisionAction, setDecisionAction] = useState(null);
+  const [decisionStrokes, setDecisionStrokes] = useState([]);
+  const [decisionSaving, setDecisionSaving] = useState(false);
+  const [decisionError, setDecisionError] = useState("");
+  const needsStudentSelection = typeof onStudentChange === "function";
+
+  useEffect(() => {
+    setDraft(normalizeBilanEvaluation(initialBilan?.evaluation ?? initialBilan));
+    setNotice(""); setSaveError("");
+  }, [initialBilan]);
+
+  const selectedStudent = students.find((student) => String(student.id) === String(selectedStudentId));
+  const save = async () => {
+    if (readOnly || !onSave || saving) return;
+    setSaving(true); setSaveError(""); setNotice("");
+    try {
+      const saved = await onSave(draft);
+      if (saved?.evaluation) setDraft(normalizeBilanEvaluation(saved.evaluation));
+      setNotice("Bilan de compétences enregistré.");
+    } catch (requestError) {
+      setSaveError(requestError?.response?.data?.message || "Impossible d’enregistrer le bilan. Réessayez.");
+    } finally { setSaving(false); }
+  };
+  const decide = async () => {
+    if (!decisionAction || decisionSaving || (decisionAction === "accepted" && !decisionStrokes.length)) return;
+    setDecisionSaving(true); setDecisionError("");
+    try { await onDecision?.(decisionAction, decisionAction === "accepted" ? decisionStrokes : null); setDecisionAction(null); setDecisionStrokes([]); }
+    catch (requestError) { setDecisionError(requestError?.response?.data?.message || "Impossible d’enregistrer votre décision. Réessayez."); }
+    finally { setDecisionSaving(false); }
+  };
+
+  return <section className={`mb-page ${readOnly ? "mb-page--student" : "mb-page--monitor"}`} aria-labelledby="bilans-title">
+    <header className="mb-page-heading"><div><p>Suivi pédagogique</p><h1 id="bilans-title">Bilans</h1></div>{needsStudentSelection && <label className="mb-student-picker"><span>Élève</span><select value={selectedStudentId} onChange={(event) => onStudentChange(event.target.value)} disabled={loading || saving}><option value="">Sélectionner un élève</option>{students.map((student) => <option key={student.id} value={student.id}>{student.name}</option>)}</select></label>}</header>
+    {error && <p className="mb-data-message" role="alert">{error}</p>}{saveError && <p className="mb-data-message" role="alert">{saveError}</p>}{notice && <p className="mb-success" role="status">{notice}</p>}
+    {loading && !initialBilan ? <p className="mb-loading">Chargement du bilan…</p> : <><BilanDecision bilan={initialBilan} /><BilanCompetences data={draft} onChange={setDraft} readOnly={readOnly || loading || (needsStudentSelection && !selectedStudentId)} studentName={initialBilan?.student_name || selectedStudent?.name || "—"} monitorName={initialBilan?.monitor_name || "—"} totalHours={initialBilan?.total_hours ?? "0"} studentDecision={readOnly && onDecision ? { status: initialBilan?.decision_status, signature: initialBilan?.student_signature, canDecide: Boolean(initialBilan?.id && initialBilan?.can_student_decide), onRequest: (decision) => { setDecisionError(""); setDecisionStrokes([]); setDecisionAction(decision); } } : null} />{!readOnly && <div className="mb-save-row"><button type="button" onClick={save} disabled={loading || saving || !selectedStudentId}>{saving ? "Enregistrement…" : "Sauvegarder le bilan"}</button></div>}</>}{decisionAction && <Dialog className="mb-signature-modal" title={decisionAction === "accepted" ? "Signer et accepter le bilan" : "Refuser le bilan"} onClose={() => !decisionSaving && setDecisionAction(null)} busy={decisionSaving}><p>{decisionAction === "accepted" ? "Tracez votre signature puis confirmez votre acceptation. Vous pourrez modifier votre décision plus tard." : "Confirmez votre refus. Le moniteur pourra consulter cette décision, et vous pourrez la modifier plus tard."}</p>{decisionAction === "accepted" && <SignaturePad strokes={decisionStrokes} onChange={setDecisionStrokes} disabled={decisionSaving} />}{decisionError && <p className="mb-data-message" role="alert">{decisionError}</p>}<div className="mb-decision-modal-actions"><button type="button" disabled={decisionSaving} onClick={() => setDecisionAction(null)}>Annuler</button><button type="button" className={decisionAction === "accepted" ? "mb-decision-accept" : "mb-decision-reject"} disabled={decisionSaving || (decisionAction === "accepted" && !decisionStrokes.length)} onClick={decide}>{decisionSaving ? "Enregistrement…" : decisionAction === "accepted" ? "Signer et accepter" : "Confirmer le refus"}</button></div></Dialog>}
+  </section>;
 }

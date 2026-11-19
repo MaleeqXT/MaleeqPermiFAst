@@ -59,7 +59,7 @@ function MessageBubble({ message, conversation, onDelete }) {
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-function MonitorChatPageContent({ monitorId = null, onNavigate }) {
+function MonitorChatPageContent({ monitorId = null, initialConversationId = null, onNavigate }) {
   // A dashboard opened through Connecter is a staff session viewing a monitor.
   // Resolve its real chat user before fetching messages or subscribing to channels.
   const client = useMemo(() => createChatClient(monitorId), [monitorId]);
@@ -76,14 +76,14 @@ function MonitorChatPageContent({ monitorId = null, onNavigate }) {
   }, [client, monitorId, attempt]);
   if (error) return <p role="alert">{error} <button onClick={() => { setError(''); setAttempt((value) => value + 1); }}>Réessayer</button></p>;
   if (!session || session.monitorId !== monitorId) return <p role="status">Chargement de la messagerie…</p>;
-  return <MonitorChatContent key={`${monitorId || 'self'}:${session.user.id}`} monitorId={monitorId} actorId={session.user.id} onNavigate={onNavigate} />;
+  return <MonitorChatContent key={`${monitorId || 'self'}:${session.user.id}`} monitorId={monitorId} actorId={session.user.id} initialConversationId={initialConversationId} onNavigate={onNavigate} />;
 }
 
 export default function MonitorChatPage(props) {
   return <ChatPageBoundary><MonitorChatPageContent {...props} /></ChatPageBoundary>;
 }
 
-function MonitorChatContent({ monitorId, actorId, onNavigate }) {
+function MonitorChatContent({ monitorId, actorId, initialConversationId, onNavigate }) {
   const chat = useChat({ monitorId, actorId });
   const { conversations, selectedId, selectedConversation, activeMessages, messageDraft, setMessageDraft, bindMessages } = chat;
   const messageInputRef = useRef(null);
@@ -117,6 +117,12 @@ function MonitorChatContent({ monitorId, actorId, onNavigate }) {
     }
     return id;
   };
+
+  useEffect(() => {
+    if (!initialConversationId) return;
+    const conversation = conversations.find((item) => String(item.id) === String(initialConversationId));
+    if (conversation) selectConversation(conversation.id, conversation);
+  }, [conversations, initialConversationId]);
 
   return (
     <div className={`nschat-root nschat-root--monitor${mobileChatOpen ? " nschat-mobile-show-chat" : ""}`} style={{ height: "100%", background: "#f5f6f8" }}>

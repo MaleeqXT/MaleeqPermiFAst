@@ -157,6 +157,32 @@ async function selectExam() {
   return exams;
 }
 
+test("local OAuth unavailable shows a clean disconnected state and blocks provider actions", async () => {
+  overrides.set("GET /api/rdvpermis/status", () => response({ data: {
+    status: "not_connected",
+    connected: false,
+    configured: true,
+    configurationComplete: true,
+    environment: "recette1",
+    localOAuthUnavailable: true,
+    authorizedEnvironmentUrl: "https://staging2.passpermisfacile.fr/rdvpermis",
+    message: "La connexion OAuth RdvPermis doit être effectuée depuis l’environnement disposant du callback RECETTE autorisé.",
+  } }));
+  const beforeRefresh = calls.length;
+
+  await page.getByRole("button", { name: "Actualiser", exact: true }).click();
+  await page.getByText("Non connecté", { exact: true }).waitFor();
+
+  const authorizedConnection = page.getByRole("link", { name: "Connexion disponible sur l’environnement autorisé", exact: true });
+  assert.equal(await authorizedConnection.getAttribute("href"), "https://staging2.passpermisfacile.fr/rdvpermis");
+  assert.equal(await page.getByText("Callback non autorisé", { exact: true }).count(), 1);
+  assert.equal(await section("Auto-école actuelle").getByRole("button", { name: "Charger l’auto-école", exact: true }).isDisabled(), true);
+  assert.equal(await section("Centres d’examen").getByRole("button", { name: "Rechercher les centres", exact: true }).isDisabled(), true);
+  assert.equal(await section("Paniers RdvPermis").getByRole("button", { name: "Lister les paniers", exact: true }).isDisabled(), true);
+  assert.equal(await page.getByRole("button", { name: "Charger les élèves", exact: true }).isDisabled(), false);
+  assert.deepEqual(calls.slice(beforeRefresh).map((call) => `${call.method} ${call.path}`), ["GET /api/rdvpermis/status"]);
+});
+
 test("mandate needs explicit confirmation, can be cancelled, and uses the selected local student", async () => {
   await page.getByRole("button", { name: "Charger les élèves", exact: true }).click();
   await page.getByRole("combobox", { name: /^Élève local/ }).selectOption("student-1");
@@ -234,12 +260,43 @@ test("current-school trainer counts are rendered as a labelled table", async () 
   assert.match(await school.locator("table").innerText(), /033[\s\S]*5\.5[\s\S]*4/);
 });
 
-test("trainer assignments use only the verified read path and preserve an opaque response", async () => {
-  overrides.set("GET /api/rdvpermis/trainer-assignments", () => response({ opaque: { preserved: true } }));
+test("trainer assignments use the verified read path and render the current trainer table", async () => {
+  overrides.set("GET /api/rdvpermis/trainer-assignments", () => response([{
+    id: "assignment-1",
+    codeDepartement: "033",
+    formateur: { id: "trainer-1", nom: "Dupont", prenom: "Marie", autorisation: "AUT-123" },
+    etp: 0.8,
+    nbHeuresFormation: 12,
+    groupePermis: "B",
+    dateHeureSuppression: null,
+  }]));
   const assignments = section("Affectations des formateurs");
   await assignments.getByRole("button", { name: "Charger les affectations", exact: true }).click();
-  await assignments.getByText("opaque", { exact: true }).waitFor();
+  assert.match(await assignments.locator("table").innerText(), /Marie Dupont[\s\S]*AUT-123[\s\S]*033[\s\S]*B[\s\S]*0\.8[\s\S]*12[\s\S]*Active/);
+  assert.equal(await assignments.locator("pre").count(), 0);
   assert.equal(calls.filter((call) => call.path.endsWith("/trainer-assignments")).length, 1);
+});
+
+test("planning results display the verified available-slot fields without leading with the UUID", async () => {
+  overrides.set("POST /api/rdvpermis/planning/recherche", () => response([{
+    creneauDuPlanning: {
+      id: slotId,
+      centre: { id: centreId, nom: "Centre planning fixture" },
+      dateHeureDebut: "2026-10-20T10:00:00",
+      dateHeureFin: "2026-10-20T10:30:00",
+      groupePermis: "B",
+      typeEpreuvePratique: "CIRCULATION",
+      statutDeReservation: "DISPONIBLE",
+    },
+  }]));
+  const centres = section("Centres d’examen");
+  await centres.getByLabel("Département").fill("75");
+  await centres.getByRole("button", { name: "Rechercher les centres", exact: true }).click();
+  await centres.getByRole("button", { name: "Choisir", exact: true }).click();
+  const planning = section("Planning et créneaux disponibles");
+  await planning.getByRole("button", { name: "Rechercher les créneaux", exact: true }).click();
+  assert.match(await planning.innerText(), /Centre planning fixture[\s\S]*2026-10-20T10:00:00[\s\S]*2026-10-20T10:30:00[\s\S]*B[\s\S]*CIRCULATION[\s\S]*DISPONIBLE/);
+  assert.doesNotMatch((await planning.innerText()).split("Choisir")[0], new RegExp(slotId));
 });
 
 test("past exam dates are rejected before an API request", async () => {
@@ -425,7 +482,7 @@ test("expired basket is labelled and cannot add/assign/validate a slot", async (
   await chooseSlot();
   await page.getByRole("button", { name: "Créer le panier", exact: true }).click();
   await confirm();
-  await page.getByText("Expiré — actualisez le panier avant toute action", { exact: true }).waitFor();
+  await page.getByText(/Expiré — actualisez le panier avant toute action/).waitFor();
   assert.equal(await page.getByRole("button", { name: "Ajouter le créneau", exact: true }).isDisabled(), true);
   assert.equal(writes("/creneaux").length, 0);
 });

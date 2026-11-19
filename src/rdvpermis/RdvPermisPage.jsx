@@ -101,12 +101,23 @@ function candidateId(candidate) {
 
 function expirationText(value, now) {
   const expiresAt = value?.dateHeureExpiration ?? value?.expiresAt ?? value?.expiration;
-  const timestamp = Date.parse(expiresAt ?? "");
+  const explicitTimestamp = Date.parse(expiresAt ?? "");
+  const createdTimestamp = Date.parse(value?.dateHeureCreation ?? value?.createdAt ?? "");
+  // Current basket business lifetime is 30 minutes. Prefer an explicit
+  // provider expiry and only derive it when a creation timestamp is present.
+  const timestamp = Number.isFinite(explicitTimestamp) ? explicitTimestamp : (Number.isFinite(createdTimestamp) ? createdTimestamp + (30 * 60 * 1000) : NaN);
   if (!Number.isFinite(timestamp)) return "Expiration non communiquée par RdvPermis";
   const remaining = timestamp - now;
   if (remaining <= 0) return "Expiré — actualisez le panier avant toute action";
   const totalMinutes = Math.ceil(remaining / 60000);
   return `Expire dans ${Math.floor(totalMinutes / 60)} h ${totalMinutes % 60} min`;
+}
+
+function creationText(value) {
+  const createdAt = value?.dateHeureCreation ?? value?.createdAt;
+  if (!createdAt) return "Création non communiquée par RdvPermis";
+  const timestamp = Date.parse(createdAt);
+  return Number.isFinite(timestamp) ? `Créé le ${new Date(timestamp).toLocaleString("fr-FR")}` : `Créé le ${createdAt}`;
 }
 
 function panierPagination(value) {
@@ -171,6 +182,32 @@ function TrainerCounts({ school }) {
   if (!counts.length) return null;
 
   return <div className="rdv-subsection"><h3>Formateurs déclarés par département</h3><div className="rdv-table-wrap"><table className="rdv-table"><thead><tr><th>Département</th><th>Formateurs permis B</th><th>Formateurs permis A</th></tr></thead><tbody>{counts.map((count, index) => <tr key={count?.codeDepartement ?? index}><td>{count?.codeDepartement ?? "—"}</td><td>{count?.nombreDeFormateursPermisB ?? "—"}</td><td>{count?.nombreDeFormateursPermisA ?? "—"}</td></tr>)}</tbody></table></div></div>;
+}
+
+function TrainerAssignments({ value }) {
+  const assignments = asList(value, ["affectations", "items", "data"]);
+  if (!assignments.length) return <EmptyState>Aucune affectation de formateur retournée par RdvPermis.</EmptyState>;
+
+  return <div className="rdv-table-wrap"><table className="rdv-table"><thead><tr><th>Formateur</th><th>Autorisation</th><th>Département</th><th>Groupe</th><th>ETP</th><th>Heures</th><th>État</th></tr></thead><tbody>{assignments.map((assignment, index) => {
+    const trainer = nestedItem(assignment?.formateur, ["formateur"]);
+    const name = [trainer.prenom, trainer.nom].filter(Boolean).join(" ") || "Formateur non communiqué";
+    return <tr key={assignment?.id ?? `${trainer.id ?? "trainer"}-${index}`}><td><strong>{name}</strong>{trainer.id && <small>{trainer.id}</small>}</td><td>{trainer.autorisation ?? "—"}</td><td>{assignment?.codeDepartement ?? "—"}</td><td>{assignment?.groupePermis ?? "—"}</td><td>{assignment?.etp ?? "—"}</td><td>{assignment?.nbHeuresFormation ?? "—"}</td><td>{assignment?.dateHeureSuppression ? `Supprimée le ${assignment.dateHeureSuppression}` : "Active"}</td></tr>;
+  })}</tbody></table></div>;
+}
+
+function SlotDetails({ slot, includeIdentifier = false }) {
+  const providerSlot = slot?.creneauDuPlanning ?? slot?.creneau ?? slot ?? {};
+  const centre = nestedItem(providerSlot.centre, ["centre"]);
+  const fields = [
+    ["Centre", centre.nom ?? centre.libelle ?? "Non communiqué"],
+    ["Début", providerSlot.dateHeureDebut ?? providerSlot.dateHeure ?? providerSlot.date ?? "Non communiqué"],
+    ["Fin", providerSlot.dateHeureFin ?? "Non communiquée"],
+    ["Groupe", providerSlot.groupePermis ?? "Non communiqué"],
+    ["Épreuve", providerSlot.typeEpreuvePratique ?? "Non communiquée"],
+    ["Disponibilité", providerSlot.statutDeReservation ?? providerSlot.statut ?? "Non communiquée"],
+  ];
+  const id = getSlotId(slot);
+  return <div className="rdv-slot-details">{fields.map(([label, field]) => <span key={label}><b>{label} :</b> {field}</span>)}{includeIdentifier && id && <small>Référence RdvPermis : {id}</small>}</div>;
 }
 
 function SchoolDetails({ school }) {
@@ -793,6 +830,12 @@ export default function RdvPermisPage() {
 
   const statusData = status && typeof status === "object" ? status : null;
   const isConnected = Boolean(statusData?.connected);
+  const localOAuthUnavailable = Boolean(statusData?.localOAuthUnavailable ?? statusData?.local_oauth_unavailable);
+  const providerUnavailable = !isConnected;
+  const providerRequiredMessage = "Connexion RdvPermis requise";
+  const localOAuthMessage = statusData?.message
+    ?? "OAuth RdvPermis n’est pas disponible depuis localhost car le callback RECETTE enregistré pointe vers un autre déploiement. Utilisez l’environnement autorisé pour renouveler la connexion.";
+  const authorizedEnvironmentUrl = statusData?.authorizedEnvironmentUrl;
 
   return (
     <div className="rdv-page">
@@ -802,15 +845,22 @@ export default function RdvPermisPage() {
           <h1>Gestion des examens</h1>
           <p>Recherchez les centres, créneaux et candidats depuis PermiFast. Les identifiants RdvPermis restent côté serveur.</p>
         </div>
-        <button type="button" className="rdv-button rdv-button--primary" onClick={startConnection} disabled={loading.connect}>
-          {loading.connect ? "Redirection…" : isConnected ? "Reconnecter RdvPermis" : "Connecter RdvPermis"}
-        </button>
-        <button type="button" className="rdv-button rdv-button--secondary" onClick={loadAvailableData} disabled={!isConnected || loading.school || loading.students || loading.paniers || loading.exams}>
+        {localOAuthUnavailable && authorizedEnvironmentUrl ? (
+          <a className="rdv-button rdv-button--primary" href={authorizedEnvironmentUrl} target="_blank" rel="noreferrer" title={localOAuthMessage}>
+            Connexion disponible sur l’environnement autorisé
+          </a>
+        ) : (
+          <button type="button" className="rdv-button rdv-button--primary" onClick={startConnection} disabled={loading.connect || localOAuthUnavailable} title={localOAuthUnavailable ? localOAuthMessage : undefined}>
+            {localOAuthUnavailable ? "Connexion disponible sur l’environnement autorisé" : loading.connect ? "Redirection…" : isConnected ? "Reconnecter RdvPermis" : "Connecter RdvPermis"}
+          </button>
+        )}
+        <button type="button" className="rdv-button rdv-button--secondary" onClick={loadAvailableData} disabled={!isConnected || loading.school || loading.students || loading.paniers || loading.exams} title={!isConnected ? providerRequiredMessage : undefined}>
           {loading.school || loading.students || loading.paniers || loading.exams ? "Chargement…" : "Charger les données disponibles"}
         </button>
       </div>
 
       {notice && <div className="rdv-notice" role="status">{notice}<button type="button" onClick={() => setNotice("")} aria-label="Fermer">×</button></div>}
+      {localOAuthUnavailable && <div className="rdv-notice rdv-notice--configuration" role="status">{localOAuthMessage}</div>}
       <ErrorNotice>{error}</ErrorNotice>
 
       <section className="rdv-card rdv-connection-card">
@@ -824,19 +874,21 @@ export default function RdvPermisPage() {
             <div><span>Environnement</span><strong>{statusData.environment ?? "—"}</strong></div>
             <div><span>Configuration</span><strong>{statusData.configured ? "Complète" : "À compléter"}</strong></div>
             <div><span>Expiration</span><strong>{statusData.expires_at ? new Date(statusData.expires_at).toLocaleString("fr-FR") : "—"}</strong></div>
+            {localOAuthUnavailable && <div><span>OAuth local</span><strong>Callback non autorisé</strong></div>}
           </div>
         ) : <EmptyState>Le statut n’est pas encore disponible.</EmptyState>}
         {statusData?.last_error && <p className="rdv-helper">{statusData.last_error}</p>}
       </section>
 
+      <fieldset className="rdv-provider-fieldset" disabled={providerUnavailable} aria-label={providerRequiredMessage}>
       <section className="rdv-card">
         <div className="rdv-card-heading"><div><h2>Auto-école actuelle</h2><p>Vérification en lecture seule auprès de RdvPermis.</p></div><button type="button" className="rdv-button rdv-button--secondary" onClick={() => runRead("school", rdvPermisApi.currentSchool, setSchool)} disabled={loading.school}>{loading.school ? "Chargement…" : "Charger l’auto-école"}</button></div>
         {school ? <SchoolDetails school={school} /> : <EmptyState>Chargez les informations de l’auto-école pour les afficher ici.</EmptyState>}
       </section>
 
       <section className="rdv-card">
-        <div className="rdv-card-heading"><div><h2>Affectations des formateurs</h2><p>Chemin v2 vérifié ; le schéma de réponse reste à confirmer.</p></div><button type="button" className="rdv-button rdv-button--secondary" onClick={() => runRead("trainerAssignments", rdvPermisApi.trainerAssignments, setTrainerAssignments)} disabled={loading.trainerAssignments}>{loading.trainerAssignments ? "Chargement…" : "Charger les affectations"}</button></div>
-        {trainerAssignments !== null ? <JsonDetails value={trainerAssignments} /> : <EmptyState>Le détail des affectations sera affiché sans transformation lorsque RdvPermis le retournera.</EmptyState>}
+        <div className="rdv-card-heading"><div><h2>Affectations des formateurs</h2><p>Lecture seule des affectations RdvPermis par département et groupe de permis.</p></div><button type="button" className="rdv-button rdv-button--secondary" onClick={() => runRead("trainerAssignments", rdvPermisApi.trainerAssignments, setTrainerAssignments)} disabled={loading.trainerAssignments}>{loading.trainerAssignments ? "Chargement…" : "Charger les affectations"}</button></div>
+        {trainerAssignments !== null ? <TrainerAssignments value={trainerAssignments} /> : <EmptyState>Chargez les affectations pour afficher les formateurs déclarés.</EmptyState>}
       </section>
 
       <section className="rdv-card">
@@ -870,7 +922,7 @@ export default function RdvPermisPage() {
           <div className="rdv-readonly-field"><span>Groupe</span><strong>{centreSearch.groupePermis}</strong></div>
           <button className="rdv-button rdv-button--primary" disabled={!selectedCentre || loading.planning}>{loading.planning ? "Recherche…" : "Rechercher les créneaux"}</button>
         </form>
-        {planning !== null && (slotItems.length ? <div className="rdv-result-list">{slotItems.map((slot, index) => { const selected = isSelectedSlot(selectedSlot, slot); return <article className={`rdv-result-row ${selected ? "is-selected" : ""}`} key={getSlotId(slot) ?? index}><div><strong>{itemTitle(slot.creneauDuPlanning, "Créneau disponible")}</strong><span>{slotDateTime(slot) || getSlotId(slot)}</span></div><button type="button" className="rdv-button rdv-button--secondary" onClick={() => selectSlot(slot)}>{selected ? "Sélectionné" : "Choisir"}</button></article>; })}</div> : <EmptyState />)}
+        {planning !== null && (slotItems.length ? <div className="rdv-result-list">{slotItems.map((slot, index) => { const selected = isSelectedSlot(selectedSlot, slot); const centre = nestedItem(slot?.creneauDuPlanning?.centre, ["centre"]); return <article className={`rdv-result-row ${selected ? "is-selected" : ""}`} key={getSlotId(slot) ?? index}><div><strong>{centre.nom ?? "Créneau disponible"}</strong><SlotDetails slot={slot} includeIdentifier={selected} /></div><button type="button" className="rdv-button rdv-button--secondary" onClick={() => selectSlot(slot)}>{selected ? "Sélectionné" : "Choisir"}</button></article>; })}</div> : <EmptyState />)}
       </section>
 
       <section className="rdv-card">
@@ -917,15 +969,18 @@ export default function RdvPermisPage() {
         </div>}
       </section>
 
+      </fieldset>
+
       <section className="rdv-card">
         <div className="rdv-card-heading"><div><h2>Mandat candidat</h2><p>Créez un mandat uniquement après avoir vérifié les informations de l’élève.</p></div><button type="button" className="rdv-button rdv-button--secondary" onClick={loadStudents} disabled={loading.students}>{loading.students ? "Chargement…" : "Charger les élèves"}</button></div>
-        {localStudents !== null && <div className="rdv-mutation-panel"><Field label="Rechercher un élève"><input type="search" value={studentSearch} onChange={(event) => setStudentSearch(event.target.value)} placeholder="Nom, prénom, email ou NEPH" /></Field><Field label="Élève local"><select value={localStudentId} onChange={(event) => { setLocalStudentId(event.target.value); setMandates(null); setError(""); }}><option value="">Sélectionnez un élève</option>{visibleStudents.map((student, index) => <option key={student.id || index} value={student.id}>{student.firstName || "Élève"} {student.lastName}</option>)}</select></Field>{studentItems.length > 0 && <p className="rdv-empty">{matchingStudents.length} élève{matchingStudents.length === 1 ? "" : "s"} trouvé{matchingStudents.length === 1 ? "" : "s"}</p>}{studentItems.length > 0 && !matchingStudents.length && <EmptyState>Aucun élève trouvé</EmptyState>}<button type="button" className="rdv-button rdv-button--danger" onClick={createMandate} disabled={!selectedStudent?.id || mandateErrors.length > 0} title={mandateErrors.join(" ") || undefined}>Créer le mandat</button></div>}
-        {selectedStudent && mandateBody && <div className="rdv-student-preview" aria-live="polite"><strong>Informations qui seront envoyées après confirmation</strong><span>Élève : {[selectedStudent.firstName, selectedStudent.lastName].filter(Boolean).join(" ") || "—"}</span><dl className="rdv-mandate-fields"><div><dt>Nom (RdvPermis)</dt><dd data-field="nom">{mandateBody.nom || "À compléter"}</dd></div><div><dt>NEPH / numéro de dossier</dt><dd data-field="numeroDossier">{mandateBody.numeroDossier || "À compléter"}</dd></div><div><dt>Email</dt><dd data-field="email">{mandateBody.email || "Non renseigné"}</dd></div><div><dt>Groupe permis</dt><dd data-field="groupePermis">{mandateBody.groupePermis}</dd></div></dl>{mandateErrors.length > 0 && <ul className="rdv-mandate-errors" role="status">{mandateErrors.map((message) => <li key={message}>{message}</li>)}</ul>}<button type="button" className="rdv-text-button" onClick={searchMandatesForSelectedStudent} disabled={!selectedStudent.neph || loading.mandates}>{loading.mandates ? "Vérification…" : "Vérifier les mandats existants"}</button></div>}
+        {localStudents !== null && <div className="rdv-mutation-panel"><Field label="Rechercher un élève"><input type="search" value={studentSearch} onChange={(event) => setStudentSearch(event.target.value)} placeholder="Nom, prénom, email ou NEPH" /></Field><Field label="Élève local"><select value={localStudentId} onChange={(event) => { setLocalStudentId(event.target.value); setMandates(null); setError(""); }}><option value="">Sélectionnez un élève</option>{visibleStudents.map((student, index) => <option key={student.id || index} value={student.id}>{student.firstName || "Élève"} {student.lastName}</option>)}</select></Field>{studentItems.length > 0 && <p className="rdv-empty">{matchingStudents.length} élève{matchingStudents.length === 1 ? "" : "s"} trouvé{matchingStudents.length === 1 ? "" : "s"}</p>}{studentItems.length > 0 && !matchingStudents.length && <EmptyState>Aucun élève trouvé</EmptyState>}<button type="button" className="rdv-button rdv-button--danger" onClick={createMandate} disabled={!selectedStudent?.id || mandateErrors.length > 0 || providerUnavailable} title={providerUnavailable ? providerRequiredMessage : mandateErrors.join(" ") || undefined}>Créer le mandat</button></div>}
+        {selectedStudent && mandateBody && <div className="rdv-student-preview" aria-live="polite"><strong>Informations qui seront envoyées après confirmation</strong><span>Élève : {[selectedStudent.firstName, selectedStudent.lastName].filter(Boolean).join(" ") || "—"}</span><dl className="rdv-mandate-fields"><div><dt>Nom (RdvPermis)</dt><dd data-field="nom">{mandateBody.nom || "À compléter"}</dd></div><div><dt>NEPH / numéro de dossier</dt><dd data-field="numeroDossier">{mandateBody.numeroDossier || "À compléter"}</dd></div><div><dt>Email</dt><dd data-field="email">{mandateBody.email || "Non renseigné"}</dd></div><div><dt>Groupe permis</dt><dd data-field="groupePermis">{mandateBody.groupePermis}</dd></div></dl>{mandateErrors.length > 0 && <ul className="rdv-mandate-errors" role="status">{mandateErrors.map((message) => <li key={message}>{message}</li>)}</ul>}<button type="button" className="rdv-text-button" onClick={searchMandatesForSelectedStudent} disabled={!selectedStudent.neph || loading.mandates || providerUnavailable} title={providerUnavailable ? providerRequiredMessage : undefined}>{loading.mandates ? "Vérification…" : "Vérifier les mandats existants"}</button></div>}
         {import.meta.env.DEV && selectedStudent && <MandatePayloadDebug key={selectedStudent.id} studentId={selectedStudent.id} payload={mandateBody} />}
         {mandates !== null && (asList(mandates, ["candidats", "items", "content", "data"]).length ? <div className="rdv-result-list">{asList(mandates, ["candidats", "items", "content", "data"]).map((candidate, index) => <article className="rdv-result-row" key={itemId(candidate?.candidat ?? candidate) || index}><div><strong>{itemTitle(candidate?.candidat ?? candidate, "Candidat mandaté")}</strong><span>{candidate?.mandat?.groupePermis ?? candidate?.groupePermis ?? "Mandat trouvé"}</span></div></article>)}</div> : <EmptyState>Aucun mandat correspondant n’a été trouvé.</EmptyState>)}
         {localStudents !== null && !studentItems.length && <EmptyState>Aucun élève local actif n’est disponible.</EmptyState>}
       </section>
 
+      <fieldset className="rdv-provider-fieldset" disabled={providerUnavailable} aria-label={providerRequiredMessage}>
       <section className="rdv-card">
         <div className="rdv-card-heading"><div><h2>Paniers RdvPermis</h2><p>Consultez les paniers existants, leur expiration et les créneaux qu’ils contiennent.</p></div><button type="button" className="rdv-button rdv-button--secondary" onClick={() => loadPaniers()} disabled={loading.paniers}>{loading.paniers ? "Chargement…" : "Lister les paniers"}</button></div>
         <form className="rdv-form-grid" onSubmit={(event) => { event.preventDefault(); setPanierFilters((current) => ({ ...current, page: 1 })); loadPaniers({ ...panierFilters, page: 1 }); }}>
@@ -933,8 +988,8 @@ export default function RdvPermisPage() {
           <Field label="Employé auto-école (facultatif)"><select value={panierFilters.employeAutoEcoleId} onChange={(event) => setPanierFilters((current) => ({ ...current, employeAutoEcoleId: event.target.value, page: 1 }))}><option value="">Tous les employés</option>{employeeItems.map((employee, index) => <option key={itemId(employee) || index} value={itemId(employee)}>{itemTitle(employee, "Employé")}</option>)}</select></Field>
           <button className="rdv-button rdv-button--secondary" disabled={loading.paniers}>Appliquer les filtres</button>
         </form>
-        {paniers !== null && (asList(paniers, ["paniers", "items", "data"]).length ? <div className="rdv-result-list">{asList(paniers, ["paniers", "items", "data"]).map((entry, index) => <article className={`rdv-result-row ${itemId(entry) === basketId ? "is-selected" : ""}`} key={itemId(entry) || index}><div><strong>{itemId(entry) || "Panier"}</strong><span>{expirationText(entry, clock)}</span></div><div className="rdv-inline-actions"><button type="button" className="rdv-button rdv-button--secondary" onClick={() => loadPanierDetail(itemId(entry))}>Détail</button><button type="button" className="rdv-button rdv-button--danger" onClick={() => deletePanier(itemId(entry))}>Supprimer</button></div></article>)}</div> : <EmptyState>Aucun panier actif.</EmptyState>)}
-        {panierDetail && <div className="rdv-subsection"><h3>Panier sélectionné</h3><p className="rdv-expiry">{expirationText(panierDetail, clock)}</p>{panierSlots(panierDetail).length ? <div className="rdv-result-list">{panierSlots(panierDetail).map((slot, index) => { const creneauId = panierSlotId(slot); const candidateId = panierSlotCandidateId(slot); return <article className="rdv-result-row" key={creneauId || index}><div><strong>{creneauId || "Créneau"}</strong><span>{candidateId ? `Candidat : ${candidateId}` : "Aucun candidat affecté"}</span></div><div className="rdv-inline-actions">{candidateId && <button type="button" className="rdv-button rdv-button--secondary" onClick={() => unassignPanierCandidate(basketId, creneauId)}>Retirer le candidat</button>}<button type="button" className="rdv-button rdv-button--danger" onClick={() => removePanierSlot(basketId, creneauId)}>Retirer le créneau</button></div></article>; })}</div> : <EmptyState>Ce panier ne contient aucun créneau.</EmptyState>}</div>}
+        {paniers !== null && (asList(paniers, ["paniers", "items", "data"]).length ? <div className="rdv-result-list">{asList(paniers, ["paniers", "items", "data"]).map((entry, index) => <article className={`rdv-result-row ${itemId(entry) === basketId ? "is-selected" : ""}`} key={itemId(entry) || index}><div><strong>Panier actif</strong><span>{creationText(entry)}</span><span>{expirationText(entry, clock)}</span><small>Référence RdvPermis : {itemId(entry) || "non communiquée"}</small></div><div className="rdv-inline-actions"><button type="button" className="rdv-button rdv-button--secondary" onClick={() => loadPanierDetail(itemId(entry))}>Détail</button><button type="button" className="rdv-button rdv-button--danger" onClick={() => deletePanier(itemId(entry))}>Supprimer</button></div></article>)}</div> : <EmptyState>Aucun panier actif.</EmptyState>)}
+        {panierDetail && <div className="rdv-subsection"><h3>Panier sélectionné</h3><p className="rdv-expiry">{creationText(panierDetail)} — {expirationText(panierDetail, clock)}</p>{panierSlots(panierDetail).length ? <div className="rdv-result-list">{panierSlots(panierDetail).map((slot, index) => { const creneauId = panierSlotId(slot); const candidateId = panierSlotCandidateId(slot); const centre = nestedItem(slot?.creneau?.centre, ["centre"]); return <article className="rdv-result-row" key={creneauId || index}><div><strong>{centre.nom ?? "Créneau du panier"}</strong><SlotDetails slot={slot} includeIdentifier /><span>{candidateId ? `Candidat affecté : ${candidateId}` : "Aucun candidat affecté"}</span></div><div className="rdv-inline-actions">{candidateId && <button type="button" className="rdv-button rdv-button--secondary" onClick={() => unassignPanierCandidate(basketId, creneauId)}>Retirer le candidat</button>}<button type="button" className="rdv-button rdv-button--danger" onClick={() => removePanierSlot(basketId, creneauId)}>Retirer le créneau</button></div></article>; })}</div> : <EmptyState>Ce panier ne contient aucun créneau.</EmptyState>}</div>}
         {paniers !== null && <div className="rdv-pagination"><span>Page {panierPageData.page} / {panierPageData.totalPages}{Number.isFinite(panierPageData.total) ? ` — ${panierPageData.total} panier(s)` : ""}</span><div className="rdv-inline-actions"><button type="button" className="rdv-button rdv-button--secondary" disabled={loading.paniers || panierPageData.page <= 1} onClick={() => { const next = { ...panierFilters, page: panierPageData.page - 1 }; setPanierFilters(next); loadPaniers(next); }}>Précédent</button><button type="button" className="rdv-button rdv-button--secondary" disabled={loading.paniers || panierPageData.page >= panierPageData.totalPages} onClick={() => { const next = { ...panierFilters, page: panierPageData.page + 1 }; setPanierFilters(next); loadPaniers(next); }}>Suivant</button></div></div>}
       </section>
 
@@ -956,6 +1011,7 @@ export default function RdvPermisPage() {
         </div>
         <PanierValidationResult result={validationResult} />
       </section>
+      </fieldset>
 
       <ConfirmationDialog action={confirmation} busy={mutating} onCancel={() => !mutating && setConfirmation(null)} onConfirm={confirmMutation} />
     </div>

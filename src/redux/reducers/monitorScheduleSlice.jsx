@@ -81,8 +81,8 @@ function normalizeReservation(item = {}, dateKey = "") {
   const reservationDate = String(rawReservationDate).slice(0, 10);
   const startAt = item.start_at ?? item.startTime ?? (item.date_hour != null ? `${String(item.date_hour).padStart(2, "0")}:00` : "");
   const endAt = item.end_at ?? item.endTime ?? "";
-  const candidateName = getTextValue(studentUser);
-  const monitorName = getTextValue(monitorUser);
+  const candidateName = getTextValue(studentUser) || getTextValue(student) || item.student_name || item.candidate_name || "";
+  const monitorName = getTextValue(monitorUser) || getTextValue(monitor) || item.monitor_name || "";
   const placeName = getTextValue(place) || place?.name || place?.label || "";
   const offerName = getTextValue(offer) || offer?.name || offer?.label || "";
   const phone = studentUser?.phone ?? "";
@@ -104,7 +104,10 @@ function normalizeReservation(item = {}, dateKey = "") {
     cancellation?.message ??
     item.cancellation_reason ??
     "";
-  const status = isCancelled ? "cancelled" : getReservationStatus(reservationDate, startAt);
+  const isTrainingReservation = Boolean(item.training ?? item.training_id ?? item.trainingId);
+  const status = isTrainingReservation
+    ? (isCancelled ? "cancelled" : getReservationStatus(reservationDate, startAt))
+    : "available";
 
   const studentAvatarRaw = studentUser?.media ?? null;
   let studentAvatarUrl = null;
@@ -125,7 +128,7 @@ function normalizeReservation(item = {}, dateKey = "") {
 
   return {
     id: item.id,
-    type: item.training ? (item.type ?? "reservation") : "availability",
+    type: isTrainingReservation ? (item.type ?? "reservation") : "availability",
     status,
     training_id: item.training_id ?? item.training?.id ?? item.training?.training_id ?? null,
     trainingId: item.training_id ?? item.training?.id ?? item.training?.training_id ?? null,
@@ -133,12 +136,12 @@ function normalizeReservation(item = {}, dateKey = "") {
     startTime: startAt,
     endTime: endAt,
     time: endAt ? `${startAt} - ${endAt}` : startAt,
-    candidate: candidateName || "Candidat",
+    candidate: isTrainingReservation ? (candidateName || "Élève non renseigné") : null,
     candidateAvatar: studentAvatarUrl,
     location: placeName || "Lieu",
     place: placeName || "",
     mapLocation: place?.zone?.name ? `${place.zone.name}, ${placeName}` : placeName || "",
-    title: offerName || "Réservation",
+    title: offerName || (isTrainingReservation ? "Réservation" : "Disponibilité"),
     zone: place?.zone?.name ?? "",
     color: item.color ?? null,
     // Reservation color controls the calendar event; offer color is shown only

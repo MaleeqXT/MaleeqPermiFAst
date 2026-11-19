@@ -1,6 +1,7 @@
 import { displayDate } from "./formationUtils.js";
 import { useEffect, useRef, useState } from "react";
 import { Search, ChevronDown, Check, Clock, CloudCheck, CircleX, PenLine, X, Info } from "lucide-react";
+import "./FormationPage.css";
 
 export function SearchPicker({ label, items, value, onChange, placeholder = "Rechercher...", disabled = false, id }) {
   const [open, setOpen] = useState(false);
@@ -76,8 +77,78 @@ export function LessonHistory({ lessons, selectedId, onSelect, disabled }) {
 export function Toggle({ label, checked, onChange, disabled, hint }) {
   return <div className="mf-toggle" title={hint}><span><span>{label}</span>{hint && <small className="mf-toggle-help">{hint}</small>}</span><button type="button" role="switch" aria-label={hint ? `${label}. ${hint}` : label} aria-checked={checked} disabled={disabled} onClick={() => onChange(!checked)}><i /></button></div>;
 }
+
+export function TransmissionSwitch({ automatic, onChange, disabled }) {
+  return <div className="mf-transmission">
+    <span className={!automatic ? "selected" : ""}>Boîte manuelle</span>
+    <button type="button" role="switch" aria-label="Type de boîte : boîte automatique" aria-checked={automatic} disabled={disabled} onClick={() => onChange(!automatic)}><i /></button>
+    <span className={automatic ? "selected" : ""}>Boîte automatique</span>
+  </div>;
+}
+
 export function EditSection({ title, children, onEdit, disabled, contentClassName = "" }) {
   return <section className="mf-edit-section"><header><h3>{title} <Info size={15} /></h3><button type="button" disabled={disabled} onClick={onEdit}><PenLine size={15} />Editer</button></header>{children ? <div className={"mf-section-content" + (contentClassName ? " " + contentClassName : "")}>{children}</div> : null}</section>;
+}
+
+const PERMIT_EVALUATION_SECTIONS = [
+  { id: "vehicle", title: "Connaître et maîtriser son véhicule", rows: [
+    { id: "vehicle_installation", label: "Savoir s'installer et assurer la sécurité à bord", cycle: [0, 1, 2] },
+    { id: "vehicle_checks", label: "Effectuer les vérifications du véhicule", cycle: [0, 1, 2, 3] },
+    { id: "vehicle_controls", label: "Connaître et utiliser les commandes", cycle: [0, 1, 2, 3, "E"] },
+  ] },
+  { id: "road", title: "Appréhender la route", rows: [
+    { id: "road_information", label: "Prendre l'information", cycle: [0, 1, 2, 3, "E"] },
+    { id: "road_speed", label: "Adapter son allure aux circonstances", cycle: [0, 1, 2, 3, "E"] },
+    { id: "road_rules", label: "Appliquer la réglementation", cycle: [0, 1, 2, 3, "E"] },
+  ] },
+  { id: "sharing", title: "Partager la route avec les autres usagers", rows: [
+    { id: "sharing_communication", label: "Communiquer avec les autres usagers", cycle: [0, 1, 2, 3, "E"] },
+    { id: "sharing_road", label: "Partager la chaussée", cycle: [0, 1, 2, 3, "E"] },
+    { id: "sharing_safety", label: "Maintenir des espaces de sécurité", cycle: [0, 1, 2, 3, "E"] },
+  ] },
+  { id: "autonomy", title: "Autonomie conscience du risque", neutral: true, rows: [
+    { id: "autonomy_analysis", label: "Analyse des situations", cycle: [0, 0.5, 1] },
+    { id: "autonomy_adaptation", label: "Adaptation aux situations", cycle: [0, 0.5, 1] },
+    { id: "autonomy_awareness", label: "Autonomie conscience du risque", cycle: [0, 0.5, 1] },
+  ] },
+  { id: "bonus", title: "Bonifications", bonus: true, rows: [
+    { id: "bonus_courtesy", label: "Courtoisie au volant", cycle: [0, 1] },
+    { id: "bonus_environment", label: "Conduite économique et respectueuse de l'environnement", cycle: [0, 1] },
+  ] },
+];
+
+const formatPermitScore = (value) => value === "E" ? "E" : Number(value).toLocaleString("fr-FR", { maximumFractionDigits: 1 });
+
+/** Inline scoring grid for the driving-permit evaluation. Each score cell is its own button. */
+export function PermitEvaluation({ scores = {}, onChange, disabled = false }) {
+  const rows = PERMIT_EVALUATION_SECTIONS.flatMap((section) => section.rows);
+  const hasEliminatory = rows.some((row) => scores[row.id] === "E");
+  const total = rows.reduce((sum, row) => sum + (typeof scores[row.id] === "number" ? scores[row.id] : 0), 0);
+  const cycleScore = (row) => {
+    const current = scores[row.id] ?? 0;
+    const index = row.cycle.indexOf(current);
+    const next = row.cycle[(index + 1) % row.cycle.length];
+    onChange({ ...scores, [row.id]: next });
+  };
+
+  return <section className="mf-permit-evaluation" aria-labelledby="permit-evaluation-title">
+    <h3 id="permit-evaluation-title">Grille d'évaluation de l'épreuve en circulation</h3>
+    {!disabled && <p className="mf-permit-help">Cliquez sur chaque note pour passer au niveau suivant.</p>}
+    <div className="mf-permit-grid">
+      {PERMIT_EVALUATION_SECTIONS.map((section) => <section key={section.id} className={"mf-permit-section" + (section.neutral ? " neutral" : "") + (section.bonus ? " bonus" : "")}>
+        <h4>{section.title}</h4>
+        {section.rows.map((row) => {
+          const value = scores[row.id] ?? 0;
+          const scoreClass = section.neutral || section.bonus ? "neutral" : `score-${String(value).toLowerCase()}`;
+          return <div className="mf-permit-row" key={row.id}>
+            <span>{row.label}</span>
+            <button type="button" className={`mf-permit-score ${scoreClass}`} disabled={disabled} onClick={() => cycleScore(row)} aria-label={`${row.label}: ${formatPermitScore(value)}. Cliquer pour changer la note.`}>{formatPermitScore(value)}</button>
+          </div>;
+        })}
+      </section>)}
+    </div>
+    <footer className="mf-permit-total"><span>Total général</span><strong>{hasEliminatory ? "Éliminatoire" : formatPermitScore(total)}</strong></footer>
+  </section>;
 }
 
 export function Dialog({ title, children, onClose, busy = false, wide = false, className = "" }) {

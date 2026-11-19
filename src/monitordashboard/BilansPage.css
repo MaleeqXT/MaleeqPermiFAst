@@ -224,3 +224,188 @@
   .mb-evaluation-mark { width: 20px; height: 20px; }
   .mb-hours { margin-top: 16px; padding: 15px 14px; }
 }
+
+/* New competency-bilan wrapper; detailed styles are scoped in BilanCompetences.css. */
+.mb-page{width:min(100%,1120px);padding:8px 16px 48px;color:#172b20}.mb-page-heading{margin:4px 0 18px}.mb-page-heading p{color:#58752b}.mb-student-picker select{min-width:220px;height:38px;border-color:#c9dbcf}.mb-data-message,.mb-success,.mb-loading{margin:0 0 12px;padding:11px 13px;border-radius:9px;font-size:13px}.mb-data-message{background:#fff1f2;color:#a13a32}.mb-success{background:#eaf7ed;color:#276b3e}.mb-loading{background:#f4f8f4;color:#62736a}.mb-save-row{display:flex;justify-content:flex-end;margin-top:16px}.mb-save-row button{min-height:43px;border:0;border-radius:9px;padding:10px 18px;background:#000000;color:#fff;font:inherit;font-size:13px;font-weight:800;cursor:pointer}.mb-save-row button:hover:not(:disabled){background:#456020}.mb-save-row button:disabled{cursor:not-allowed;opacity:.58}@media(max-width:640px){.mb-page{padding:2px 0 32px}.mb-page-heading{align-items:flex-start;margin:0 2px 14px}.mb-page-heading h1{font-size:22px}.mb-student-picker select{min-width:155px;max-width:180px}.mb-save-row button{width:100%}}
+.mb-decision{display:flex;align-items:center;justify-content:space-between;gap:18px;margin:0 0 14px;padding:15px 17px;border:1px solid #d9e4ef;border-left:5px solid #94a3b8;border-radius:12px;background:#f8fafc}.mb-decision>div:first-child{display:grid;gap:3px}.mb-decision span{font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#64748b}.mb-decision strong{font-size:18px}.mb-decision small{color:#64748b;font-size:12px}.mb-decision--accepted{border-color:#b8e1c8;border-left-color:#198754;background:#effaf3;color:#146c43}.mb-decision--rejected{border-color:#fecaca;border-left-color:#dc3545;background:#fff5f5;color:#b42318}.mb-decision-actions{display:flex;gap:9px;flex-wrap:wrap}.mb-decision-actions button,.mb-decision-dialog button{min-height:39px;border:1px solid transparent;border-radius:8px;padding:8px 13px;font:inherit;font-size:12px;font-weight:800;cursor:pointer}.mb-decision-accept{background:#168a5b;color:#fff}.mb-decision-reject{background:#fff;color:#b42318;border-color:#f3b8bd!important}.mb-decision-accept:hover:not(:disabled){background:#116b47}.mb-decision-reject:hover:not(:disabled){background:#fff1f2}.mb-decision-dialog-backdrop{position:fixed;inset:0;z-index:2200;display:grid;place-items:center;padding:18px;background:#0f172a88}.mb-decision-dialog{width:min(430px,100%);padding:22px;border-radius:15px;background:#fff;box-shadow:0 24px 70px #0f172a55}.mb-decision-dialog h2{margin:0;color:#17233d;font-size:19px}.mb-decision-dialog p{margin:10px 0 18px;color:#526172;font-size:13px;line-height:1.5}.mb-decision-dialog>div{display:flex;justify-content:flex-end;gap:9px}.mb-decision-dialog>div>button:first-child{border-color:#dbe3ee;background:#fff;color:#344253}.mb-decision-dialog button:focus-visible,.mb-decision-actions button:focus-visible{outline:3px solid #93c5fd;outline-offset:2px}.mb-decision-dialog button:disabled{opacity:.6;cursor:not-allowed}@media(max-width:640px){.mb-decision{align-items:flex-start;flex-direction:column}.mb-decision-actions,.mb-decision-actions button{width:100%}.mb-decision-dialog{padding:18px}.mb-decision-dialog>div{flex-direction:column-reverse}.mb-decision-dialog>div>button{width:100%}}
+
+/* Student decision modal: this page can open without the Formation screen, so
+   it owns the action layout instead of relying on unrelated modal markup. */
+.mb-signature-modal { max-width: 620px; border: 1px solid #dce8df; }
+.mb-signature-modal > p { margin: 16px 0 12px; color: #526172; }
+.mb-signature-modal .mf-signature-pad { margin: 14px 0; border-color: #9bc9ad; background: #f7fcf8; }
+.mb-signature-modal .mf-signature-pad svg { min-height: 180px; background: #fff; border: 1px solid #d9ebe0; }
+.mb-signature-modal .mf-signature-pad button { cursor: pointer; }
+.mb-decision-modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+.mb-decision-modal-actions button { min-height: 42px; border: 1px solid #d7e0e8; border-radius: 9px; padding: 9px 15px; font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; }
+.mb-decision-modal-actions button:first-child { background: #fff; color: #344253; }
+.mb-decision-modal-actions button:disabled { cursor: not-allowed; opacity: .55; }
+@media (max-width: 640px) { .mf-modal-backdrop { padding: 12px; } .mb-signature-modal { padding: 16px; max-height: calc(100dvh - 24px); } .mb-signature-modal .mf-signature-pad svg { min-height: 150px; } .mb-decision-modal-actions { flex-direction: column-reverse; } .mb-decision-modal-actions button { width: 100%; } }
+
+/* Monitor Bilans belongs to the monitor dashboard: retain the assessment
+   behaviour, but use the dashboard's neutral white / #333 visual language. */
+.mb-page--monitor,
+.mb-page--monitor .bc-sheet,
+.mb-page--monitor button,
+.mb-page--monitor input,
+.mb-page--monitor select {
+  font-family: Inter, "DM Sans", sans-serif;
+}
+
+.mb-page--monitor {
+  --mb-dashboard-text: #333;
+  --mb-muted: #6b7280;
+  --mb-dashboard-border: #e5e7eb;
+  color: #333;
+}
+
+.mb-page--monitor .mb-page-heading p,
+.mb-page--monitor .mb-page-heading h1 { color: #333; }
+.mb-page--monitor .mb-page-heading p { font-size: 13px; font-weight: 600; }
+.mb-page--monitor .mb-page-heading h1 { font-size: 25px; font-weight: 700; letter-spacing: 0; }
+.mb-page--monitor .mb-student-picker select {
+  border-color: #e1e5e9;
+  background: #fff;
+  color: #333;
+}
+.mb-page--monitor .mb-student-picker select:focus {
+  border-color: #333;
+  box-shadow: 0 0 0 3px rgba(51, 51, 51, .12);
+}
+.mb-page--monitor .mb-save-row button {
+  background: #333;
+  color: #fff;
+  box-shadow: none;
+}
+.mb-page--monitor .mb-save-row button:hover:not(:disabled) { background: #4a4a4a; }
+
+.mb-page--monitor .bc-sheet {
+  --bc-text: #333;
+  --bc-muted: #6b7280;
+  --bc-border: #e5e7eb;
+  --bc-green: #333;
+  --bc-green-soft: #fff;
+  color: #333;
+}
+.mb-page--monitor .bc-title,
+.mb-page--monitor .bc-meta p,
+.mb-page--monitor .bc-meta label,
+.mb-page--monitor .bc-rating-legend span,
+.mb-page--monitor .bc-card,
+.mb-page--monitor .bc-total,
+.mb-page--monitor .bc-agreement {
+  background: #fff;
+  border-color: #e5e7eb;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, .045);
+}
+.mb-page--monitor .bc-title h2,
+.mb-page--monitor .bc-meta strong,
+.mb-page--monitor .bc-total,
+.mb-page--monitor .bc-total span,
+.mb-page--monitor .bc-agreement h3,
+.mb-page--monitor .bc-observed label,
+.mb-page--monitor .bc-question-row p { color: #333; }
+.mb-page--monitor .bc-title h2 { font-size: 22px; font-weight: 700; letter-spacing: 0; }
+.mb-page--monitor .bc-observed,
+.mb-page--monitor .bc-observed strong { color: #333; font-size: 12px; }
+.mb-page--monitor .bc-observed strong { font-weight: 700; }
+.mb-page--monitor .bc-meta span { color: #6b7280; font-weight: 700; }
+.mb-page--monitor .bc-meta strong,
+.mb-page--monitor .bc-meta input { color: #333; font-size: 13px; font-weight: 600; }
+.mb-page--monitor .bc-rating-legend span { color: #4b5563; font-size: 11px; font-weight: 600; }
+.mb-page--monitor .bc-card h3 {
+  background: #333;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+.mb-page--monitor .bc-card h3 i { color: #333; }
+.mb-page--monitor .bc-observations label,
+.mb-page--monitor .bc-no-observations { color: #4b5563; font-size: 12px; font-weight: 400; }
+.mb-page--monitor .bc-ratings button {
+  border-color: #e1e5e9;
+  color: #4b5563;
+  font-size: 11px;
+  font-weight: 600;
+}
+.mb-page--monitor .bc-ratings button:hover:not(:disabled) { background: #f7f7f7; border-color: #333; }
+.mb-page--monitor .bc-rating-checkbox { border-color: currentColor; }
+.mb-page--monitor .bc-ratings button.selected.pas_vu { color: #4b5563; }
+.mb-page--monitor .bc-ratings button.selected.faible { color: #b91c1c; }
+.mb-page--monitor .bc-ratings button.selected.moyen { color: #b45309; }
+.mb-page--monitor .bc-ratings button.selected.bon { color: #18713e; }
+.mb-page--monitor .bc-total { border-color: #333; }
+.mb-page--monitor .bc-total strong { background: #333; color: #fff; font-size: 20px; }
+.mb-page--monitor .bc-agreement { border-top-color: #333; }
+.mb-page--monitor .bc-agreement h3 { font-size: 13px; font-weight: 700; }
+.mb-page--monitor .bc-agreement p,
+.mb-page--monitor .bc-agreement p strong { color: #4b5563; font-size: 12px; }
+
+/* Keep the Bilan summary area at the same quieter weight and card rhythm as
+   the Sessions calendar, instead of giving it a separate form-like design. */
+.mb-page--monitor {
+  width: min(100%, 1460px);
+  padding: 8px 0 48px;
+}
+.mb-page--monitor .bc-title h2,
+.mb-page--monitor .bc-card h3,
+.mb-page--monitor .bc-total span,
+.mb-page--monitor .bc-agreement h3 {
+  font-weight: 600;
+}
+.mb-page--monitor .bc-title h2 { font-size: 21px; }
+.mb-page--monitor .bc-card h3 { font-size: 13px; }
+.mb-page--monitor .bc-ratings button,
+.mb-page--monitor .bc-observed label,
+.mb-page--monitor .bc-observations label {
+  font-weight: 400;
+}
+.mb-page--monitor .bc-ratings button small { font-size: 14px; font-weight: 600; }
+
+.mb-page--monitor .bc-total {
+  margin-top: 16px;
+  padding: 18px 20px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, .045);
+}
+.mb-page--monitor .bc-total span { font-size: 15px; letter-spacing: 0; }
+.mb-page--monitor .bc-total strong {
+  padding: 8px 14px;
+  border-radius: 9px;
+  font-size: 18px;
+  font-weight: 600;
+}
+.mb-page--monitor .bc-agreements { gap: 16px; margin-top: 16px; }
+.mb-page--monitor .bc-agreement {
+  padding: 18px 20px;
+  border: 1px solid #e5e7eb;
+  border-top: 1px solid #e5e7eb;
+  border-radius: 14px;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, .045);
+}
+.mb-page--monitor .bc-agreement h3 {
+  margin-bottom: 12px;
+  color: #333;
+  font-size: 13px;
+}
+.mb-page--monitor .bc-agreement > div { gap: 16px; }
+.mb-page--monitor .bc-agreement label { color: #333; font-size: 14px; font-weight: 500; }
+.mb-page--monitor .bc-agreement input { width: 16px; height: 16px; border-color: #333; }
+.mb-page--monitor .bc-agreement p { margin-top: 14px; color: #6b7280; font-size: 12px; font-weight: 400; }
+.mb-page--monitor .bc-agreement p strong { color: #4b5563; font-weight: 500; }
+.mb-page--monitor .mb-save-row { margin-top: 16px; }
+.mb-page--monitor .mb-save-row button {
+  min-height: 42px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .mb-page--monitor { padding: 2px 0 32px; }
+  .mb-page--monitor .bc-total,
+  .mb-page--monitor .bc-agreement { padding: 15px 14px; }
+}

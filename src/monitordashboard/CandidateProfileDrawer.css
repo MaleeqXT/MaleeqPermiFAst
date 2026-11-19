@@ -648,6 +648,10 @@
   color: #111827;
 }
 
+.cpd-code-expired {
+  color: #b91c1c;
+}
+
 /* ── See full profile button ── */
 .cpd-see-profile-btn {
   display: flex;

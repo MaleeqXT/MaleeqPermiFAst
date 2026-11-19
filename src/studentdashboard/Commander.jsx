@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import "./Commander.css";
 import FilterDrawer from "./FilterDrawer";
 import http from "../helpers/http.jsx";
+import EvaluationQuestionnaire from "../permis-web/components/shared/EvaluationQuestionnaire.jsx";
 
 const STRIPE_PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || import.meta.env.VITE_STRIP_PUBLISHABLE;
 
@@ -965,6 +966,9 @@ export default function Commander({ studentId = null, initialCheckout = false, o
   const [view, setView] = useState("catalog");
   const [paidOffers, setPaidOffers] = useState([]);
   const [showPaymentSuccess, setShowPaymentSuccess] = useState(false);
+  const [showQuestionnaire, setShowQuestionnaire] = useState(false);
+  const rawBoiteType = user?.student?.boite_type ?? user?.boite_type;
+  const studentIsAuto = [0, 1, "0", "1"].includes(rawBoiteType) ? Number(rawBoiteType) : null;
 
   useEffect(() => {
     let active = true;
@@ -1069,9 +1073,29 @@ export default function Commander({ studentId = null, initialCheckout = false, o
   }, [cartItems, total]);
 
   function handleAddOffer(offer) {
+    // Évaluation de conduite / Bilan: the questionnaire picks the service.
+    if (offer.rawOffer?.evaluation_service) {
+      setShowQuestionnaire(true);
+      return;
+    }
     setCartItems((prev) => (prev.some((item) => item.id === offer.id) ? prev : [...prev, offer]));
     setShowSuccess(true);
   }
+
+  const loadEvaluationOffers = useCallback(async (service, isAuto) => offers
+    .filter((offer) => offer.rawOffer?.evaluation_service === service && Number(offer.rawOffer?.is_auto) === Number(isAuto))
+    .map((offer) => ({ id: offer.id, name: offer.name, price: offer.price, raw: offer })), [offers]);
+
+  const confirmEvaluationOffer = useCallback(({ offer, service, answers }) => {
+    // One pre-training service per order: an Évaluation replaces a Bilan and vice versa.
+    setCartItems((prev) => [
+      ...prev.filter((item) => !item.rawOffer?.evaluation_service),
+      { ...offer.raw, evaluationService: service, questionnaire: answers },
+    ]);
+    setShowQuestionnaire(false);
+    setShowSuccess(true);
+  }, []);
+  const closeQuestionnaire = useCallback(() => setShowQuestionnaire(false), []);
 
   function handleRemoveOffer(id) {
     setCartItems((prev) => prev.filter((item) => item.id !== id));
@@ -1167,6 +1191,14 @@ export default function Commander({ studentId = null, initialCheckout = false, o
         )}
       </div>
 
+      <EvaluationQuestionnaire
+        open={showQuestionnaire}
+        onClose={closeQuestionnaire}
+        loadOffers={loadEvaluationOffers}
+        onConfirm={confirmEvaluationOffer}
+        defaultIsAuto={studentIsAuto}
+        confirmLabel="Ajouter à ma commande"
+      />
       {showFilter && <FilterDrawer onClose={() => setShowFilter(false)} />}
       {showSuccess && <SuccessModal count={cartItems.length} onClose={() => setShowSuccess(false)} />}
       {showPaymentSuccess && <PaymentSuccessModal offers={paidOffers} onClose={() => setShowPaymentSuccess(false)} />}

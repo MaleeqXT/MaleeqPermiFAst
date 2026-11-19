@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchMonitorStudents } from "../redux/reducers/candidateSlice.jsx";
+import { studentIdFrom } from "../helpers/studentIdentity.js";
 import "./CandidatesPage.css";
 
 const IconArrowLeft = () => (
@@ -54,15 +55,26 @@ function getProgress(candidate) {
   return Number.isFinite(parsed) ? Math.max(0, Math.min(100, parsed)) : 0;
 }
 
+// Accent- and case-insensitive text used to match the search box.
+const searchable = (value) => String(value ?? "")
+  .normalize("NFD")
+  .replace(/[̀-ͯ]/g, "")
+  .toLowerCase();
+
 function normalizeCandidate(candidate) {
+  const student = candidate?.student ?? {};
   return {
     // The monitor API returns a User with its Student relation. Formation and
     // profile APIs bind the Student UUID, never the User primary key.
-    id: candidate?.student?.id ?? candidate?.student_id ?? candidate?.id ?? candidate?.user_id ?? getFullName(candidate),
+    id: studentIdFrom(candidate),
+    studentId: studentIdFrom(candidate),
     name: getFullName(candidate) || "Candidate",
     progress: getProgress(candidate),
     email: candidate?.email || candidate?.user?.email || "",
     phone: candidate?.phone || candidate?.user?.phone || "",
+    neph: student.neph || "",
+    dateCode: student.date_code || "",
+    codeExpiry: student.date_expiration_code || "",
   };
 }
 
@@ -107,26 +119,28 @@ export default function CandidatesPage({ onBack, onSelect, monitorId }) {
 
   const [query, setQuery] = useState("");
 
+  // The endpoint returns the monitor's complete student list (it ignores any
+  // search parameter), so load it once and filter locally while typing.
   useEffect(() => {
-    const timer = setTimeout(() => {
-      dispatch(
-        fetchMonitorStudents({
-          search: query.trim(),
-          status: 1,
-          monitor_id: monitorId || undefined,
-        }),
-      );
-    }, 250);
-
-    return () => clearTimeout(timer);
-  }, [dispatch, query, selectedSchool?.id, monitorId]);
+    dispatch(fetchMonitorStudents({ status: 1, monitor_id: monitorId || undefined }));
+  }, [dispatch, selectedSchool?.id, monitorId]);
 
   const candidates = useMemo(
     () => (monitorItems || []).map(normalizeCandidate),
     [monitorItems],
   );
 
-  const filtered = candidates;
+  const filtered = useMemo(() => {
+    const terms = searchable(query).trim().split(/\s+/).filter(Boolean);
+    if (!terms.length) return candidates;
+    return candidates.filter((candidate) => {
+      const haystack = searchable([candidate.name, candidate.email, candidate.phone, candidate.neph].join(" "));
+      const digits = String(candidate.phone).replace(/\D/g, "");
+      // Every word must match (so "nazar moha" finds "AARIYANE NAZAR MOHAMMAD");
+      // phone numbers also match when typed with spaces or dots.
+      return terms.every((term) => haystack.includes(term) || (/^\d+$/.test(term) && digits.includes(term)));
+    });
+  }, [candidates, query]);
 
   return (
     <div className="cndp__page">
@@ -149,7 +163,8 @@ export default function CandidatesPage({ onBack, onSelect, monitorId }) {
         <input
           className="cndp__search"
           type="text"
-          placeholder="Search candidate"
+          placeholder="Rechercher par nom, e-mail, téléphone ou NEPH"
+          aria-label="Rechercher un candidat"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />

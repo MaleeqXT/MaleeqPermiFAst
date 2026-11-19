@@ -288,8 +288,9 @@ export default function useChat({ monitorId = null, actorId = null } = {}) {
       refreshConversations().catch(fail);
       return true;
     } catch (err) {
-      if (err.response?.status === 403) discardInaccessibleConversation(id);
-      else fail(err);
+      // A send restriction must never make a readable conversation disappear.
+      // Keep the selected contact visible and show the API feedback instead.
+      fail(err);
     }
     finally { sendLock.current = false; setSending(false); }
     return false;

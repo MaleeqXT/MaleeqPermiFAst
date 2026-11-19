@@ -3,8 +3,8 @@ import ChatFeedback from "../chat/ChatFeedback.jsx";
 import NewChatDialog from "../chat/NewChatDialog.jsx";
 import { ChatConversationMenu, ConversationRowMenu, MessageDeleteButton } from "../chat/ChatManagementControls.jsx";
 import ChatComposerExtras from "../chat/ChatComposerExtras.jsx";
-import { useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import StudentHeader from "./StudentHeader.jsx";
 import StudentSidebar from "./StudentSidebar.jsx";
 import "./CandidateDashboard.css";
@@ -64,6 +64,7 @@ function MessageBubble({ message, conversation, onDelete }) {
 
 export default function CandidateChatPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const chat = useChat();
   const { conversations, selectedId, selectedConversation, activeMessages, messageDraft, setMessageDraft, bindMessages } = chat;
   const messageInputRef = useRef(null);
@@ -98,6 +99,16 @@ export default function CandidateChatPage() {
     setMobileChatOpen(true);
     setMobileDetailsOpen(false);
   };
+
+  useEffect(() => {
+    const targetId = new URLSearchParams(location.search).get("conversation") || location.state?.notificationConversationId;
+    if (!targetId) return;
+    const conversation = conversations.find((item) => String(item.id) === String(targetId));
+    if (!conversation) return;
+    selectConversation(conversation.id, conversation);
+    const { notificationConversationId, ...rest } = location.state || {};
+    navigate(location.pathname, { replace: true, state: rest });
+  }, [conversations, location.pathname, location.search, location.state, navigate]);
 
   const startConversation = async (contactId) => {
     const id = await chat.startConversation(contactId);

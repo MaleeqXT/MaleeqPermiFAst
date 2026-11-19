@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, ChevronRight, ChevronDown, MoreVertical, CalendarDays, Plus, Save, Trash2, PenLine, Clock, Car, Landmark, BookOpen } from "lucide-react";
 import http from "../../helpers/http.jsx";
 import { profileImageUrl } from "../../new-student-dashboard/StudentHeader.jsx";
-import { SearchPicker, LessonHistory, LessonStatus, Toggle, EditSection, Dialog, SignaturePad } from "./FormationComponents.jsx";
+import { SearchPicker, LessonHistory, LessonStatus, Toggle, TransmissionSwitch, EditSection, Dialog, SignaturePad, PermitEvaluation } from "./FormationComponents.jsx";
 import { displayDate, FORMATION_DURATIONS, formatDuration } from "./formationUtils.js";
 import FormationManeuvers, { SavedManeuvers } from "./FormationManeuvers.jsx";
 import { maneuverLabel, RATING_LABELS } from "./FormationManeuverCatalog.js";
@@ -13,15 +13,31 @@ import FormationInitialEvaluationFiche from "./FormationInitialEvaluationFiche.j
 import FormationInitialEvaluationQuestions from "./FormationInitialEvaluationQuestions.jsx";
 import "./FormationPage.css";
 
-const emptyForm = (student, options = {}) => ({
+// The student's first hour = the earliest lesson that is not cancelled. The
+// lesson list holds every lesson of the student (all monitors).
+const lessonStart = (lesson) => `${lesson?.date || ""} ${lesson?.start_at || ""}`;
+const isActiveLesson = (lesson) => lesson?.status !== "cancelled";
+const hasActiveLesson = (lessons = []) => lessons.some(isActiveLesson);
+const isFirstHour = (draft, lessons = []) => Boolean(draft) && !lessons.some((lesson) => isActiveLesson(lesson) && lesson.id !== draft.id && lessonStart(lesson) < lessonStart(draft));
+
+// A student's very first lesson starts as the initial evaluation (1 hour,
+// "Évaluation Initiale" on) with the gearbox taken from the student's file.
+const emptyForm = (student, options = {}, firstHour = false) => ({
   date: (() => { const date = new Date(); return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-"); })(), start_at: "09:00", duration_minutes: 60,
   monitor_id: options.instructors?.[0]?.id || "", department: options.departments?.[0] || "",
   type: options.types?.[0] || "Prestation", offer_id: "", lieu_id: options.places?.[0]?.id || "",
-  boite_auto: String(student?.raw?.student?.boite_type) === "1", evaluation_initiale: false, evaluation_permis: false,
-  public_observation: "", teacher_observation: "", maneuvers: [], maneuver_counts: {}, maneuver_ratings: {}, is_absent: false,
+  boite_auto: String(student?.raw?.student?.boite_type) === "1", evaluation_initiale: firstHour, evaluation_permis: false,
+  public_observation: "", teacher_observation: "", maneuvers: [], maneuver_counts: {}, maneuver_ratings: {}, evaluation_permis_scores: {}, is_absent: false,
 });
 const errorMessage = (error) => Object.values(error.response?.data?.errors || {}).flat().join(" ") || error.response?.data?.message || "Impossible de contacter le serveur. Réessayez.";
 const same = (first, second) => JSON.stringify(first) === JSON.stringify(second);
+const formatWalletBalance = (minutes) => {
+  const total = Math.max(0, Number(minutes) || 0);
+  const hours = Math.floor(total / 60);
+  const remainingMinutes = total % 60;
+
+  return remainingMinutes ? `${hours} h ${remainingMinutes} min` : `${hours} h`;
+};
 
 export default function FormationPage({ monitorId, onBack, onDirtyChange, onBusyChange, onLessonChanged }) {
   const [students, setStudents] = useState([]);
@@ -100,7 +116,7 @@ export default function FormationPage({ monitorId, onBack, onDirtyChange, onBusy
         if (token !== generation.current) return;
         const payload = data.data;
         setLessons(payload.lessons); setOptions(payload.options);
-        const first = payload.lessons[0] || emptyForm(students.find((student) => student.id === studentId), payload.options);
+        const first = payload.lessons[0] || emptyForm(students.find((student) => student.id === studentId), payload.options, !hasActiveLesson(payload.lessons));
         setDraft(first); setBaseline(first);
       })
       .catch((requestError) => { if (!controller.signal.aborted) setError(errorMessage(requestError)); })
@@ -148,7 +164,7 @@ export default function FormationPage({ monitorId, onBack, onDirtyChange, onBusy
     const instructor = (options.instructors || []).find((candidate) => String(candidate.id) === String(id));
     setDraft((current) => ({ ...current, monitor_id: id, department: instructor?.department || "" }));
   };
-  const newLesson = () => { if (!busy && mayReplace()) replaceDraft(emptyForm(currentStudent, options)); };
+  const newLesson = () => { if (!busy && mayReplace()) replaceDraft(emptyForm(currentStudent, options, !hasActiveLesson(lessons))); };
   const sendBooklet = async () => {
     if (!studentId || bookletSending) return;
     setBookletSending(true); setError(""); setNotice("");
@@ -173,7 +189,7 @@ export default function FormationPage({ monitorId, onBack, onDirtyChange, onBusy
     if (token !== generation.current) return;
     const payload = data.data;
     setLessons(payload.lessons); setOptions(payload.options);
-    const selected = payload.lessons.find((lesson) => lesson.id === selectedId) || emptyForm(currentStudent, payload.options);
+    const selected = payload.lessons.find((lesson) => lesson.id === selectedId) || emptyForm(currentStudent, payload.options, !hasActiveLesson(payload.lessons));
     setDraft(selected); setBaseline(selected);
   };
   const applySaved = (lesson) => {
@@ -189,7 +205,10 @@ export default function FormationPage({ monitorId, onBack, onDirtyChange, onBusy
     const token = generation.current;
     try {
       const url = "/monitor/formation/" + studentId + (draft.id ? "/" + draft.id : "");
-      const { data } = await http[draft.id ? "put" : "post"](url, draft, { params });
+      // Never send an initial evaluation the current lesson is not entitled to
+      // (for example after its date was moved after another lesson).
+      const body = { ...draft, evaluation_initiale: initialEvaluationAllowed && Boolean(draft.evaluation_initiale) };
+      const { data } = await http[draft.id ? "put" : "post"](url, body, { params });
       if (token !== generation.current) return;
       applySaved(data.data); setNotice("La leçon a été enregistrée."); onLessonChanged?.();
       try { await refresh(data.data.id); setManeuverHistoryRevision((value) => value + 1); } catch { setError("La leçon est enregistrée, mais l’historique n’a pas pu être actualisé."); }
@@ -203,7 +222,7 @@ export default function FormationPage({ monitorId, onBack, onDirtyChange, onBusy
       if (!data.success) throw new Error("Delete not confirmed");
       setDialog(null); onLessonChanged?.();
       const remaining = lessons.filter((lesson) => lesson.id !== draft.id);
-      setLessons(remaining); replaceDraft(emptyForm(currentStudent, options)); setNotice("La leçon a été supprimée.");
+      setLessons(remaining); replaceDraft(emptyForm(currentStudent, options, !hasActiveLesson(remaining))); setNotice("La leçon a été supprimée.");
       try { await refresh(null); setManeuverHistoryRevision((value) => value + 1); } catch { setError("La suppression est confirmée, mais l’historique n’a pas pu être actualisé."); }
     } catch (requestError) { setError(errorMessage(requestError)); }
     finally { setBusy(false); }
@@ -223,14 +242,39 @@ export default function FormationPage({ monitorId, onBack, onDirtyChange, onBusy
     setDialog("competencies");
   };
   const schedulingLocked = signed || Boolean(draft?.id && !draft.can_reschedule);
-  const initialEvaluationAllowed = Number(draft?.duration_minutes) === 60;
+  // Évaluation Initiale = the student's first hour: a 1-hour lesson with no
+  // earlier active lesson. A lesson already saved with it keeps it.
+  const firstHour = isFirstHour(draft, lessons);
+  const keepsSavedInitialEvaluation = Boolean(draft?.id && baseline?.id === draft.id && baseline.evaluation_initiale);
+  const initialEvaluationAllowed = Number(draft?.duration_minutes) === 60 && (firstHour || keepsSavedInitialEvaluation);
+  const initialEvaluationHint = Number(draft?.duration_minutes) !== 60
+    ? "Disponible uniquement pour une durée exacte de 1 heure."
+    : "Réservée à la première heure de l’élève.";
+  const toggleInitialEvaluation = (value) => {
+    change("evaluation_initiale", value);
+    setError(""); setNotice("");
+  };
   const durationOptions = options.durations?.length ? options.durations : FORMATION_DURATIONS;
-  const allDisabled = busy || signed || draft?.status === "cancelled" || Boolean(draft?.id && draft?.can_manage === false);
-  const offerOptions = [...(options.offers || [])];
+  // A saved lesson remains editable to the selected monitor. Only a signature
+  // or cancellation is final; scheduling itself keeps its own time safeguards.
+  const allDisabled = busy || signed || draft?.status === "cancelled";
+  const offerOptions = (options.offers || []).map((offer) => {
+    const balanceMinutes = Math.max(0, Number(offer.balance_minutes) || 0);
+    const hasEnoughBalance = balanceMinutes >= Number(draft?.duration_minutes || 0);
+
+    return {
+      ...offer,
+      name: `${offer.name} — Solde : ${formatWalletBalance(balanceMinutes)}`,
+      // Existing lessons can still be opened and updated without changing their
+      // schedule. For a new lesson, do not allow selecting a package that cannot
+      // cover the selected duration.
+      disabled: !draft?.id && !hasEnoughBalance,
+    };
+  });
   if (draft?.offer_id && !offerOptions.some((offer) => offer.id === draft.offer_id)) offerOptions.push({ id: draft.offer_id, name: draft.offer_name || "Forfait de cette leçon" });
   const field = (label, key, type, Icon, locked = false) => <label className="mf-field"><span>{label}</span><div><Icon size={19} /><input required type={type} value={draft[key]} min={type === "time" ? "07:00" : undefined} max={type === "time" ? "22:00" : undefined} disabled={allDisabled || locked} onChange={(event) => change(key, event.target.value)} /></div></label>;
   const select = (label, key, rows, Icon, required = true, locked = false) => <label className="mf-field"><span>{label}</span><div><Icon size={19} /><select required={required} value={draft[key] || ""} disabled={allDisabled || locked} onChange={(event) => change(key, key === "duration_minutes" ? Number(event.target.value) : event.target.value)}>
-    <option value="">{rows.length ? "Sélectionner" : "Aucune donnée disponible"}</option>{rows.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
+    <option value="">{rows.length ? "Sélectionner" : "Aucune donnée disponible"}</option>{rows.map((row) => <option key={row.id} value={row.id} disabled={row.disabled}>{row.name}</option>)}
   </select></div></label>;
 
   return <section className="mf-page" aria-label="Formation">
@@ -260,7 +304,13 @@ export default function FormationPage({ monitorId, onBack, onDirtyChange, onBusy
             {select("Forfait", "offer_id", offerOptions, BookOpen, true, schedulingLocked)}
             {select("Lieu", "lieu_id", options.places || [], Landmark, true, schedulingLocked)}
           </div>
-          <div className="mf-toggles"><Toggle label="Boite Auto" checked={draft.boite_auto} onChange={(value) => change("boite_auto", value)} disabled={allDisabled} /><Toggle label="Evaluation Initiale" checked={initialEvaluationAllowed && draft.evaluation_initiale} onChange={(value) => change("evaluation_initiale", value)} disabled={allDisabled || !initialEvaluationAllowed} hint={initialEvaluationAllowed ? undefined : "Disponible uniquement pour une durée exacte de 1 heure."} /><Toggle label="Evaluation Permis" checked={draft.evaluation_permis} onChange={(value) => change("evaluation_permis", value)} disabled={allDisabled} /></div>
+          <div className="mf-toggles"><TransmissionSwitch automatic={draft.boite_auto} onChange={(value) => change("boite_auto", value)} disabled={allDisabled} /><Toggle label="Evaluation Initiale" checked={initialEvaluationAllowed && draft.evaluation_initiale} onChange={toggleInitialEvaluation} disabled={allDisabled || !initialEvaluationAllowed} hint={initialEvaluationAllowed ? undefined : initialEvaluationHint} /><Toggle label="Evaluation Permis" checked={draft.evaluation_permis} onChange={(value) => change("evaluation_permis", value)} disabled={allDisabled} /></div>
+          {/* Like Évaluation Permis: checking the box shows the student's contract
+              with the Évaluation de départ directly below it. The fiche reads and
+              writes the student's canonical initial-evaluation record, so it only
+              needs one existing lesson; unchecking just hides it. */}
+          {initialEvaluationAllowed && draft.evaluation_initiale && (draft.id || lessons.length ? <FormationInitialEvaluationFiche inline studentId={studentId} monitorId={monitorId} onClose={() => {}} /> : <section className="mf-initial-evaluation-panel" aria-labelledby="initial-evaluation-title"><div><h3 id="initial-evaluation-title">Évaluation de départ · première heure</h3><p>Le contrat et la fiche d’évaluation apparaîtront ici dès que la leçon sera enregistrée.</p></div><small>Enregistrez la leçon pour commencer l’évaluation.</small></section>)}
+          {draft.evaluation_permis && <PermitEvaluation scores={draft.evaluation_permis_scores || {}} onChange={(scores) => change("evaluation_permis_scores", scores)} disabled={allDisabled} />}
           <EditSection title="Manœuvres effectuées lors de la leçon" disabled={allDisabled} onEdit={() => { setManeuverCounts(draft.maneuver_counts || {}); setManeuverRatings(draft.maneuver_ratings || {}); setDialog("maneuvers"); }} contentClassName="mf-saved-section"><SavedManeuvers counts={draft.maneuver_counts || {}} ratings={draft.maneuver_ratings || {}} maneuvers={options.maneuvers || []} /></EditSection>
           <section className="mf-maneuver-history" aria-label="Historique des manœuvres">
             <header><h3>Historique des manœuvres</h3><span>{maneuverHistoryLoading ? "Actualisation…" : `${(maneuverHistory.history || []).length} passage${(maneuverHistory.history || []).length > 1 ? "s" : ""}`}</span></header>

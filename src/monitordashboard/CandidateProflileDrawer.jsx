@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import "./CandidateProfileDrawer.css";
 import { fetchStudentStats, selectStudentStatsById, selectStudentStatsLoadingById } from "../redux/reducers/studentStatsSlice.jsx";
 import http from "../helpers/http";
+import { studentIdFrom } from "../helpers/studentIdentity.js";
 
 const IconPhone = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.13 12a19.8 19.8 0 0 1-3.07-8.63A2 2 0 0 1 3.07 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92Z" /></svg>;
 const IconDots = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /></svg>;
@@ -93,7 +94,7 @@ export default function CandidateProfileDrawer({
   });
   // Monitor formation/proposal endpoints bind the Student UUID, not the user
   // ID. Keep this identity intact when opening the proposal calendar.
-  const studentId = candidate?.student?.id ?? candidate?.student_id ?? candidate?.studentId ?? candidate?.id ?? null;
+  const studentId = studentIdFrom(candidate);
   const studentStats = useSelector((state) => selectStudentStatsById(state, studentId));
   const studentStatsLoading = useSelector((state) => selectStudentStatsLoadingById(state, studentId));
 
@@ -215,11 +216,14 @@ export default function CandidateProfileDrawer({
   const balanceStats = studentStats?.balance ?? {};
   const competenceStats = studentStats?.competences ?? {};
 
+  // NEPH and code validity come from the student's record (profile-exam API),
+  // so they are correct whichever screen opened this drawer.
+  const codeInfo = profileExam?.student ?? {};
   const data = {
-    name: candidate?.name ?? "Keita El hadji",
-    email: candidate?.email ?? "ekeita934@gmail.com",
+    name: candidate?.name || "Élève",
+    email: candidate?.email || "",
     phone: candidate?.phone ?? candidate?.tel ?? candidate?.telephone ?? "",
-    neph: candidate?.neph ?? "220331300974",
+    neph: codeInfo.neph || candidate?.neph || candidate?.student?.neph || "",
     progress: Number(competenceStats.done ?? candidate?.progress ?? 0),
     seancePasse: Number(reservationsStats.passed ?? candidate?.seancePasse ?? 0),
     seanceAvenir: Number(reservationsStats.upcoming ?? candidate?.seanceAvenir ?? 0),
@@ -532,14 +536,18 @@ export default function CandidateProfileDrawer({
           <div className="cpd-card">
             <div className="cpd-section-title">Informations personnelles</div>
             <div className="cpd-info-rows">
-              <InfoRow label="Numéro NEPH" value={data.neph} />
+              <InfoRow label="Numéro NEPH" value={profileExamLoading && !data.neph ? "…" : (data.neph || "Non renseigné")} />
+              <InfoRow
+                label="Validité du code"
+                value={profileExamLoading ? "…" : codeInfo.code_valid_until
+                  ? <span className={codeInfo.code_expired ? "cpd-code-expired" : undefined}>{formatExamDate(codeInfo.code_valid_until)}{codeInfo.code_expired ? " (expiré)" : ""}</span>
+                  : "Non renseignée"}
+              />
               <InfoRow label="Téléphone" value={data.phone || "—"} />
             </div>
           </div>
 
-          <button type="button" className="cpd-see-profile-btn" onClick={openFullProfile}>
-            Voir le profil complet <IconChevR />
-          </button>
+        
         </div>
 
         {!hideContactActions && (

@@ -4,6 +4,7 @@ import { FaArrowRight, FaCar, FaCheck, FaClock, FaExclamationCircle, FaGift } fr
 import { useCart } from "../../context/CartContext";
 import { useSelector } from "react-redux";
 import { Link } from "react-router-dom";
+import usePublicEvaluationQuestionnaire from "./usePublicEvaluationQuestionnaire.jsx";
 import greenCar from "../../assets/green-car.jpeg";
 import redCar from "../../assets/red-car.jpeg";
 
@@ -53,6 +54,7 @@ const Packages = ({
   const [cartMessageType, setCartMessageType] = useState("success");
   const { addItem } = useCart();
   const currentUser = useSelector((state) => state.auth.user);
+  const { openQuestionnaire, questionnaire } = usePublicEvaluationQuestionnaire();
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -135,6 +137,13 @@ const Packages = ({
     if (currentUser && !isStudent) {
       setCartMessageType("error");
       setCartMessage("Seuls les élèves peuvent ajouter une formule au panier.");
+      return;
+    }
+
+    // Évaluation de conduite / Bilan offers are never added directly: the
+    // questionnaire determines which of the two services the learner needs.
+    if (pkg.evaluation_service) {
+      openQuestionnaire();
       return;
     }
 
@@ -361,6 +370,7 @@ const Packages = ({
           );
         })}
       </div>
+      {questionnaire}
     </section>
   );
 };

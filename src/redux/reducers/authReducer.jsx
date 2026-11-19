@@ -1,6 +1,7 @@
   import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
   import http from '../../helpers/http';
   import { apiBaseUrl } from '../../config/api.js';
+  import { disablePushNotifications } from '../../push/firebaseMessaging.js';
 
   const preloadProfileImage = (user) => {
     if (typeof window === "undefined" || !user) return;
@@ -42,6 +43,9 @@
     'auth/logout',
     async (_, { rejectWithValue }) => {
       try {
+        // A browser push subscription is account-scoped. Revoke it before
+        // clearing the token so the next user of this device cannot receive it.
+        await disablePushNotifications().catch(() => undefined);
         await http.post('/auth/logout');
       } catch (error) {
         return rejectWithValue(error.response?.data || { message: 'Impossible de fermer la session.' });
